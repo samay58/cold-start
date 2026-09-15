@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   howItWinsV2Handler: vi.fn(async () => ({ jobId: "job-1", status: "succeeded" })),
   clearExpiredHowItWinsRecoveryPayloads: vi.fn(async () => 0),
   listHowItWinsDispatchCandidates: vi.fn(async () => []),
+  listRecentlyTerminalHowItWinsJobs: vi.fn(async () => []),
   reconcileExpiredHowItWinsJobs: vi.fn(async () => []),
   dispatchHowItWinsJob: vi.fn(async () => true),
   recordHowItWinsJobOutcome: vi.fn(async () => undefined)
@@ -20,6 +21,7 @@ vi.mock("@cold-start/db", async (importOriginal) => ({
   createDb: mocks.createDb,
   clearExpiredHowItWinsRecoveryPayloads: mocks.clearExpiredHowItWinsRecoveryPayloads,
   listHowItWinsDispatchCandidates: mocks.listHowItWinsDispatchCandidates,
+  listRecentlyTerminalHowItWinsJobs: mocks.listRecentlyTerminalHowItWinsJobs,
   reconcileExpiredHowItWinsJobs: mocks.reconcileExpiredHowItWinsJobs
 }));
 
@@ -104,6 +106,7 @@ describe("how-it-wins reconcile sweep", () => {
     delete process.env.HOW_IT_WINS_ENABLED;
     mocks.clearExpiredHowItWinsRecoveryPayloads.mockResolvedValue(0);
     mocks.listHowItWinsDispatchCandidates.mockResolvedValue([]);
+    mocks.listRecentlyTerminalHowItWinsJobs.mockResolvedValue([]);
     mocks.reconcileExpiredHowItWinsJobs.mockResolvedValue([]);
     mocks.dispatchHowItWinsJob.mockResolvedValue(true);
   });
@@ -122,6 +125,19 @@ describe("how-it-wins reconcile sweep", () => {
     expect(mocks.recordHowItWinsJobOutcome.mock.calls.map(([, input]) => (input as { job: { id: string } }).job.id))
       .toEqual(["job-a", "job-b"]);
     expect(mocks.clearExpiredHowItWinsRecoveryPayloads).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-announces jobs that turned terminal in the last thirty minutes so a thrown tick cannot strand one", async () => {
+    mocks.reconcileExpiredHowItWinsJobs.mockResolvedValue([{ id: "job-a" }] as never);
+    mocks.listRecentlyTerminalHowItWinsJobs.mockResolvedValue([{ id: "job-z" }] as never);
+    const { context } = reconcileContext();
+
+    await expect(howItWinsReconcileHandler(context as never)).resolves.toEqual({ expired: 1, dispatched: 0 });
+
+    const since = (mocks.listRecentlyTerminalHowItWinsJobs.mock.calls[0]?.[1] as { since: Date }).since;
+    expect(Date.now() - since.getTime()).toBeGreaterThanOrEqual(30 * 60 * 1_000 - 1_000);
+    expect(mocks.recordHowItWinsJobOutcome.mock.calls.map(([, input]) => (input as { job: { id: string } }).job.id))
+      .toEqual(["job-a", "job-z"]);
   });
 
   it("still expires and closes trails when the flag is off, and lists no dispatch candidates", async () => {

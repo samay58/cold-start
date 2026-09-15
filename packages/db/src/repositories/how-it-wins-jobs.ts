@@ -349,6 +349,23 @@ export async function reconcileExpiredHowItWinsJobs(
   return settled;
 }
 
+// Rows that turned terminal since `since`, newest first. The reconcile sweep re-announces these so
+// a tick that threw mid-sweep cannot leave a job expired in Postgres but unannounced on its run.
+export async function listRecentlyTerminalHowItWinsJobs(
+  db: ColdStartDb,
+  input: { since: Date; limit?: number | undefined }
+): Promise<StoredHowItWinsJob[]> {
+  const limit = input.limit ?? 50;
+  assertPositiveInteger(limit, "limit");
+  const rows = await db
+    .select(jobProjection)
+    .from(howItWinsJobs)
+    .where(sql`${howItWinsJobs.status} not in ('queued', 'running') and ${howItWinsJobs.updatedAt} >= ${input.since}`)
+    .orderBy(desc(howItWinsJobs.updatedAt))
+    .limit(limit);
+  return rows.map(jobFromRow);
+}
+
 export async function completeHowItWinsJobWithCard(
   db: ColdStartDb,
   input: {

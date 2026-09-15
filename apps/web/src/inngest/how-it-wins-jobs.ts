@@ -56,11 +56,17 @@ function howItWinsLedgerCalls(attempts: readonly HowItWinsCallAttempt[]): Genera
 }
 
 // The status the panel reads off the event. The card's own three outcomes pass through; a
-// superseded job reads as "stale" and everything else as "failed", the same two extra words the
-// trace block already uses.
+// superseded job reads as "stale", a cancelled one (the enable flag turned off mid-flight) as
+// "skipped", and everything else as "failed", the same three extra words the trace block uses.
 function howItWinsOutcomeStatus(job: StoredHowItWinsJob) {
   if (job.status === "succeeded" && job.outcome) return job.outcome;
-  return job.status === "superseded" ? "stale" : "failed";
+  if (job.status === "superseded") return "stale";
+  return job.status === "cancelled" ? "skipped" : "failed";
+}
+
+function howItWinsOutcomeMessage(job: StoredHowItWinsJob) {
+  if (job.status === "succeeded") return "How it wins finished";
+  return job.status === "cancelled" ? "How it wins skipped" : "How it wins could not finish";
 }
 
 // Every terminal job closes the same two surfaces: the how-it-wins.complete event the extension
@@ -82,15 +88,15 @@ export async function recordHowItWinsJobOutcome(db: ColdStartDb, input: {
     const run = await findGenerationRunById(db, job.sourceAnalysisRunId);
     if (run) {
       const recorded = await findResearchRunEventsByRunId(db, job.sourceAnalysisRunId, { limit: 200 });
-      const already = recorded.some(event => event.type === "how-it-wins.complete" && event.metadata.jobId === job.id);
-      if (!already) {
-        await recordResearchRunEvent(db, {
-          runId: job.sourceAnalysisRunId, slug: job.slug, domain: run.domain, sectionId: null,
-          type: "how-it-wins.complete",
-          message: job.status === "succeeded" ? "How it wins finished" : "How it wins could not finish",
-          metadata: { status, jobId: job.id, ...(job.reasonCode ? { reasonCode: job.reasonCode } : {}) }
-        });
-      }
+      // Announced once means both surfaces were written in that same call, so a re-announce
+      // from the reconcile sweep stops here.
+      if (recorded.some(event => event.type === "how-it-wins.complete" && event.metadata.jobId === job.id)) return;
+      await recordResearchRunEvent(db, {
+        runId: job.sourceAnalysisRunId, slug: job.slug, domain: run.domain, sectionId: null,
+        type: "how-it-wins.complete",
+        message: howItWinsOutcomeMessage(job),
+        metadata: { status, jobId: job.id, ...(job.reasonCode ? { reasonCode: job.reasonCode } : {}) }
+      });
     }
   } catch {
     // The event trail is observability. A lost write must not fail a settled job.

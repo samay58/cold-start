@@ -27,6 +27,7 @@ import {
   pruneHowItWinsJudgments,
   readHowItWinsRecoveryPayload,
   readHowItWinsStageCheckpoint,
+  listRecentlyTerminalHowItWinsJobs,
   reconcileExpiredHowItWinsJobs,
   reserveHowItWinsCall,
   redeemAlphaInvite,
@@ -385,6 +386,10 @@ describeDatabase("How it wins durable jobs against Postgres", () => {
     expect(settled.length).toBeGreaterThanOrEqual(1);
     const settledRoot = settled.find((entry) => entry.id === root.id);
     expect(settledRoot).toMatchObject({ status: "failed", reasonCode: "lease_lost" });
+    const recent = await listRecentlyTerminalHowItWinsJobs(db, { since: new Date(now.getTime() - 60_000) });
+    expect(recent.some((entry) => entry.id === root.id)).toBe(true);
+    expect(recent.every((entry) => entry.status !== "queued" && entry.status !== "running")).toBe(true);
+    expect(await listRecentlyTerminalHowItWinsJobs(db, { since: new Date(Date.now() + 3_600_000) })).toEqual([]);
     const expired = await findHowItWinsJobById(db, root.id);
     expect(expired).toMatchObject({ status: "failed", reasonCode: "lease_lost", reservedMicrodollars: 0, settledMicrodollars: 100_000 });
     expect(expired?.attempts[0]).toMatchObject({ status: "unknown", costBasis: "unknown_reserved" });

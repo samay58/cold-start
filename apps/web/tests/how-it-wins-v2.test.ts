@@ -588,9 +588,10 @@ describe("How it wins v2 terminal event trail", () => {
     expect(mocks.findCardBySlug).not.toHaveBeenCalled();
     expect(recordedEvents()).toEqual([expect.objectContaining({
       domain: "fixture.com",
-      metadata: { status: "failed", jobId: job.id, reasonCode: "cancelled" }
+      message: "How it wins skipped",
+      metadata: { status: "skipped", jobId: job.id, reasonCode: "cancelled" }
     })]);
-    expect(parentTrace().howItWins).toEqual({ enabled: true, status: "failed", reasonCode: "cancelled" });
+    expect(parentTrace().howItWins).toEqual({ enabled: true, status: "skipped", reasonCode: "cancelled" });
   });
 
   it("closes the trail for a job the cron already expired before this run started", async () => {
