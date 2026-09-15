@@ -35,7 +35,7 @@ The additive status route is `/api/extension/cards/{slug}/how-it-wins`. Existing
 
 ## Friend-Alpha Readiness
 
-The production schema is applied through migration `0018`. Vercel Pro, Neon
+The production schema is applied through migration `0019`. Vercel Pro, Neon
 Launch, restore, and retention scheduling are proven. The proof below records
 the July 24 state; it is not a current gate result. Run
 `npm run alpha:status -- --gate` before creating invitations, and read the
