@@ -102,6 +102,7 @@ import {
   nextFounderVoiceIndex
 } from "./emphasis-read";
 import { requestHowItWinsJob, dispatchHowItWinsJob } from "./how-it-wins-jobs";
+import { howItWinsFailureReason, HowItWinsExecutionError } from "./how-it-wins-execution";
 import { howItWinsEvaluatorFor } from "./how-it-wins";
 import {
   assertTerminalCardQuality,
@@ -1470,15 +1471,44 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
             try {
               const { job } = await requestHowItWinsJob(db, { card: cardToStore, sourceAnalysisRunId: generationRunDbId });
               return { job: { id: job.id, inngestEventId: job.inngestEventId, slug: job.slug } };
-            } catch {
-              return { failed: true as const };
+            } catch (error) {
+              return {
+                failed: true as const,
+                reasonCode: error instanceof HowItWinsExecutionError ? error.reasonCode : howItWinsFailureReason(error),
+                message: boundedErrorMessage(error, 300)
+              };
             }
           });
           if ("job" in requested) {
             await step.run("request-how-it-wins-v2", () => dispatchHowItWinsJob(db, requested.job));
           } else {
-            mergeTracePatch(trace, { howItWins: { enabled: true, status: "failed" } });
-            trace.steps = { ...trace.steps, "how-it-wins": { status: "failed", message: "How it wins admission failed" } };
+            // No job row exists, so no background function will ever close this trail. The panel
+            // waits on how-it-wins.complete, so the run that failed to admit records it here.
+            await recordEvent("how-it-wins-admission-failed", "how-it-wins.complete", "How it wins could not start", {
+              status: "failed", reasonCode: requested.reasonCode
+            }, null);
+            const admissionFailure = {
+              howItWins: { enabled: true, status: "failed" as const, reasonCode: requested.reasonCode },
+              steps: {
+                "how-it-wins": {
+                  status: "failed" as const,
+                  message: `How it wins admission failed (${requested.reasonCode}): ${requested.message}`
+                }
+              }
+            };
+            mergeTracePatch(trace, admissionFailure);
+            // persist-generation-trace-before-complete already ran, so the stored trace still
+            // reads "deferred". Write the trace again with the failure merged in, or the event
+            // trail is the only place this failure is written down.
+            await step.run("persist-how-it-wins-admission-failure", () =>
+              updateGenerationRunTrace(db, {
+                id: generationRunDbId,
+                patch: (existingTrace) => mergeGenerationTrace(existingTrace, trace)
+              }).catch((error) => {
+                console.warn("[generation] how-it-wins admission trace persist failed", error);
+                return null;
+              })
+            );
           }
         }
     }

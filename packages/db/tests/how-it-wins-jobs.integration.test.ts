@@ -381,7 +381,10 @@ describeDatabase("How it wins durable jobs against Postgres", () => {
       now: new Date(now.getTime() + 100)
     })).lease!;
 
-    expect(await reconcileExpiredHowItWinsJobs(db, { now: new Date(now.getTime() + 1_100) })).toBeGreaterThanOrEqual(1);
+    const settled = await reconcileExpiredHowItWinsJobs(db, { now: new Date(now.getTime() + 1_100) });
+    expect(settled.length).toBeGreaterThanOrEqual(1);
+    const settledRoot = settled.find((entry) => entry.id === root.id);
+    expect(settledRoot).toMatchObject({ status: "failed", reasonCode: "lease_lost" });
     const expired = await findHowItWinsJobById(db, root.id);
     expect(expired).toMatchObject({ status: "failed", reasonCode: "lease_lost", reservedMicrodollars: 0, settledMicrodollars: 100_000 });
     expect(expired?.attempts[0]).toMatchObject({ status: "unknown", costBasis: "unknown_reserved" });
@@ -474,6 +477,52 @@ describeDatabase("How it wins durable jobs against Postgres", () => {
     });
   });
 
+  it("re-verifies and retries the card write when a concurrent write moves the row", async () => {
+    const now = new Date("2026-09-15T00:30:00.000Z");
+    const card = cardFixture();
+    await upsertCard(db, card);
+    const root = (await admitHowItWinsJob(db, admissionInput(await insertAnalysisRun(card.slug), now))).job;
+    const lease = (await claimHowItWinsJobLease(db, { jobId: root.id, owner: "worker-contended", leaseSeconds: 300, stage: "storage", now }))!;
+
+    // An enrichment write holding the card row's lock before the compare-and-set reaches it. The
+    // paid read must survive that, so the repository re-reads and tries again instead of
+    // discarding the judgment as superseded evidence.
+    const contender = await pool.connect();
+    await contender.query("begin");
+    await contender.query("select version from cards where slug = $1 for update", [card.slug]);
+    let mutations = 0;
+    let bumped: Promise<unknown> = Promise.resolve();
+
+    const outcome = await completeHowItWinsJobWithCard(db, {
+      jobId: root.id,
+      lease,
+      outcome: "nothing_stands_out",
+      verifyAndMutate: (current) => {
+        mutations += 1;
+        if (mutations === 1) {
+          bumped = contender
+            .query("update cards set version = version + 1 where slug = $1", [card.slug])
+            .then(() => contender.query("commit"));
+        }
+        return {
+          evidenceHash: root.evidenceHash,
+          evaluatorSignature: root.evaluatorSignature,
+          card: { ...current, synthesis: { ...current.synthesis!, howItWins: { status: "nothing_stands_out", inQuestion: [] } } }
+        };
+      },
+      now: new Date(now.getTime() + 1_000)
+    });
+
+    await bumped;
+    contender.release();
+
+    expect(outcome).toBe("succeeded");
+    expect(mutations).toBe(2);
+    const after = await pool.query("select card_json from cards where slug = $1", [card.slug]);
+    expect(after.rows[0].card_json.synthesis.howItWins.status).toBe("nothing_stands_out");
+    expect(await findHowItWinsJobById(db, root.id)).toMatchObject({ status: "succeeded", outcome: "nothing_stands_out" });
+  });
+
   it("caps uncertain dispatch at three records under the same event identity", async () => {
     const now = new Date("2026-09-15T01:00:00.000Z");
     const root = (await admitHowItWinsJob(db, admissionInput(await insertAnalysisRun(), now))).job;
@@ -545,6 +594,71 @@ describeDatabase("How it wins durable jobs against Postgres", () => {
     expect(await deleteAlphaTesterData(db, invite.id)).toBe(true);
     expect(await findHowItWinsJobById(db, alphaJob.id)).toBeNull();
     expect(await findHowItWinsJobById(db, operatorJob.id)).not.toBeNull();
+  });
+
+  it("exhausts the one manual retry after the retry job itself fails", async () => {
+    const now = new Date("2026-09-15T03:00:00.000Z");
+    const source = await insertAnalysisRun();
+    const root = (await admitHowItWinsJob(db, admissionInput(source, now))).job;
+
+    expect(await finishHowItWinsJob(db, {
+      jobId: root.id,
+      status: "failed",
+      reasonCode: "structured_output",
+      retryEligible: true,
+      now: new Date(now.getTime() + 1_000)
+    })).toBe(true);
+
+    const retry = await admitHowItWinsManualRetry(db, {
+      failedJobId: root.id,
+      sourceAnalysisRunId: source.id,
+      slug: root.slug,
+      evidenceHash: root.evidenceHash,
+      evaluatorSignature: root.evaluatorSignature,
+      executionContractVersion: root.executionContractVersion,
+      inngestEventId: `how-it-wins:${randomUUID()}`,
+      deadlineAt: new Date(now.getTime() + 602_000),
+      now: new Date(now.getTime() + 2_000)
+    });
+    expect(retry.state).toBe("admitted");
+    const retryJob = retry.job!;
+    expect(retryJob.retryOfJobId).toBe(root.id);
+
+    expect(await finishHowItWinsJob(db, {
+      jobId: retryJob.id,
+      status: "failed",
+      reasonCode: "structured_output",
+      retryEligible: true,
+      now: new Date(now.getTime() + 3_000)
+    })).toBe(true);
+
+    const rootAfter = await findHowItWinsJobById(db, root.id);
+    const retryAfter = await findHowItWinsJobById(db, retryJob.id);
+    expect(rootAfter).toMatchObject({ status: "failed", manualRetryUsed: true, retryEligible: false });
+    expect(retryAfter).toMatchObject({ status: "failed", retryOfJobId: root.id, retryEligible: false });
+
+    expect(howItWinsJobSummary(retryAfter!, rootAfter!).canRetry).toBe(false);
+    expect(howItWinsJobSummary(retryAfter!).canRetry).toBe(false);
+
+    const secondRetry = await admitHowItWinsManualRetry(db, {
+      failedJobId: retryJob.id,
+      sourceAnalysisRunId: source.id,
+      slug: root.slug,
+      evidenceHash: root.evidenceHash,
+      evaluatorSignature: root.evaluatorSignature,
+      executionContractVersion: root.executionContractVersion,
+      inngestEventId: `how-it-wins:${randomUUID()}`,
+      deadlineAt: new Date(now.getTime() + 604_000),
+      now: new Date(now.getTime() + 4_000)
+    });
+    expect(secondRetry.state).toBe("not_retryable");
+  });
+
+  it("carries the job's deadline as an ISO string on the summary", async () => {
+    const now = new Date("2026-09-15T03:30:00.000Z");
+    const root = (await admitHowItWinsJob(db, admissionInput(await insertAnalysisRun(), now))).job;
+    const summary = howItWinsJobSummary(root);
+    expect(summary.deadlineAt).toBe(root.deadlineAt.toISOString());
   });
 });
 

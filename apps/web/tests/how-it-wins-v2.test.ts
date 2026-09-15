@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   findCardBySlug: vi.fn(),
   findHowItWinsJobById: vi.fn(),
   findHowItWinsJudgment: vi.fn(),
+  findGenerationRunById: vi.fn(),
+  findResearchRunEventsByRunId: vi.fn(),
   finishHowItWinsJob: vi.fn(),
   readHowItWinsStageCheckpoint: vi.fn(),
   recordResearchRunEvent: vi.fn(),
@@ -39,6 +41,8 @@ vi.mock("@cold-start/db", async (importOriginal) => ({
   findCardBySlug: mocks.findCardBySlug,
   findHowItWinsJobById: mocks.findHowItWinsJobById,
   findHowItWinsJudgment: mocks.findHowItWinsJudgment,
+  findGenerationRunById: mocks.findGenerationRunById,
+  findResearchRunEventsByRunId: mocks.findResearchRunEventsByRunId,
   finishHowItWinsJob: mocks.finishHowItWinsJob,
   readHowItWinsStageCheckpoint: mocks.readHowItWinsStageCheckpoint,
   recordResearchRunEvent: mocks.recordResearchRunEvent,
@@ -69,11 +73,14 @@ vi.mock("../src/lib/web-env", () => ({
   webEnv: () => ({ DATABASE_URL: "postgres://unused" })
 }));
 
-vi.mock("../src/inngest/how-it-wins", () => ({
+vi.mock("../src/inngest/how-it-wins", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../src/inngest/how-it-wins")>(),
   howItWinsJudgeInputs: mocks.howItWinsJudgeInputs
 }));
 
-vi.mock("../src/inngest/how-it-wins-jobs", () => ({
+// recordHowItWinsJobOutcome runs for real: it is the one surface these tests are pinning.
+vi.mock("../src/inngest/how-it-wins-jobs", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../src/inngest/how-it-wins-jobs")>(),
   howItWinsExecutionConfig: mocks.howItWinsExecutionConfig,
   howItWinsJobIdentity: mocks.howItWinsJobIdentity
 }));
@@ -88,7 +95,7 @@ vi.mock("../src/inngest/worker-env", () => ({
 }));
 
 import { howItWinsV2Handler } from "../src/inngest/how-it-wins-v2";
-import { HowItWinsExecutionError } from "../src/inngest/how-it-wins-budget";
+import { HowItWinsExecutionError } from "../src/inngest/how-it-wins-execution";
 
 const read: HowItWinsRead = {
   status: "read",
@@ -208,6 +215,14 @@ const judgment = {
   calls: []
 } as unknown as HowItWinsJudgment;
 
+const countedJudgment = {
+  version: 1,
+  currentStrategyIds: ["specialization", "iteration"],
+  strategyEvaluations: [{ strategyId: "usership", disposition: "not_yet" }],
+  openQuestions: [{ questionId: "q1" }],
+  calls: []
+} as unknown as HowItWinsJudgment;
+
 function eventContext() {
   const names: string[] = [];
   return {
@@ -227,12 +242,53 @@ function eventContext() {
   };
 }
 
+// The job row the worker reads back. Terminal transitions replace it, the way the repository
+// would, so the parent-trace summary is built from a row that actually finished.
+let currentJob: Record<string, unknown> = job;
+
+function terminalJob(patch: Record<string, unknown>) {
+  return { ...job, leaseOwner: null, leaseExpiresAt: null, judgmentId: null, outcome: null, attempts: [], ...patch };
+}
+
+function attempt(patch: Record<string, unknown>) {
+  return {
+    logicalCallId: "how-it-wins:monolith:1",
+    inputHash: "d".repeat(64),
+    stage: "judge_initial",
+    status: "completed",
+    reservedMicrodollars: 900_000,
+    reservedAt: "2026-09-15T02:00:00.000Z",
+    settledAt: "2026-09-15T02:02:00.000Z",
+    requestedModel: "claude-opus-5",
+    returnedModel: "claude-opus-5-20260901",
+    servingProvider: "anthropic",
+    durationMs: 131_297,
+    retryCount: 0,
+    usage: { inputTokens: 40_000, outputTokens: 12_000, cacheCreationInputTokens: null, cacheReadInputTokens: null },
+    httpOutcome: "succeeded",
+    validationOutcome: "valid",
+    ...patch
+  };
+}
+
+function parentTrace(applications = 1) {
+  const patch = mocks.updateGenerationRunTrace.mock.calls.at(-1)?.[1].patch as (trace: unknown) => Record<string, unknown>;
+  let trace: unknown = null;
+  for (let index = 0; index < applications; index += 1) trace = patch(trace);
+  return trace as {
+    howItWins?: Record<string, unknown>;
+    llm?: { calls: Array<Record<string, unknown>>; totalEstimatedCostUsd?: number };
+    costUsdAnthropic?: number;
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   job.deadlineAt = new Date(Date.now() + 300_000);
   job.leaseExpiresAt = new Date(Date.now() + 300_000);
+  currentJob = job;
   mocks.howItWinsEnabled.mockReturnValue(true);
-  mocks.findHowItWinsJobById.mockResolvedValue(job);
+  mocks.findHowItWinsJobById.mockImplementation(async () => currentJob);
   mocks.findCardBySlug.mockResolvedValue(card);
   mocks.howItWinsExecutionConfig.mockReturnValue(config);
   mocks.howItWinsJobIdentity.mockReturnValue({
@@ -247,6 +303,8 @@ beforeEach(() => {
   mocks.findHowItWinsJudgment.mockResolvedValue({ id: "judgment-id", judgment });
   mocks.completeHowItWinsJobWithCard.mockResolvedValue("succeeded");
   mocks.recordResearchRunEvent.mockResolvedValue(undefined);
+  mocks.findGenerationRunById.mockResolvedValue({ id: job.sourceAnalysisRunId, slug: job.slug, domain: "fixture.com" });
+  mocks.findResearchRunEventsByRunId.mockResolvedValue([]);
   mocks.updateGenerationRunTrace.mockResolvedValue(undefined);
   mocks.createHowItWinsExecution.mockReturnValue({
     executeCall: vi.fn(),
@@ -371,5 +429,207 @@ describe("How it wins v2 checkpoint recovery", () => {
     expect(globalCalls).toBe(1);
     expect(mocks.judgeHowItWinsForAnalysis.mock.calls[1]?.[0].resumePrimaryJudgment).toEqual(primary);
     expect(storedFinal).toBeDefined();
+  });
+});
+
+describe("How it wins v2 judgment reuse", () => {
+  beforeEach(() => {
+    mocks.readHowItWinsStageCheckpoint.mockImplementation(async (_db: unknown, input: { checkpointId: string }) => {
+      if (input.checkpointId === "writer") return { result: read };
+      if (input.checkpointId === "verifier") return { result: verifiedRead };
+      return null;
+    });
+  });
+
+  it("replays a stored verdict for the same evidence, prompt, and vocabulary", async () => {
+    await expect(howItWinsV2Handler(eventContext().context as never)).resolves.toMatchObject({ status: "succeeded" });
+
+    expect(mocks.findHowItWinsJudgment.mock.calls[0]?.[1]).toEqual({
+      evidencePacketHash: "a".repeat(64),
+      promptHash: "b".repeat(64),
+      vocabularyHash: "c".repeat(64)
+    });
+    expect(mocks.judgeHowItWinsForAnalysis).not.toHaveBeenCalled();
+    expect(mocks.storeHowItWinsJudgment).not.toHaveBeenCalled();
+  });
+
+  it("judges on a miss under the configured refinement flag and hashes its lookup with it", async () => {
+    mocks.howItWinsExecutionConfig.mockReturnValue({ ...config, refinement: false });
+    mocks.findHowItWinsJudgment.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    mocks.judgeHowItWinsForAnalysis.mockResolvedValue(judgment);
+    mocks.storeHowItWinsJudgment.mockResolvedValue({ id: "judgment-id", judgment });
+
+    await howItWinsV2Handler(eventContext().context as never);
+
+    expect(mocks.howItWinsJudgeInputs).toHaveBeenCalledWith(card, false, config.models);
+    expect(mocks.judgeHowItWinsForAnalysis.mock.calls[0]?.[0]).toMatchObject({ refinement: false });
+  });
+});
+
+describe("How it wins v2 parent-trace accounting", () => {
+  beforeEach(() => {
+    mocks.readHowItWinsStageCheckpoint.mockImplementation(async (_db: unknown, input: { checkpointId: string }) => {
+      if (input.checkpointId === "writer") return { result: read };
+      if (input.checkpointId === "verifier") return { result: verifiedRead };
+      return null;
+    });
+    mocks.findHowItWinsJudgment.mockResolvedValue({ id: "judgment-id", judgment: countedJudgment });
+  });
+
+  it("carries the settled calls, the judgment reference, and the judge counts onto the parent run", async () => {
+    mocks.completeHowItWinsJobWithCard.mockImplementation(async () => {
+      currentJob = terminalJob({
+        status: "succeeded",
+        outcome: "read",
+        judgmentId: "judgment-id",
+        attempts: [attempt({ settledMicrodollars: 123_456, costBasis: "known" })]
+      });
+      return "succeeded";
+    });
+    const { context, names } = eventContext();
+
+    await expect(howItWinsV2Handler(context as never)).resolves.toMatchObject({ status: "succeeded" });
+
+    expect(names).toEqual(["hiw-v2-store", "hiw-v2-notify"]);
+    const trace = parentTrace();
+    expect(trace.howItWins).toMatchObject({
+      enabled: true,
+      status: "read",
+      judgmentRef: { id: "judgment-id", evidencePacketHash: "a".repeat(64), promptHash: "b".repeat(64), cached: true },
+      judgeSummary: { currentCount: 2, notYetCount: 1, openQuestionCount: 1 }
+    });
+    expect(trace.llm?.calls).toEqual([{
+      stage: "how_it_wins",
+      label: "how-it-wins:how-it-wins:monolith:1",
+      model: "claude-opus-5-20260901",
+      provider: "anthropic",
+      status: "ok",
+      durationMs: 131_297,
+      inputTokens: 40_000,
+      outputTokens: 12_000,
+      retryCount: 0,
+      estimatedCostUsd: 0.123456
+    }]);
+    expect(trace.costUsdAnthropic).toBeCloseTo(0.123456, 6);
+  });
+
+  it("applies the same patch twice without duplicating a call row", async () => {
+    mocks.completeHowItWinsJobWithCard.mockImplementation(async () => {
+      currentJob = terminalJob({
+        status: "succeeded",
+        outcome: "read",
+        judgmentId: "judgment-id",
+        attempts: [attempt({ settledMicrodollars: 123_456, costBasis: "known" })]
+      });
+      return "succeeded";
+    });
+
+    await howItWinsV2Handler(eventContext().context as never);
+
+    expect(parentTrace(1).llm?.calls).toHaveLength(1);
+    expect(parentTrace(2).llm?.calls).toHaveLength(1);
+    expect(parentTrace(2).costUsdAnthropic).toBeCloseTo(0.123456, 6);
+  });
+
+  it("keeps a failed judge's call rows, with cost only when its basis is known", async () => {
+    mocks.judgeHowItWinsForAnalysis.mockRejectedValue(new Error("Validation failed at strategyEvaluations.16"));
+    mocks.findHowItWinsJudgment.mockResolvedValue(null);
+    mocks.finishHowItWinsJob.mockImplementation(async () => {
+      currentJob = terminalJob({
+        status: "failed",
+        reasonCode: "structured_output",
+        attempts: [
+          attempt({ status: "failed", httpOutcome: "succeeded", validationOutcome: "invalid", settledMicrodollars: 400_000, costBasis: "known" }),
+          attempt({
+            logicalCallId: "how-it-wins:monolith:2",
+            status: "unknown",
+            httpOutcome: "unknown",
+            validationOutcome: "not_run",
+            settledMicrodollars: 900_000,
+            costBasis: "unknown_reserved"
+          })
+        ]
+      });
+      return true;
+    });
+
+    await expect(howItWinsV2Handler(eventContext().context as never)).resolves.toMatchObject({ status: "failed" });
+
+    const trace = parentTrace();
+    expect(trace.howItWins).toMatchObject({ enabled: true, status: "failed" });
+    expect(trace.howItWins?.judgmentRef).toBeUndefined();
+    expect(trace.llm?.calls).toEqual([
+      expect.objectContaining({ label: "how-it-wins:how-it-wins:monolith:1", status: "failed", estimatedCostUsd: 0.4 }),
+      expect.objectContaining({ label: "how-it-wins:how-it-wins:monolith:2", status: "failed" })
+    ]);
+    expect(trace.llm?.calls[1]).not.toHaveProperty("estimatedCostUsd");
+  });
+});
+
+// The 0.2.8 extension stops showing "reading" when how-it-wins.complete lands on the analysis
+// run. Every terminal path owes that event, including the ones that never load a card.
+describe("How it wins v2 terminal event trail", () => {
+  function recordedEvents() {
+    return mocks.recordResearchRunEvent.mock.calls
+      .map(([, event]) => event as { type: string; domain: string; metadata: Record<string, unknown> })
+      .filter(event => event.type === "how-it-wins.complete");
+  }
+
+  it("closes the trail when the flag cancels the read before the card loads", async () => {
+    mocks.howItWinsEnabled.mockReturnValue(false);
+    mocks.findCardBySlug.mockResolvedValue(null);
+    mocks.finishHowItWinsJob.mockImplementation(async () => {
+      currentJob = terminalJob({ status: "cancelled", reasonCode: "cancelled" });
+      return true;
+    });
+
+    await expect(howItWinsV2Handler(eventContext().context as never)).resolves.toMatchObject({ status: "cancelled" });
+
+    expect(mocks.findCardBySlug).not.toHaveBeenCalled();
+    expect(recordedEvents()).toEqual([expect.objectContaining({
+      domain: "fixture.com",
+      metadata: { status: "failed", jobId: job.id, reasonCode: "cancelled" }
+    })]);
+    expect(parentTrace().howItWins).toEqual({ enabled: true, status: "failed", reasonCode: "cancelled" });
+  });
+
+  it("closes the trail for a job the cron already expired before this run started", async () => {
+    currentJob = terminalJob({ status: "failed", reasonCode: "deadline_expired" });
+    const { context, names } = eventContext();
+
+    await expect(howItWinsV2Handler(context as never)).resolves.toEqual({ jobId: job.id, status: "failed" });
+
+    expect(names).toEqual(["hiw-v2-notify"]);
+    expect(mocks.judgeHowItWinsForAnalysis).not.toHaveBeenCalled();
+    expect(recordedEvents()).toEqual([expect.objectContaining({
+      metadata: { status: "failed", jobId: job.id, reasonCode: "deadline_expired" }
+    })]);
+    expect(parentTrace().howItWins).toEqual({ enabled: true, status: "failed", reasonCode: "deadline_expired" });
+  });
+
+  it("records one event per job however many times the outcome is replayed", async () => {
+    currentJob = terminalJob({ status: "failed", reasonCode: "deadline_expired" });
+    const recorded: Array<Record<string, unknown>> = [];
+    mocks.recordResearchRunEvent.mockImplementation(async (_db: unknown, event: Record<string, unknown>) => {
+      recorded.push(event);
+      return null;
+    });
+    mocks.findResearchRunEventsByRunId.mockImplementation(async () =>
+      recorded.map((event, index) => ({ ...event, id: `event-${index}` })));
+
+    await howItWinsV2Handler(eventContext().context as never);
+    await howItWinsV2Handler(eventContext().context as never);
+
+    expect(recorded).toHaveLength(1);
+  });
+
+  it("skips the event but still patches the trace when the source run row is gone", async () => {
+    currentJob = terminalJob({ status: "superseded", reasonCode: "stale_evidence" });
+    mocks.findGenerationRunById.mockResolvedValue(null);
+
+    await howItWinsV2Handler(eventContext().context as never);
+
+    expect(recordedEvents()).toEqual([]);
+    expect(parentTrace().howItWins).toEqual({ enabled: true, status: "stale", reasonCode: "stale_evidence" });
   });
 });

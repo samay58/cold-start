@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   findGenerationRunById: vi.fn(),
   findHowItWinsJobById: vi.fn(),
   findLatestHowItWinsJobBySlug: vi.fn(),
-  howItWinsBudgetMicrodollars: vi.fn(() => 1_000_000),
+  howItWinsJobBudgetMicrodollars: vi.fn(() => 1_000_000),
   howItWinsEnabled: vi.fn(() => true),
   howItWinsJobOwnedByInstallation: vi.fn(),
   howItWinsJobSummary: vi.fn(),
@@ -53,21 +53,27 @@ vi.mock("../src/inngest/how-it-wins", () => ({
   howItWinsEvaluatorFor: mocks.evaluatorFor,
   howItWinsJudgeInputs: mocks.howItWinsJudgeInputs
 }));
-vi.mock("../src/inngest/how-it-wins-budget", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../src/inngest/how-it-wins-budget")>();
-  return {
-    ...original,
-    howItWinsBudgetMicrodollars: mocks.howItWinsBudgetMicrodollars,
-    howItWinsModelRates: mocks.howItWinsModelRates
-  };
-});
+// The execution module reaches the Anthropic SDK and the whole job repository; only the two
+// members admission actually calls are needed here, so it is replaced outright.
+vi.mock("../src/inngest/how-it-wins-execution", () => ({
+  howItWinsModelRates: mocks.howItWinsModelRates,
+  HowItWinsExecutionError: class HowItWinsExecutionError extends Error {
+    constructor(readonly reasonCode: string, message: string = reasonCode) {
+      super(message);
+      this.name = "HowItWinsExecutionError";
+    }
+  }
+}));
 vi.mock("../src/inngest/worker-env", () => ({
   howItWinsEnabled: mocks.howItWinsEnabled,
+  howItWinsJobBudgetMicrodollars: mocks.howItWinsJobBudgetMicrodollars,
   howItWinsModelsFromProcess: mocks.howItWinsModelsFromProcess,
-  howItWinsRefinementEnabled: mocks.howItWinsRefinementEnabled
+  howItWinsRefinementEnabled: mocks.howItWinsRefinementEnabled,
+  howItWinsRetryEnabled: () => process.env.HOW_IT_WINS_RETRY_ENABLED === "true"
 }));
 
-const { howItWinsStatusForPrincipal, retryHowItWinsJob } = await import("../src/inngest/how-it-wins-jobs");
+const { howItWinsStatusForPrincipal, requestOperatorHowItWinsRepair, retryHowItWinsJob } =
+  await import("../src/inngest/how-it-wins-jobs");
 const originalRetryEnabled = process.env.HOW_IT_WINS_RETRY_ENABLED;
 
 const failedJob = {
@@ -184,5 +190,91 @@ describe("How it wins job ownership", () => {
       })
     );
     expect(mocks.reserveAlphaRunRequest).not.toHaveBeenCalled();
+  });
+});
+
+// The generic operator repair. It is the only path that re-admits a historical read, so every
+// precondition is pinned here and every refusal has to name the one that failed.
+describe("How it wins operator repair", () => {
+  const operator = {
+    kind: "operator" as const,
+    inviteId: null,
+    installationId: null,
+    scopes: ["cards:read", "generation:write"]
+  };
+  const repair = { slug: "browserbase", sourceAnalysisRunId: failedJob.sourceAnalysisRunId, capMicrodollars: 500_000 };
+  const completeRun = {
+    id: failedJob.sourceAnalysisRunId,
+    slug: "browserbase",
+    status: "complete",
+    traceJson: { jobKind: "analysis", mode: "analysis", howItWins: { enabled: true, status: "deferred" } }
+  };
+  const repairableCard = {
+    ...card,
+    synthesis: { ...card.synthesis, howItWinsEvaluator: { contractVersion: 1, signature: "evaluator-signature" } }
+  };
+
+  beforeEach(() => {
+    for (const mock of Object.values(mocks)) mock.mockClear();
+    mocks.findGenerationRunById.mockResolvedValue(completeRun);
+    mocks.findCardBySlug.mockResolvedValue(repairableCard);
+    mocks.admitHowItWinsJob.mockResolvedValue({ state: "admitted", job: { ...failedJob, status: "queued" } });
+  });
+
+  it("re-admits a run whose read never closed its trail", async () => {
+    const result = await requestOperatorHowItWinsRepair({ kind: "db" } as never, operator, repair);
+
+    expect(result.state).toBe("admitted");
+    expect(mocks.admitHowItWinsJob).toHaveBeenCalledWith(
+      { kind: "db" },
+      expect.objectContaining({
+        sourceAnalysisRunId: failedJob.sourceAnalysisRunId,
+        slug: "browserbase",
+        evidenceHash: "evidence-hash",
+        evaluatorSignature: "evaluator-signature",
+        configuredCapMicrodollars: 500_000
+      })
+    );
+  });
+
+  it("re-admits a run the read left failed", async () => {
+    mocks.findGenerationRunById.mockResolvedValue({
+      ...completeRun,
+      traceJson: { ...completeRun.traceJson, howItWins: { enabled: true, status: "failed", reasonCode: "lease_lost" } }
+    });
+
+    await requestOperatorHowItWinsRepair({ kind: "db" } as never, operator, repair);
+
+    expect(mocks.admitHowItWinsJob).toHaveBeenCalledOnce();
+  });
+
+  it("refuses an alpha principal", async () => {
+    await expect(requestOperatorHowItWinsRepair({ kind: "db" } as never, alphaPrincipal, repair))
+      .rejects.toMatchObject({ reasonCode: "authentication_configuration", message: "Repair needs an operator principal" });
+    expect(mocks.findGenerationRunById).not.toHaveBeenCalled();
+  });
+
+  it("names the precondition that refused the repair", async () => {
+    const refusals: Array<[() => void, string, RegExp]> = [
+      [() => mocks.findGenerationRunById.mockResolvedValue(null), "stale_evidence", /No generation run/],
+      [() => mocks.findGenerationRunById.mockResolvedValue({ ...completeRun, status: "failed" }), "stale_evidence", /not complete/],
+      [() => mocks.findGenerationRunById.mockResolvedValue({ ...completeRun, slug: "other" }), "stale_evidence", /belongs to other/],
+      [() => mocks.findGenerationRunById.mockResolvedValue({
+        ...completeRun,
+        traceJson: { jobKind: "analysis", mode: "analysis", howItWins: { enabled: true, status: "read" } }
+      }), "stale_evidence", /reads how it wins as read/],
+      [() => mocks.findCardBySlug.mockResolvedValue(null), "stale_evidence", /No stored profile/],
+      [() => mocks.findCardBySlug.mockResolvedValue({ slug: "browserbase" }), "stale_evidence", /carries no analysis/],
+      [() => mocks.findCardBySlug.mockResolvedValue(card), "stale_evaluator", /different evaluator/]
+    ];
+
+    for (const [arrange, reasonCode, message] of refusals) {
+      mocks.findGenerationRunById.mockResolvedValue(completeRun);
+      mocks.findCardBySlug.mockResolvedValue(repairableCard);
+      arrange();
+      await expect(requestOperatorHowItWinsRepair({ kind: "db" } as never, operator, repair))
+        .rejects.toMatchObject({ reasonCode, message: expect.stringMatching(message) });
+    }
+    expect(mocks.admitHowItWinsJob).not.toHaveBeenCalled();
   });
 });

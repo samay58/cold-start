@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 import {
+  canonicalJsonString,
   coldStartCardSchema,
   howItWinsJobOutcomeSchema,
   howItWinsJobReasonCodeSchema,
@@ -26,6 +27,7 @@ const MAX_RECOVERY_BYTES = 512 * 1_024;
 const MAX_CHECKPOINT_BYTES = 512 * 1_024;
 const MAX_ATTEMPT_METADATA_BYTES = 8 * 1_024;
 const MAX_VALIDATION_ISSUES = 12;
+const COMPLETE_CARD_ATTEMPTS = 5;
 
 export type HowItWinsCallStatus = "reserved" | "completed" | "failed" | "unknown";
 
@@ -230,16 +232,27 @@ export async function findLatestHowItWinsJobBySlug(
   return rows[0] ? jobFromRow(rows[0]) : null;
 }
 
-export function howItWinsJobSummary(job: StoredHowItWinsJob): HowItWinsJobSummary {
+export function howItWinsJobSummary(job: StoredHowItWinsJob, root: StoredHowItWinsJob | null = null): HowItWinsJobSummary {
+  // The cap and the one-manual-retry flag live on the root row (finish_how_it_wins_job and
+  // admit_how_it_wins_retry in migration 0019 write them there), not on a retry row itself.
+  const canRetry = job.retryOfJobId === null
+    ? job.status === "failed"
+      && job.retryEligible
+      && !job.manualRetryUsed
+      && job.configuredCapMicrodollars > job.reservedMicrodollars + job.settledMicrodollars
+    : job.status === "failed"
+      && job.retryEligible
+      && root !== null
+      && root.id === job.rootJobId
+      && !root.manualRetryUsed
+      && root.configuredCapMicrodollars > root.reservedMicrodollars + root.settledMicrodollars;
   return howItWinsJobSummarySchema.parse({
     id: job.id,
     status: job.status,
     stage: job.stage,
     reasonCode: job.reasonCode,
-    canRetry: job.status === "failed"
-      && job.retryEligible
-      && !job.manualRetryUsed
-      && job.configuredCapMicrodollars > job.reservedMicrodollars + job.settledMicrodollars,
+    canRetry,
+    deadlineAt: job.deadlineAt.toISOString(),
     updatedAt: job.updatedAt.toISOString(),
     ...(job.outcome ? { outcome: job.outcome } : {})
   });
@@ -370,47 +383,6 @@ export async function claimHowItWinsJobLease(
   `);
   const row = rowsFromExecuteResult<{ result: LeaseSql | null }>(result)[0]?.result;
   return row ? leaseFromSql(row) : null;
-}
-
-export async function renewHowItWinsJobLease(
-  db: ColdStartDb,
-  input: { jobId: string; lease: HowItWinsJobLease; leaseSeconds: number; now?: Date | undefined }
-): Promise<HowItWinsJobLease | null> {
-  assertPositiveInteger(input.leaseSeconds, "leaseSeconds");
-  if (input.leaseSeconds > 300) throw new Error("leaseSeconds cannot exceed 300");
-  const now = input.now ?? new Date();
-  const expiresAt = new Date(now.getTime() + input.leaseSeconds * 1_000);
-  const [row] = await db
-    .update(howItWinsJobs)
-    .set({ leaseExpiresAt: expiresAt, version: sql`${howItWinsJobs.version} + 1`, updatedAt: now })
-    .where(and(
-      eq(howItWinsJobs.id, input.jobId),
-      eq(howItWinsJobs.status, "running"),
-      eq(howItWinsJobs.leaseOwner, input.lease.owner),
-      eq(howItWinsJobs.version, input.lease.version),
-      sql`${howItWinsJobs.leaseExpiresAt} > ${now}`,
-      sql`${howItWinsJobs.deadlineAt} > ${now}`
-    ))
-    .returning();
-  return row?.leaseOwner && row.leaseExpiresAt
-    ? { id: row.id, owner: row.leaseOwner, version: row.version, expiresAt: row.leaseExpiresAt }
-    : null;
-}
-
-export async function advanceHowItWinsJobStage(
-  db: ColdStartDb,
-  input: { jobId: string; lease: HowItWinsJobLease; stage: HowItWinsJobStage; now?: Date | undefined }
-): Promise<HowItWinsJobLease | null> {
-  const stage = howItWinsJobStageSchema.parse(input.stage);
-  const now = input.now ?? new Date();
-  const [row] = await db
-    .update(howItWinsJobs)
-    .set({ currentStage: stage, version: sql`${howItWinsJobs.version} + 1`, updatedAt: now })
-    .where(activeLeaseWhere(input.jobId, input.lease, now))
-    .returning();
-  return row?.leaseOwner && row.leaseExpiresAt
-    ? { id: row.id, owner: row.leaseOwner, version: row.version, expiresAt: row.leaseExpiresAt }
-    : null;
 }
 
 export async function reserveHowItWinsCall(
@@ -751,10 +723,12 @@ export async function finishHowItWinsJob(
   return rowsFromExecuteResult<{ result: boolean }>(result)[0]?.result === true;
 }
 
+// Returns the rows this sweep settled, re-read after expiry, so a caller can record the terminal
+// outcome on the source run (the how-it-wins.complete event) without a second lookup.
 export async function reconcileExpiredHowItWinsJobs(
   db: ColdStartDb,
   input: { now?: Date | undefined; limit?: number | undefined } = {}
-): Promise<number> {
+): Promise<StoredHowItWinsJob[]> {
   const now = input.now ?? new Date();
   const limit = input.limit ?? 100;
   assertPositiveInteger(limit, "limit");
@@ -768,10 +742,12 @@ export async function reconcileExpiredHowItWinsJobs(
     ))
     .orderBy(howItWinsJobs.deadlineAt)
     .limit(limit);
-  let settled = 0;
+  const settled: StoredHowItWinsJob[] = [];
   for (const row of rows) {
     const result = await db.execute<{ result: boolean }>(sql`select expire_how_it_wins_job(${row.id}::uuid, ${now}) as result`);
-    if (rowsFromExecuteResult<{ result: boolean }>(result)[0]?.result === true) settled += 1;
+    if (rowsFromExecuteResult<{ result: boolean }>(result)[0]?.result !== true) continue;
+    const job = await findHowItWinsJobById(db, row.id);
+    if (job) settled.push(job);
   }
   return settled;
 }
@@ -792,40 +768,47 @@ export async function completeHowItWinsJobWithCard(
   }
 ): Promise<"succeeded" | "not_found" | "lease_lost" | "stale_evidence" | "stale_evaluator" | "unsettled_calls" | "card_not_found" | "card_changed" | "card_identity_changed"> {
   const outcome = howItWinsJobOutcomeSchema.parse(input.outcome);
-  const rows = await db
-    .select({ cardJson: cards.cardJson, version: cards.version })
-    .from(cards)
-    .innerJoin(howItWinsJobs, eq(howItWinsJobs.slug, cards.slug))
-    .where(eq(howItWinsJobs.id, input.jobId))
-    .limit(1);
-  const row = rows[0];
-  if (!row) return "card_not_found";
-  const current = coldStartCardSchema.parse(row.cardJson);
-  const verified = input.verifyAndMutate(current);
-  assertSha256(verified.evidenceHash, "evidenceHash");
-  assertNonempty(verified.evaluatorSignature, "evaluatorSignature", 512);
-  const next = coldStartCardSchema.parse(verified.card);
-  if (next.slug !== current.slug || next.domain !== current.domain) throw new Error("Card mutation cannot change identity");
-  const now = input.now ?? new Date();
-  const result = await db.execute<{ result: string }>(sql`
-    select complete_how_it_wins_job_with_card(
-      ${input.jobId}::uuid,
-      ${input.lease.owner},
-      ${input.lease.version}::bigint,
-      ${row.version}::bigint,
-      ${verified.evidenceHash},
-      ${verified.evaluatorSignature},
-      ${JSON.stringify(next)}::jsonb,
-      ${next.cacheStatus === "stale" ? "hit" : next.cacheStatus}::cache_status,
-      ${String(next.generationCostUsd)}::numeric,
-      ${new Date(next.generatedAt)},
-      ${outcome}::how_it_wins_job_outcome,
-      ${input.judgmentId ?? null}::uuid,
-      ${now}
-    ) as result
-  `);
-  const value = rowsFromExecuteResult<{ result: string }>(result)[0]?.result;
-  return value ? completeResult(value) : "not_found";
+  // A concurrent enrichment write bumps cards.version between this read and the compare-and-set
+  // below, and the read it would discard was already paid for. Re-read the row, re-verify the
+  // evidence against it, and try again; only an exhausted loop reports card_changed.
+  for (let attempt = 0; attempt < COMPLETE_CARD_ATTEMPTS; attempt += 1) {
+    const rows = await db
+      .select({ cardJson: cards.cardJson, version: cards.version })
+      .from(cards)
+      .innerJoin(howItWinsJobs, eq(howItWinsJobs.slug, cards.slug))
+      .where(eq(howItWinsJobs.id, input.jobId))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return "card_not_found";
+    const current = coldStartCardSchema.parse(row.cardJson);
+    const verified = input.verifyAndMutate(current);
+    assertSha256(verified.evidenceHash, "evidenceHash");
+    assertNonempty(verified.evaluatorSignature, "evaluatorSignature", 512);
+    const next = coldStartCardSchema.parse(verified.card);
+    if (next.slug !== current.slug || next.domain !== current.domain) throw new Error("Card mutation cannot change identity");
+    const now = input.now ?? new Date();
+    const result = await db.execute<{ result: string }>(sql`
+      select complete_how_it_wins_job_with_card(
+        ${input.jobId}::uuid,
+        ${input.lease.owner},
+        ${input.lease.version}::bigint,
+        ${row.version}::bigint,
+        ${verified.evidenceHash},
+        ${verified.evaluatorSignature},
+        ${JSON.stringify(next)}::jsonb,
+        ${next.cacheStatus === "stale" ? "hit" : next.cacheStatus}::cache_status,
+        ${String(next.generationCostUsd)}::numeric,
+        ${new Date(next.generatedAt)},
+        ${outcome}::how_it_wins_job_outcome,
+        ${input.judgmentId ?? null}::uuid,
+        ${now}
+      ) as result
+    `);
+    const value = rowsFromExecuteResult<{ result: string }>(result)[0]?.result;
+    const settled = value ? completeResult(value) : "not_found";
+    if (settled !== "card_changed") return settled;
+  }
+  return "card_changed";
 }
 
 export async function pruneHowItWinsJobs(
@@ -1070,18 +1053,10 @@ function callStatus(value: unknown): HowItWinsCallStatus {
   throw new Error("Stored How it wins attempt has invalid status");
 }
 
+// Checkpoint and candidate hashes use the one canonical serializer shared with the judge in
+// packages/llm, so a hash written here and a hash computed there agree byte for byte.
 function hashJson(value: unknown) {
-  return createHash("sha256").update(stableJson(value)).digest("hex");
-}
-
-function stableJson(value: unknown): string {
-  if (value === null || typeof value !== "object") {
-    const serialized = JSON.stringify(value);
-    if (serialized === undefined) throw new Error("Value is not JSON serializable");
-    return serialized;
-  }
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  return `{${Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`).join(",")}}`;
+  return createHash("sha256").update(canonicalJsonString(value)).digest("hex");
 }
 
 function jsonRoundTrip(value: unknown): unknown {

@@ -10,16 +10,78 @@ import {
   type ColdStartDb, type HowItWinsCallAttempt, type StoredHowItWinsJob
 } from "@cold-start/db";
 import {
-  hashHowItWinsJudgeValue, OpenAiCompatHttpError, HowItWinsWriterOutputError, HowItWinsEmptyTextError, isSupportedZodError,
+  estimateAnthropicCostUsd, hashHowItWinsJudgeValue, OpenAiCompatHttpError, HowItWinsWriterOutputError,
+  HowItWinsEmptyTextError, isSupportedZodError, parseModelString, pricingFor,
   type HowItWinsJudgeExecuteCall, type HowItWinsJudgeValidationSink,
-  type HowItWinsJudgeAdapterResult, type HowItWinsMessageExecutor,
+  type HowItWinsJudgeAdapterResult, type HowItWinsOutputDiagnostic, type HowItWinsMessageExecutor,
   howItWinsJudgeProviderRequest
 } from "@cold-start/llm";
 import type { GenerationStepTools } from "./client";
-import { HowItWinsExecutionError, howItWinsCallReservation, howItWinsRequestDeadline } from "./how-it-wins-budget";
 
 type Metadata = Partial<HowItWinsCallAttempt>;
 type StoredResponse<T> = { candidate: T; metadata: Metadata; cost: number | null };
+
+export class HowItWinsExecutionError extends Error {
+  constructor(readonly reasonCode: HowItWinsJobReasonCode, message: string = reasonCode) {
+    super(message);
+    this.name = "HowItWinsExecutionError";
+  }
+}
+
+// Reservations use the peak rate so a job admitted off-peak can never under-reserve.
+// This instant is a Monday at 02:00 UTC, inside DeepSeek's published peak window.
+const PEAK_INSTANT = new Date(Date.UTC(2026, 8, 14, 2));
+
+// One million tokens, so a cost estimate reads straight back as a per-million rate.
+const RATE_PROBE_TOKENS = 1_000_000;
+
+// Rates come from the same published pricing the run's own cost telemetry uses, not a second
+// copy that can drift from it. The Anthropic input rate is probed with a fresh one-hour cache
+// write, the most expensive way a run can spend input tokens.
+export function howItWinsModelRates(model: string): { input: number; output: number } {
+  const resolved = parseModelString(model);
+  const missing = () => new HowItWinsExecutionError("authentication_configuration", `No reservation rate for model ${model}`);
+  if (resolved.provider === "anthropic") {
+    const input = estimateAnthropicCostUsd(resolved.model, { cache_creation: { ephemeral_1h_input_tokens: RATE_PROBE_TOKENS } });
+    const output = estimateAnthropicCostUsd(resolved.model, { output_tokens: RATE_PROBE_TOKENS });
+    if (input === undefined || output === undefined) throw missing();
+    return { input, output };
+  }
+  const pricing = pricingFor(resolved.provider, resolved.model, PEAK_INSTANT);
+  if (!pricing) throw missing();
+  return { input: pricing.input, output: pricing.output };
+}
+
+export function howItWinsCallReservation(input: { model: string; input: unknown; maxOutputTokens: number }) {
+  const rates = howItWinsModelRates(input.model);
+  const bytes = Buffer.byteLength(JSON.stringify(input.input), "utf8");
+  // Byte count bounds text tokens without relying on a model-specific tokenizer.
+  // The extra allowance covers protocol and tool framing absent from the JSON.
+  if (bytes > 512 * 1024) throw new HowItWinsExecutionError("input_limit");
+  if (!Number.isSafeInteger(input.maxOutputTokens) || input.maxOutputTokens < 1 || input.maxOutputTokens > 50_000) {
+    throw new HowItWinsExecutionError("authentication_configuration");
+  }
+  return Math.ceil((bytes + 4096) * rates.input + input.maxOutputTokens * rates.output);
+}
+
+export function howItWinsRequestDeadline(deadlineAt: Date, now = Date.now(), stageLimitMs = 240_000) {
+  if (![deadlineAt.getTime(), now, stageLimitMs].every(Number.isFinite) || stageLimitMs <= 0) throw new HowItWinsExecutionError("authentication_configuration");
+  const timeout = Math.min(240_000, stageLimitMs, deadlineAt.getTime() - now - 15_000);
+  if (timeout <= 0) throw new HowItWinsExecutionError("deadline_expired");
+  return { timeout, deadlineAt: now + timeout };
+}
+
+// The bounded diagnostics a failed answer is allowed to carry, shaped once for both the settlement
+// metadata and the later validation annotation. Both write the same rows; the repository caps and
+// redacts them again on the way in.
+function validationIssues(stage: string, diagnostics: readonly HowItWinsOutputDiagnostic[] | undefined) {
+  return (diagnostics ?? []).map(issue => ({
+    stage, code: issue.code, path: issue.path,
+    ...(issue.expected ? { expected: issue.expected } : {}),
+    ...(issue.actualType ? { actualType: issue.actualType } : {}),
+    ...(issue.strategyId ? { strategyId: issue.strategyId } : {})
+  }));
+}
 
 export function howItWinsFailureReason(error: unknown): HowItWinsJobReasonCode {
   if (error instanceof HowItWinsExecutionError) return error.reasonCode;
@@ -170,12 +232,7 @@ export function createHowItWinsExecution(input: {
       const metadata = { ...traceMetadata(result.trace), requestedModel: model };
       if (!result.ok && result.failureKind === "structured_output") {
         metadata.validationOutcome = "invalid";
-        metadata.validationIssues = result.diagnostics?.map(issue => ({
-          stage: request.stage, code: issue.code, path: issue.path,
-          ...(issue.expected ? { expected: issue.expected } : {}),
-          ...(issue.actualType ? { actualType: issue.actualType } : {}),
-          ...(issue.strategyId ? { strategyId: issue.strategyId } : {})
-        })) ?? [];
+        metadata.validationIssues = validationIssues(request.stage, result.diagnostics);
       }
       const safeTrace = { ...result.trace, error: undefined };
       const candidate: HowItWinsJudgeAdapterResult = result.ok ? { ...result, trace: safeTrace } : {
@@ -191,12 +248,7 @@ export function createHowItWinsExecution(input: {
     if (!inputHash) throw new HowItWinsExecutionError("internal_storage");
     await annotateHowItWinsCallValidation(db, { jobId: job.id, logicalCallId: validation.request.callId, inputHash,
       validationOutcome: validation.outcome === "ok" ? "valid" : "invalid",
-      validationIssues: validation.diagnostics?.map(issue => ({
-        stage: validation.request.stage, code: issue.code, path: issue.path,
-        ...(issue.expected ? { expected: issue.expected } : {}),
-        ...(issue.actualType ? { actualType: issue.actualType } : {}),
-        ...(issue.strategyId ? { strategyId: issue.strategyId } : {})
-      })) ?? [] });
+      validationIssues: validationIssues(validation.request.stage, validation.diagnostics) });
   };
 
   const executeMessage: HowItWinsMessageExecutor = (request, invoke) => paid({

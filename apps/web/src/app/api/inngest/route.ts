@@ -3,9 +3,7 @@ import { inngest } from "../../../inngest/client";
 import { generateCardFunction } from "../../../inngest/functions";
 import { cardEnrichmentFunction } from "../../../inngest/card-enrichment";
 import { contactEnrichmentFunction } from "../../../inngest/contact-enrichment";
-import { howItWinsFunction } from "../../../inngest/how-it-wins-function";
-
-import { howItWinsReconcileFunction } from "../../../inngest/how-it-wins-reconcile";
+import { howItWinsFunction, howItWinsReconcileFunction } from "../../../inngest/how-it-wins-function";
 
 export const maxDuration = 300;
 

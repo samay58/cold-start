@@ -52,7 +52,10 @@ export const howItWinsJobSummarySchema = z.object({
   reasonCode: howItWinsJobReasonCodeSchema.nullable(),
   canRetry: z.boolean(),
   updatedAt: z.string().datetime(),
-  outcome: howItWinsJobOutcomeSchema.optional()
+  outcome: howItWinsJobOutcomeSchema.optional(),
+  // Sent only to clients that ask for it: the 0.2.8 extension parses this object with a strict
+  // schema, so an unrequested key would break every installed poll.
+  deadlineAt: z.string().datetime().optional()
 }).strict();
 
 export const howItWinsJobStatusEnvelopeSchema = z.object({

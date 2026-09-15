@@ -480,8 +480,10 @@ export function buildHowItWinsStatusRequest(
   extensionId?: string
 ): { url: string; init: BaseRequestInit } {
   const slug = companySlugFromDomain(domain);
+  // deadline=1 asks the server to add deadlineAt to the job summary. Older extension builds
+  // parse this response with a strict schema, so the server leaves the field out unless asked.
   return {
-    url: `${settings.apiOrigin}/api/extension/cards/${encodeURIComponent(slug)}/how-it-wins`,
+    url: `${settings.apiOrigin}/api/extension/cards/${encodeURIComponent(slug)}/how-it-wins?deadline=1`,
     init: baseRequestInit(settings, signal, extensionId)
   };
 }
@@ -498,7 +500,8 @@ export function buildHowItWinsRetryRequest(
   request.init.method = "POST";
   request.init.headers["Content-Type"] = "application/json";
   return {
-    url: request.url,
+    // The retry POST does not read deadlineAt, so drop the query string added above.
+    url: request.url.split("?")[0] ?? request.url,
     init: {
       ...request.init,
       body: JSON.stringify({ jobId, requestId })

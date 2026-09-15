@@ -5,7 +5,8 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  HOW_IT_WINS_POLL_WINDOW_MS,
+  HOW_IT_WINS_DEADLINE_GRACE_MS,
+  HOW_IT_WINS_FALLBACK_POLL_WINDOW_MS,
   howItWinsPollDelayMs,
   useHowItWinsJobStatus,
   type HowItWinsCardFetch,
@@ -233,13 +234,47 @@ describe("useHowItWinsJobStatus", () => {
     const retryJob = vi.fn<HowItWinsRetry>();
     const probe = mountProbe({ scopeKey: "warp.dev", fetchStatus, retryJob });
     await probe.start();
-    await probe.tick(HOW_IT_WINS_POLL_WINDOW_MS);
+    await probe.tick(HOW_IT_WINS_FALLBACK_POLL_WINDOW_MS);
     expect(probe.phase()).toBe("unknown");
     const statusCalls = fetchStatus.mock.calls.length;
 
     await probe.click("Check");
     expect(fetchStatus.mock.calls.length).toBe(statusCalls + 1);
     expect(retryJob).not.toHaveBeenCalled();
+    await probe.unmount();
+  });
+
+  it("keeps polling past the old eight-minute window with no deadlineAt, then gives up at the fallback window", async () => {
+    const fetchStatus = vi.fn(async (): Promise<HowItWinsJobStatusEnvelope> => ({ job: job("running") }));
+    const probe = mountProbe({ scopeKey: "warp.dev", fetchStatus });
+    await probe.start();
+
+    await probe.tick(8 * 60 * 1000);
+    expect(probe.phase()).toBe("reading");
+
+    await probe.tick(4 * 60 * 1000);
+    expect(probe.phase()).toBe("unknown");
+    await probe.unmount();
+  });
+
+  it("stops shortly after a known deadlineAt plus the grace period, not at the fallback window", async () => {
+    const deadlineAt = new Date(Date.now() + 2 * 60 * 1000).toISOString();
+    expect(HOW_IT_WINS_DEADLINE_GRACE_MS).toBe(60_000);
+    const fetchStatus = vi.fn(async (): Promise<HowItWinsJobStatusEnvelope> => ({
+      job: job("running", { deadlineAt })
+    }));
+    const probe = mountProbe({ scopeKey: "warp.dev", fetchStatus });
+    await probe.start();
+    expect(probe.phase()).toBe("reading");
+
+    // 8s + 12s + 20s + 30s + 45s = 115s: still well inside deadlineAt (120s) plus the 60s grace.
+    await probe.tick(8_000 + 12_000 + 20_000 + 30_000 + 45_000);
+    expect(probe.phase()).toBe("reading");
+
+    // The next poll would land past deadlineAt + grace (180s), so the hook gives up here,
+    // long before the 11-minute fallback window.
+    await probe.tick(70_000);
+    expect(probe.phase()).toBe("unknown");
     await probe.unmount();
   });
 

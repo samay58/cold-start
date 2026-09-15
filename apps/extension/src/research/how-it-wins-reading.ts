@@ -19,7 +19,13 @@ const HOW_IT_WINS_POLL_DELAYS_MS = [8_000, 12_000, 20_000, 30_000, 45_000];
 const HOW_IT_WINS_POLL_STEADY_MS = 60_000;
 const HOW_IT_WINS_ADMISSION_POLL_WINDOW_MS = 40_000;
 
-export const HOW_IT_WINS_POLL_WINDOW_MS = 8 * 60 * 1000;
+// The server tells us the real deadline once a job exists (deadlineAt on the job summary).
+// This is the grace period we keep polling past that deadline before giving up.
+export const HOW_IT_WINS_DEADLINE_GRACE_MS = 60_000;
+
+// Used only when the job summary carries no deadlineAt (an older server). Measured from when
+// this poll started, not wall clock.
+export const HOW_IT_WINS_FALLBACK_POLL_WINDOW_MS = 11 * 60 * 1000;
 
 export function howItWinsPollDelayMs(attempt: number): number {
   return HOW_IT_WINS_POLL_DELAYS_MS[attempt] ?? HOW_IT_WINS_POLL_STEADY_MS;
@@ -245,11 +251,25 @@ export function useHowItWinsJobStatus({
       }
     }
 
-    function schedule(windowMs = HOW_IT_WINS_POLL_WINDOW_MS) {
+    // The give-up point for the main poll (not the admission poll): the known job's deadlineAt
+    // plus a grace period when the server has told us one, otherwise a fixed fallback window
+    // measured from when this poll started.
+    function mainPollGiveUpAtMs(): number {
+      const deadlineAt = latestJobRef.current?.deadlineAt;
+      if (deadlineAt) {
+        const parsedDeadline = Date.parse(deadlineAt);
+        if (!Number.isNaN(parsedDeadline)) return parsedDeadline + HOW_IT_WINS_DEADLINE_GRACE_MS;
+      }
+      return startedAt + HOW_IT_WINS_FALLBACK_POLL_WINDOW_MS;
+    }
+
+    function schedule(admissionWindowMs?: number) {
       if (!applies()) return;
       const delay = howItWinsPollDelayMs(attempt);
-      if (Date.now() - startedAt + delay > windowMs) {
-        if (windowMs === HOW_IT_WINS_POLL_WINDOW_MS) {
+      const isAdmissionPoll = admissionWindowMs !== undefined;
+      const giveUpAt = isAdmissionPoll ? startedAt + admissionWindowMs : mainPollGiveUpAtMs();
+      if (Date.now() + delay > giveUpAt) {
+        if (!isAdmissionPoll) {
           setSnapshot(unknownSnapshot(activeScope, null));
         }
         return;

@@ -281,6 +281,10 @@ export type GenerationTrace = {
       | "failed"
       | "stale"
       | "skipped";
+    // Why a non-succeeded read ended where it did, copied from the job row's own reason code.
+    // Absent on a success. generationTraceSchema passes unknown keys through, so nothing there
+    // needs to know about this field.
+    reasonCode?: string;
     thinFileReason?: string;
     dropReason?: string;
     // Where the all-80 verdict is stored, not the verdict itself. The body lives in

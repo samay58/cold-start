@@ -22,8 +22,15 @@ vi.mock("@cold-start/db", async (importOriginal) => ({
   ...mocks
 }));
 
-import { createHowItWinsExecution } from "../src/inngest/how-it-wins-execution";
-import { HowItWinsExecutionError } from "../src/inngest/how-it-wins-budget";
+import {
+  createHowItWinsExecution,
+  howItWinsCallReservation,
+  howItWinsModelRates,
+  howItWinsRequestDeadline,
+  HowItWinsExecutionError
+} from "../src/inngest/how-it-wins-execution";
+import { requestHowItWinsJob } from "../src/inngest/how-it-wins-jobs";
+import { howItWinsJobBudgetMicrodollars } from "../src/inngest/worker-env";
 
 const initialLease = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -369,5 +376,97 @@ describe("How it wins durable paid-call execution", () => {
         validationOutcome: "not_run"
       }
     }));
+  });
+});
+
+describe("How it wins paid-call bounds", () => {
+  it("rejects absent, ambiguous, unsafe, and excessive dollar caps", () => {
+    for (const value of ["", "1e3", "-1", "NaN", "0", "10.000001", "1.0000001"]) {
+      expect(howItWinsJobBudgetMicrodollars(value)).toBeNull();
+    }
+    expect(howItWinsJobBudgetMicrodollars(undefined)).toBeNull();
+    expect(howItWinsJobBudgetMicrodollars("5")).toBe(5_000_000);
+    expect(howItWinsJobBudgetMicrodollars("0.000001")).toBe(1);
+  });
+
+  it("reserves output plus byte-bounded input and protocol overhead at maximum rates", () => {
+    const input = { evidence: "Example" };
+    expect(howItWinsCallReservation({ model: "claude-opus-5", input, maxOutputTokens: 50_000 }))
+      .toBe((Buffer.byteLength(JSON.stringify(input)) + 4096) * 10 + 50_000 * 25);
+    expect(() => howItWinsCallReservation({ model: "unknown/model", input, maxOutputTokens: 1 }))
+      .toThrow("No reservation rate for model unknown/model");
+    expect(() => howItWinsCallReservation({ model: "claude-opus-5", input: "x".repeat(512 * 1024), maxOutputTokens: 1 }))
+      .toThrow("input_limit");
+  });
+
+  // The rates the hardcoded table carried until 2026-09-15, kept here as the floor the derived
+  // rates must never fall under. Derived is allowed to be higher; under-reserving is the bug.
+  it("derives a reservation rate at or above every published rate it used to hardcode", () => {
+    const published: Array<[string, { input: number; output: number }]> = [
+      ["claude-opus-5", { input: 10, output: 25 }],
+      ["claude-sonnet-4-6", { input: 6, output: 15 }],
+      ["claude-sonnet-5", { input: 4, output: 10 }],
+      ["deepseek/deepseek-v4-pro", { input: 1.32, output: 3.96 }],
+      ["deepseek/deepseek-v4-flash", { input: 0.3, output: 1.2 }],
+      ["deepseek/deepseek-flash", { input: 0.3, output: 1.2 }],
+      ["deepseek/deepseek-v4.1-flash", { input: 0.3, output: 1.2 }]
+    ];
+    for (const [model, floor] of published) {
+      const rates = howItWinsModelRates(model);
+      expect(rates.input, `${model} input`).toBeGreaterThanOrEqual(floor.input);
+      expect(rates.output, `${model} output`).toBeGreaterThanOrEqual(floor.output);
+    }
+  });
+
+  it("names the missing budget variable when admission has no cap to work against", async () => {
+    const previous = {
+      budget: process.env.HOW_IT_WINS_JOB_BUDGET_USD,
+      model: process.env.ANTHROPIC_MODEL
+    };
+    delete process.env.HOW_IT_WINS_JOB_BUDGET_USD;
+    process.env.ANTHROPIC_MODEL = "claude-opus-5";
+    try {
+      await expect(requestHowItWinsJob({} as never, {
+        card: { slug: "fixture" } as never,
+        sourceAnalysisRunId: "00000000-0000-4000-8000-000000000002"
+      })).rejects.toThrow("HOW_IT_WINS_JOB_BUDGET_USD is missing or invalid");
+    } finally {
+      for (const [key, value] of [["HOW_IT_WINS_JOB_BUDGET_USD", previous.budget], ["ANTHROPIC_MODEL", previous.model]] as const) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+
+  it("accepts the exact input and output ceilings, then rejects the next unit", () => {
+    const exactInput = "x".repeat(512 * 1024 - 2);
+    expect(Buffer.byteLength(JSON.stringify(exactInput))).toBe(512 * 1024);
+    expect(howItWinsCallReservation({
+      model: "claude-opus-5",
+      input: exactInput,
+      maxOutputTokens: 50_000
+    })).toBeGreaterThan(0);
+    expect(() => howItWinsCallReservation({
+      model: "claude-opus-5",
+      input: `${exactInput}x`,
+      maxOutputTokens: 50_000
+    })).toThrow("input_limit");
+    for (const maxOutputTokens of [0, 50_001, 1.5, Number.NaN]) {
+      expect(() => howItWinsCallReservation({
+        model: "claude-opus-5",
+        input: {},
+        maxOutputTokens
+      })).toThrow("authentication_configuration");
+    }
+  });
+
+  it("leaves settlement time and never extends the persisted deadline", () => {
+    expect(howItWinsRequestDeadline(new Date(600_000), 0)).toEqual({ timeout: 240_000, deadlineAt: 240_000 });
+    expect(howItWinsRequestDeadline(new Date(30_000), 0)).toEqual({ timeout: 15_000, deadlineAt: 15_000 });
+    expect(howItWinsRequestDeadline(new Date(600_000), 0, 60_000).timeout).toBe(60_000);
+    expect(() => howItWinsRequestDeadline(new Date(NaN), 0)).toThrow("authentication_configuration");
+    expect(() => howItWinsRequestDeadline(new Date(30_000), 0, NaN)).toThrow("authentication_configuration");
+    expect(() => howItWinsRequestDeadline(new Date(30_000), NaN)).toThrow("authentication_configuration");
+    expect(() => howItWinsRequestDeadline(new Date(15_000), 0)).toThrow("deadline_expired");
   });
 });

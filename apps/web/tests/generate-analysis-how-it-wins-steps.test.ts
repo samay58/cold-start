@@ -497,6 +497,49 @@ describe("generate-card analysis how-it-wins step", () => {
     expect(storedCard.synthesis?.howItWins).toEqual({ status: "thin_file" });
   });
 
+  // Admission is the one failure the background function can never report, because no job row
+  // exists. The run that failed to admit closes the trail itself, and names why.
+  it("closes the trail with the reason when admission fails", async () => {
+    // Imported at throw time, not at test setup: runAnalysisGeneration calls vi.resetModules, so an
+    // error built earlier would carry a different class identity than the run's own module graph.
+    mocks.requestHowItWinsJob.mockImplementation(async () => {
+      const { HowItWinsExecutionError } = await import("../src/inngest/how-it-wins-execution");
+      throw new HowItWinsExecutionError("authentication_configuration", "HOW_IT_WINS_JOB_BUDGET_USD is missing or invalid");
+    });
+
+    const { names } = await runAnalysisGeneration();
+
+    expect(names).toContain("admit-how-it-wins-v2");
+    expect(names).not.toContain("request-how-it-wins-v2");
+    expect(mocks.dispatchHowItWinsJob).not.toHaveBeenCalled();
+
+    const types = eventTypes();
+    expect(types).toContain("how-it-wins.started");
+    expect(types).toContain("how-it-wins.complete");
+    expect(eventOfType("how-it-wins.complete")?.metadata).toEqual({
+      status: "failed",
+      reasonCode: "authentication_configuration"
+    });
+    expect(eventOfType("how-it-wins.complete")?.message).toBe("How it wins could not start");
+
+    // persist-generation-trace-before-complete already ran with the read still deferred, so the
+    // stored row needs one more write or the failure lives only on the event trail.
+    expect(names).toContain("persist-how-it-wins-admission-failure");
+    expect(names.indexOf("persist-how-it-wins-admission-failure")).toBeGreaterThan(
+      names.indexOf("persist-generation-trace-before-complete")
+    );
+    const trace = persistedTrace();
+    expect(trace.howItWins).toEqual({
+      enabled: true,
+      status: "failed",
+      reasonCode: "authentication_configuration"
+    });
+    expect(trace.steps?.["how-it-wins"]).toMatchObject({
+      status: "failed",
+      message: expect.stringContaining("authentication_configuration")
+    });
+  });
+
   // Nothing to hang a read on: the verifier dropped every claim and there is no prior read, so
   // the run stores a withheld card. Dispatching would send the background function at a card
   // with no synthesis.

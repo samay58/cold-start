@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   findActiveAlphaInstallationByTokenHash: vi.fn(),
   getAlphaAllowanceSnapshot: vi.fn(),
   howItWinsStatusForPrincipal: vi.fn(),
+  recordHowItWinsJobOutcome: vi.fn(),
   reconcileExpiredHowItWinsJobs: vi.fn(),
   reserveAlphaRunRequest: vi.fn(),
   retryHowItWinsJob: vi.fn(),
@@ -33,6 +34,7 @@ vi.mock("../src/lib/web-env", () => ({
 vi.mock("../src/inngest/how-it-wins-jobs", () => ({
   dispatchHowItWinsJob: mocks.dispatchHowItWinsJob,
   howItWinsStatusForPrincipal: mocks.howItWinsStatusForPrincipal,
+  recordHowItWinsJobOutcome: mocks.recordHowItWinsJobOutcome,
   retryHowItWinsJob: mocks.retryHowItWinsJob
 }));
 
@@ -52,8 +54,8 @@ const sourceJobId = "11111111-1111-4111-8111-111111111111";
 const retryJobId = "22222222-2222-4222-8222-222222222222";
 const requestId = "33333333-3333-4333-8333-333333333333";
 
-function request(method: "GET" | "POST", body?: unknown, token = "operator-secret") {
-  return new Request("http://localhost/api/extension/cards/browserbase/how-it-wins", {
+function request(method: "GET" | "POST", body?: unknown, token = "operator-secret", query = "") {
+  return new Request(`http://localhost/api/extension/cards/browserbase/how-it-wins${query}`, {
     method,
     headers: {
       authorization: `Bearer ${token}`,
@@ -128,6 +130,7 @@ describe("/api/extension/cards/[slug]/how-it-wins", () => {
     mocks.findActiveAlphaInstallationByTokenHash.mockResolvedValue(null);
     mocks.touchAlphaInstallation.mockResolvedValue(true);
     mocks.reconcileExpiredHowItWinsJobs.mockResolvedValue([]);
+    mocks.recordHowItWinsJobOutcome.mockResolvedValue(undefined);
     mocks.howItWinsStatusForPrincipal.mockResolvedValue({ job: null });
     mocks.dispatchHowItWinsJob.mockResolvedValue(true);
   });
@@ -250,7 +253,7 @@ describe("/api/extension/cards/[slug]/how-it-wins", () => {
   });
 
   it("returns a bounded unavailable response for admission errors", async () => {
-    const { HowItWinsExecutionError } = await import("../src/inngest/how-it-wins-budget");
+    const { HowItWinsExecutionError } = await import("../src/inngest/how-it-wins-execution");
     mocks.retryHowItWinsJob.mockRejectedValue(new HowItWinsExecutionError("authentication_configuration"));
 
     const response = await POST(request("POST", { jobId: sourceJobId, requestId }), params());
@@ -258,5 +261,72 @@ describe("/api/extension/cards/[slug]/how-it-wins", () => {
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({ error: "How it wins retry is unavailable." });
     expect(mocks.dispatchHowItWinsJob).not.toHaveBeenCalled();
+  });
+});
+
+const filedSummary = {
+  id: sourceJobId,
+  status: "failed" as const,
+  stage: "writer" as const,
+  reasonCode: "structured_output" as const,
+  canRetry: false,
+  deadlineAt: "2026-09-14T18:10:00.000Z",
+  updatedAt: "2026-09-14T17:00:00.000Z"
+};
+
+describe("/api/extension/cards/[slug]/how-it-wins deadline exposure", () => {
+  beforeEach(() => {
+    process.env.NODE_ENV = "test";
+    process.env.EXTENSION_API_TOKEN = "operator-secret";
+    delete process.env.EXTENSION_API_TOKENS;
+    delete process.env.ALLOWED_EXTENSION_IDS;
+    delete process.env.ALLOWED_EXTENSION_ORIGINS;
+    delete process.env.CHROME_EXTENSION_ID;
+    delete process.env.ALPHA_ACCESS_ENABLED;
+    for (const mock of Object.values(mocks)) mock.mockReset();
+    mocks.createDb.mockReturnValue({ kind: "db" });
+    mocks.findActiveAlphaInstallationByTokenHash.mockResolvedValue(null);
+    mocks.touchAlphaInstallation.mockResolvedValue(true);
+    mocks.reconcileExpiredHowItWinsJobs.mockResolvedValue([]);
+    mocks.recordHowItWinsJobOutcome.mockResolvedValue(undefined);
+    mocks.howItWinsStatusForPrincipal.mockResolvedValue({ job: filedSummary });
+    mocks.dispatchHowItWinsJob.mockResolvedValue(true);
+  });
+
+  afterEach(() => {
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  it("omits deadlineAt by default, on both GET and POST", async () => {
+    mocks.retryHowItWinsJob.mockResolvedValue(null);
+
+    const read = await (await GET(request("GET"), params())).json() as { job: Record<string, unknown> };
+    const retry = await (await POST(request("POST", { jobId: sourceJobId, requestId }), params()))
+      .json() as { error: string; job: Record<string, unknown> };
+
+    const { deadlineAt: _deadlineAt, ...withoutDeadline } = filedSummary;
+    expect(read).toEqual({ job: withoutDeadline });
+    expect(Object.keys(read.job)).not.toContain("deadlineAt");
+    expect(retry.error).toBe("This read cannot be retried.");
+    expect(Object.keys(retry.job)).not.toContain("deadlineAt");
+  });
+
+  it("keeps deadlineAt for a client that asks for it", async () => {
+    const response = await GET(request("GET", undefined, "operator-secret", "?deadline=1"), params());
+
+    await expect(response.json()).resolves.toEqual({ job: filedSummary });
+  });
+
+  it("closes the trail for every job the read settled before it answers", async () => {
+    const settled = [{ id: "job-a" }, { id: "job-b" }];
+    mocks.reconcileExpiredHowItWinsJobs.mockResolvedValue(settled as never);
+
+    await GET(request("GET"), params());
+
+    expect(mocks.recordHowItWinsJobOutcome.mock.calls.map(([, input]) => (input as { job: { id: string } }).job.id))
+      .toEqual(["job-a", "job-b"]);
   });
 });
