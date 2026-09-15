@@ -1,6 +1,6 @@
 # September 15 review remediation
 
-Two review passes over the September 14 wave (`d91a8af..5ff3732`) were merged into one ordered list of 21 items and worked by two sessions in one working tree with exclusive file ownership. The list, the per-item done-definitions, and the close state live in `docs/superpowers/plans/2026-09-15-review-remediation.md`. The work sits on `review/2026-09-15-tighten` as eight commits, unpushed. Merge and deploy are Samay's call.
+Two review passes over the September 14 wave (`d91a8af..5ff3732`) were merged into one ordered list of 21 items and worked by two sessions in one working tree with exclusive file ownership. The list, the per-item done-definitions, and the close state live in `docs/superpowers/plans/2026-09-15-review-remediation.md`. The work landed on main as nine commits (34f6d4d through 382d7ac), fast-forwarded and pushed on September 15 at 20:12 UTC.
 
 ## Verified
 
@@ -25,6 +25,13 @@ Full `npm run check` on the tree at a24994e plus the documentation edits in the 
 
 ## Release boundary
 
-Production serves `5ff3732` at `dpl_7YNNdEYEFsGEW4TKeDM7mFj9MpG3`. Migration 0019 is applied and this branch adds no migration. The extension changes (deadline polling) reach testers only with the next build; the server-side completion event reaches the installed 0.2.8 immediately after deploy. Roll back How it wins with `HOW_IT_WINS_ENABLED=false` and a redeploy, as before.
+Production served `5ff3732` at `dpl_7YNNdEYEFsGEW4TKeDM7mFj9MpG3` until the merge. It now serves `382d7ac` at `dpl_ANQNhiKoRM8Q2RJtPwTGdbU37qFK`, built from main (the build log clones `Commit: 382d7ac`), Ready at 20:14 UTC, aliased to `cold-start.semitechie.vc`. Migration 0019 is applied and this branch adds no migration. The extension changes (deadline polling) reach testers only with the next build; the server-side completion event reaches the installed 0.2.8 immediately after deploy. Roll back How it wins with `HOW_IT_WINS_ENABLED=false` and a redeploy, as before.
 
 Follow-ups filed in the plan and not done here: the split wave (item 21), SQL function bodies as source files, the two disagreeing compact-currency formatters, withheld sections without a reason, the citation-marker allowlist, the parallel normalizer families, the missing gemini-2.5-flash pricing row, and the funding-evidence display restriction that needs a product call.
+
+## Production after the deploy
+
+- The full `npm run check` ran once more on the exact tree of `382d7ac` before the merge: exit 0.
+- The analysis run for `cursor` (`48e9f329`, started 20:10 UTC, two minutes before the deploy) reached its `hiw-v2-notify` step at 20:15:09 UTC, after the new deployment was Ready. The run's trail carries one `how-it-wins.complete` event with `metadata.status: read`, and `trace.howItWins.status` is `read`. The Inngest run is `01M2KB49D9KYJRYRCVHYN8JJKZ`, 222 seconds end to end.
+- The `heyclicky` run (`f5dfea75`, 20:01 UTC) closed the same way on the previous deployment, so the success path was never the broken one; the fix is for every other terminal path, which no production run had exercised by the time of this record.
+- Pre-fix runs stuck at `deferred`: exactly one across production. `enterpret` (`b6eb4776`, 17:15 UTC) has a succeeded job (`fb8e95a1`, outcome `nothing_stands_out`) and no completion event, so a 0.2.8 panel on that card waited out its eight-minute window. No `deferred` run without a job row exists. Backfilling that one event and trace field is a decision for Samay; `repair:how-it-wins` admits a new paid job and is the wrong tool for it.
