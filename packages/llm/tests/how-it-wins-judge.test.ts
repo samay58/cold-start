@@ -568,12 +568,18 @@ describe("createHowItWinsJudge", () => {
 
   it("skips strong adjudication when the critic finds no material dispute", async () => {
     const fake = adapters();
-    const judge = makeJudge(fake);
+    const validation = vi.fn<HowItWinsJudgeValidationSink>();
+    const judge = makeJudge(fake, { onValidation: validation });
 
-    await judge(judgeInput());
+    const result = await judge(judgeInput());
 
     const strongStages = (fake.strong as ReturnType<typeof vi.fn>).mock.calls.map(([request]) => request.stage);
     expect(strongStages).toEqual(["global_judge"]);
+    expect(validation.mock.calls.map(([event]) => [event.request.stage, event.outcome])).toEqual([
+      ["global_judge", "ok"],
+      ["critic", "ok"]
+    ]);
+    expect(result.calls.find((call) => call.stage === "critic")?.validationOutcome).toBe("ok");
   });
 
   it("makes exactly one strong call and no critic call when refinement is disabled", async () => {
@@ -612,12 +618,19 @@ describe("createHowItWinsJudge", () => {
         }
       ]
     });
-    const judge = makeJudge(fake);
+    const validation = vi.fn<HowItWinsJudgeValidationSink>();
+    const judge = makeJudge(fake, { onValidation: validation });
 
-    await judge(judgeInput());
+    const result = await judge(judgeInput());
 
     const strongStages = (fake.strong as ReturnType<typeof vi.fn>).mock.calls.map(([request]) => request.stage);
     expect(strongStages).toEqual(["global_judge", "adjudication"]);
+    expect(validation.mock.calls.map(([event]) => [event.request.stage, event.outcome])).toEqual([
+      ["global_judge", "ok"],
+      ["critic", "ok"],
+      ["adjudication", "ok"]
+    ]);
+    expect(result.calls.find((call) => call.stage === "adjudication")?.validationOutcome).toBe("ok");
   });
 
   it("retries each transient strong stage once with distinct traced call ids", async () => {
@@ -1039,16 +1052,63 @@ describe("createHowItWinsJudge", () => {
 
   it("keeps the global judgment when critic output fails its schema", async () => {
     const fake = adapters();
+    const validation = vi.fn<HowItWinsJudgeValidationSink>();
     fake.critic = vi.fn<HowItWinsJudgeAdapter>(async (request) => ({
       ok: true,
       output: { findings: [{ kind: "invented_kind", material: true }] },
       trace: trace(request, "fake-critic")
     }));
 
-    const result = await makeJudge(fake)(judgeInput());
+    const result = await makeJudge(fake, { onValidation: validation })(judgeInput());
 
     expect(result.refinement).toMatchObject({ critic: "failed", adjudication: "not_needed" });
     expect(result.disagreements).toEqual([]);
+    expect(fake.critic).toHaveBeenCalledOnce();
+    expect(validation.mock.calls.at(-1)?.[0]).toMatchObject({
+      request: { stage: "critic", callId: "how-it-wins:critic" },
+      outcome: "failed",
+      failureKind: "structured_output",
+      diagnostics: expect.arrayContaining([expect.objectContaining({ stage: "critic" })])
+    });
+    expect(result.calls.find((call) => call.stage === "critic")?.validationOutcome).toBe("failed");
+  });
+
+  it("records each critic adapter validation attempt across its existing correction", async () => {
+    const fake = adapters();
+    const original = fake.critic;
+    fake.critic = vi.fn<HowItWinsJudgeAdapter>(async (request) => request.attempt === 1
+      ? {
+        ok: false,
+        error: "critic tool output failed validation",
+        retryable: true,
+        failureKind: "structured_output",
+        repairInstruction: "Return a complete findings array.",
+        candidate: { findings: "invalid" },
+        diagnostics: [{
+          stage: "critic",
+          code: "invalid_type",
+          path: "findings",
+          actualType: "string"
+        }],
+        trace: {
+          ...trace(request, "fake-critic", "failed"),
+          providerOutcome: "ok",
+          validationOutcome: "failed"
+        }
+      }
+      : original(request));
+    const validation = vi.fn<HowItWinsJudgeValidationSink>();
+
+    const result = await makeJudge(fake, { onValidation: validation })(judgeInput());
+
+    expect(fake.critic).toHaveBeenCalledTimes(2);
+    expect(validation.mock.calls.filter(([event]) => event.request.stage === "critic")
+      .map(([event]) => [event.request.callId, event.outcome])).toEqual([
+      ["how-it-wins:critic", "failed"],
+      ["how-it-wins:critic:2", "ok"]
+    ]);
+    expect(result.calls.filter((call) => call.stage === "critic").map((call) => call.validationOutcome))
+      .toEqual(["failed", "ok"]);
   });
 
   it("skips a critic that answered on the global judge's own provider", async () => {
@@ -1103,6 +1163,36 @@ describe("createHowItWinsJudge", () => {
     expect(result.refinement).toMatchObject({ adjudication: "failed" });
     expect(result.refinement?.notes.join(" ")).toMatch(/adjudication call failed/i);
     expect(result.disagreements.map((entry) => entry.disagreementId)).toEqual(["f1"]);
+  });
+
+  it("records an adjudication schema failure without another provider request", async () => {
+    const fake = adapters({
+      criticFindings: [{
+        findingId: "f1",
+        kind: "strategy",
+        material: true,
+        summary: "Usership may have been missed.",
+        strategyIds: ["usership"],
+        evidenceIds: ["e1"]
+      }]
+    });
+    const original = fake.strong;
+    fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => request.stage === "adjudication"
+      ? { ok: true, output: { wrong: "shape" }, trace: trace(request, "fake-strong") }
+      : original(request));
+    const validation = vi.fn<HowItWinsJudgeValidationSink>();
+
+    const result = await makeJudge(fake, { onValidation: validation })(judgeInput());
+
+    expect(result.refinement).toMatchObject({ adjudication: "failed" });
+    expect(fake.strong.mock.calls.filter(([request]) => request.stage === "adjudication")).toHaveLength(1);
+    expect(validation.mock.calls.at(-1)?.[0]).toMatchObject({
+      request: { stage: "adjudication", callId: "how-it-wins:adjudication" },
+      outcome: "failed",
+      failureKind: "structured_output",
+      diagnostics: expect.arrayContaining([expect.objectContaining({ stage: "adjudication" })])
+    });
+    expect(result.calls.find((call) => call.stage === "adjudication")?.validationOutcome).toBe("failed");
   });
 
   it("drops an adjudication row for a strategy nobody disputed", async () => {

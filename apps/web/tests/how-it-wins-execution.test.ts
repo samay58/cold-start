@@ -240,7 +240,7 @@ describe("How it wins durable paid-call execution", () => {
       logicalCallId: request().callId,
       status: "unknown",
       actualMicrodollars: null,
-      metadata: { httpOutcome: "unknown" }
+      metadata: { httpOutcome: "unknown", requestedModel: "claude-opus-5" }
     }));
   });
 
@@ -308,7 +308,7 @@ describe("How it wins durable paid-call execution", () => {
     expect(mocks.settleHowItWinsCall).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       status: "failed",
       actualMicrodollars: null,
-      metadata: { httpOutcome: "unknown" }
+      metadata: { httpOutcome: "unknown", requestedModel: "claude-opus-5" }
     }));
   });
 
@@ -352,7 +352,7 @@ describe("How it wins durable paid-call execution", () => {
       status: "failed",
       actualMicrodollars: 12_345,
       metadata: {
-        requestedModel: "deepseek-v4-pro",
+        requestedModel: "deepseek/deepseek-v4-pro",
         returnedModel: "deepseek-v4-pro-202609",
         servingProvider: "deepseek",
         responseId: "response-before-throw",

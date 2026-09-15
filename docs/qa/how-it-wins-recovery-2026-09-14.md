@@ -1,6 +1,6 @@
 # How it wins recovery verification
 
-Implementation is being verified on `codex/how-it-wins-recovery`, from `fe4493658ad647d393b4e489aeeff700c2105892`. Production has not changed in this repair yet.
+Implementation was reviewed on `codex/how-it-wins-recovery`, from `fe4493658ad647d393b4e489aeeff700c2105892`. This is the pre-release checkpoint; the server still uses the previous deployment.
 
 ## Before the repair
 
@@ -32,9 +32,14 @@ An authenticated endpoint supplies status and admits one retry of How it wins al
 - Real Postgres lifecycle suite passed 24 tests, including rejection before the source analysis completes and admission afterward.
 - Fresh independent review found seven integration defects. Each was repaired and regression-tested before release approval.
 - The extension covers a delayed job admission and a retry whose network acknowledgement is lost. Both reconcile through free status reads.
-- Paid replay, migration, production canary, and release readback remain pending.
+- Paid frozen-Column replay succeeded through the real adapter and local Postgres: job `3acaf920-bc04-4552-a5e7-8a15da2a3096`, outcome `read`, 5 paid requests, all usage returned. It took about 253 seconds. No controlled corruption was injected into this paid replay.
+- The replay cost is $1.568332 estimated from returned usage. Providers did not return a billed dollar total. The local job reserved a $4 maximum; the shared $5 verification budget has $3.431668 remaining.
+- Migration `0019` applied to production. Its SHA256 matches the saved migration row: `ec008032060e6d6f156e609efcc1ebb87fd5a0fef3e3f22a6e74d2e042957de2`.
+- The new table has zero production jobs before the canary. Column has no linked alpha run request, and the allowance ledger has zero entries.
+- Only two Vercel environment entries were added: job budget `5`, retry admission `false`. Exported settings were compared; sensitive values are unreadable and were not overwritten.
+- Final review approved the runtime changes. The production canary and deployed readback remain pending.
 
-The fresh verification budget is $5. No paid requests have run yet. Private reservations and receipts live in `.cold-start/hiw-recovery/budget.json`.
+The fresh verification budget is $5. Private reservations and receipts live in `.cold-start/hiw-recovery/budget.json`. Unknown usage must consume its full reservation.
 
 Browser security policy blocked access to the user's Chrome extension-management page. The installed version and installation source were requested from the user. Automated browser tests do not establish that the user's installed extension has updated.
 
@@ -44,6 +49,10 @@ Reservations use the maximum published token rates, including a fresh one-hour A
 
 Pricing references checked September 14: [Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing) and [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing). Model routing remains unchanged.
 
+## Extension package
+
+Version 0.2.9 was built from `1cb26140b31dafe45cfce625899dee1e66227eae`. Two production builds produced identical ZIP bytes: `f396294eeecc20c73d3c70a1dee405de18a6efe4e6b9acdb08a7a245643209ec`. Manifest permissions remain `activeTab`, `sidePanel`, and `storage`. The package contains 21 files, with no excluded artifacts or detected credentials. Store acceptance and the user's installed update are unverified.
+
 ## WHERE WE LEFT OFF
 
-Finish the full gate and fresh review before any production mutation. Record the migrated schema, reviewed commit, deployment, Inngest sync, extension package and installed build, Column result, allowance readback, public redaction, and settled spend here. Keep the original failure records intact.
+Publish the reviewed repair, confirm deployment and Inngest sync, then admit the scoped Column canary within $3.431668. Enable manual retry only after it passes. Record the deployed result and installation limit. Keep the original failure records intact.

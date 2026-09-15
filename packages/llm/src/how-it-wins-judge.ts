@@ -570,8 +570,28 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
       request: HowItWinsJudgeCallRequest
     ) => {
       const first = await invoke(adapter, request);
-      if (first.ok || !first.retryable) return first;
-      return invoke(adapter, correctedRequest(request, first.repairInstruction, "2"));
+      if (!first.ok && first.failureKind === "structured_output" && first.trace.providerOutcome === "ok") {
+        await reportValidation({
+          request,
+          trace: first.trace,
+          outcome: "failed",
+          failureKind: "structured_output",
+          diagnostics: first.diagnostics ?? []
+        });
+      }
+      if (first.ok || !first.retryable) return { result: first, request };
+      const correction = correctedRequest(request, first.repairInstruction, "2", first.candidate);
+      const second = await invoke(adapter, correction);
+      if (!second.ok && second.failureKind === "structured_output" && second.trace.providerOutcome === "ok") {
+        await reportValidation({
+          request: correction,
+          trace: second.trace,
+          outcome: "failed",
+          failureKind: "structured_output",
+          diagnostics: second.diagnostics ?? []
+        });
+      }
+      return { result: second, request: correction };
     };
 
     // betMap, scouts, and missingStrategyIds are what the retired multi-stage topology fed this
@@ -779,7 +799,8 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
     };
     // Everything past the global judgment is refinement. A failure here drops back to the global
     // judgment and records why, rather than throwing away a judgment that already cost the run.
-    const criticResult = await invokeTransport(config.adapters.critic, criticRequest);
+    const criticTransportCall = await invokeTransport(config.adapters.critic, criticRequest);
+    const criticResult = criticTransportCall.result;
     let critic: { findings: Array<{ findingId: string } & z.infer<typeof criticFindingSchema>> } = { findings: [] };
     if (!criticResult.ok) {
       refinement.critic = "failed";
@@ -790,9 +811,26 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
     } else {
       const criticTransport = criticOutputSchema.safeParse(stripUnknownNullTransportFields(criticResult.output));
       if (!criticTransport.success) {
+        await reportValidation({
+          request: criticTransportCall.request,
+          trace: criticResult.trace,
+          outcome: "failed",
+          failureKind: "structured_output",
+          diagnostics: howItWinsOutputDiagnostics({
+            stage: "critic",
+            error: criticTransport.error,
+            candidate: criticResult.output
+          }) ?? []
+        });
         refinement.critic = "failed";
         refinement.notes.push(refinementNote("critic output rejected", criticTransport.error));
       } else {
+        await reportValidation({
+          request: criticTransportCall.request,
+          trace: criticResult.trace,
+          outcome: "ok",
+          diagnostics: []
+        });
         critic = {
           findings: criticTransport.data.findings.map((finding, index) => ({
             findingId: `f${index + 1}`,
@@ -825,11 +863,13 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
         ...(config.signal ? { signal: config.signal } : {}),
         ...(config.deadlineAt !== undefined ? { deadlineAt: config.deadlineAt } : {})
       };
-      const adjudicationResult = await invokeTransport(config.adapters.strong, adjudicationRequest);
+      const adjudicationTransportCall = await invokeTransport(config.adapters.strong, adjudicationRequest);
+      const adjudicationResult = adjudicationTransportCall.result;
       if (!adjudicationResult.ok) {
         refinement.adjudication = "failed";
         refinement.notes.push(refinementNote("adjudication call failed", adjudicationResult.error));
       } else {
+        let adjudicationAccepted = false;
         try {
           const patch = adjudicationPatchSchema.parse(
             stripUnknownNullTransportFields(adjudicationResult.output)
@@ -873,10 +913,31 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
           refinement.adjudication = "ok";
           refinement.repairs.push(...repaired.repairs);
           refinement.notes.push(...merged.notes, ...ordered.notes);
+          adjudicationAccepted = true;
         } catch (error) {
           if (isTransientLlmError(error)) throw error;
+          const diagnostics = howItWinsOutputDiagnostics({
+            stage: "adjudication",
+            error,
+            candidate: adjudicationResult.output
+          });
+          await reportValidation({
+            request: adjudicationTransportCall.request,
+            trace: adjudicationResult.trace,
+            outcome: "failed",
+            failureKind: diagnostics ? "structured_output" : "semantic_contract",
+            diagnostics: diagnostics ?? []
+          });
           refinement.adjudication = "failed";
           refinement.notes.push(refinementNote("adjudication output rejected", error));
+        }
+        if (adjudicationAccepted) {
+          await reportValidation({
+            request: adjudicationTransportCall.request,
+            trace: adjudicationResult.trace,
+            outcome: "ok",
+            diagnostics: []
+          });
         }
       }
     }

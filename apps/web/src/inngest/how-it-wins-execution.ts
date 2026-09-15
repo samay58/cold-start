@@ -99,7 +99,7 @@ export function createHowItWinsExecution(input: {
       if (reservation.state === "existing") {
         if (reservation.attempt?.status === "reserved") {
           await settleHowItWinsCall(db, { jobId: job.id, lease: held, logicalCallId: request.callId,
-            status: "unknown", actualMicrodollars: null, metadata: { httpOutcome: "unknown" } });
+            status: "unknown", actualMicrodollars: null, metadata: { httpOutcome: "unknown", requestedModel: request.model } });
         }
         return { reason: "internal_storage" as const };
       }
@@ -134,7 +134,7 @@ export function createHowItWinsExecution(input: {
         return { contentHash: saved.contentHash };
       } catch (error) {
         const reason = howItWinsFailureReason(error);
-        const metadata = lastTrace ? traceMetadata(lastTrace) : { httpOutcome: "unknown" as const };
+        const metadata = { ...(lastTrace ? traceMetadata(lastTrace) : { httpOutcome: "unknown" as const }), requestedModel: request.model };
         await settleHowItWinsCall(db, { jobId: job.id, lease: held, logicalCallId: request.callId,
           status: "failed", actualMicrodollars: settledCost(metadata), metadata });
         return { reason };
@@ -167,7 +167,7 @@ export function createHowItWinsExecution(input: {
       payload: howItWinsJudgeProviderRequest(request), maxTokens: request.stage === "global_judge" ? 50_000 : 12_000 }, async options => {
       const result = await invoke(options);
       if (!result.ok) failureReason = result.failureKind === "cancellation_deadline" ? "deadline_expired" : result.failureKind === "internal" ? "internal_storage" : result.failureKind;
-      const metadata = traceMetadata(result.trace);
+      const metadata = { ...traceMetadata(result.trace), requestedModel: model };
       if (!result.ok && result.failureKind === "structured_output") {
         metadata.validationOutcome = "invalid";
         metadata.validationIssues = result.diagnostics?.map(issue => ({
@@ -204,7 +204,7 @@ export function createHowItWinsExecution(input: {
     payload: request.params, maxTokens: request.params.max_tokens
   }, async options => {
     const message = await invoke(options);
-    const metadata = lastTrace ? traceMetadata(lastTrace) : { requestedModel: request.model, httpOutcome: "succeeded" as const };
+    const metadata = { ...(lastTrace ? traceMetadata(lastTrace) : { httpOutcome: "succeeded" as const }), requestedModel: request.model };
     return {
       candidate: { ...message, content: message.content.filter(block => block.type === "text") },
       metadata, cost: settledCost(metadata)
