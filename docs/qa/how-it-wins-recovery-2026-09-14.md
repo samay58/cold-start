@@ -75,7 +75,15 @@ After the canary passed, `HOW_IT_WINS_RETRY_ENABLED` was set to `true` for the n
 
 The existing guide keeps its design and now explains durable status and bounded correction in plain English. It explicitly says failure controls require extension 0.2.9. Its source pin is the released implementation `e20fd9b`; deterministic HTML SHA256 is `9f8448c0dfa26ca41e28855359dad073f6d4ae5d7b1f38608c7b885eac53998e`. The served guide matched the built file, and the explanation was checked in the browser.
 
-The original checkout remains at `fe44936` with its three original untracked documents unchanged. Their hashes match the preservation record. No unrelated worktree was removed.
+At release, the original checkout was left at `fe44936` with its three untracked documents unchanged. The owner then authorized consolidation. Their contents were archived and hash-checked before the checkout was advanced to the published main branch.
+
+## Consolidation
+
+The canonical checkout is `/Users/samaydhawan/Projects/active/cold-start`. The fully merged repair worktree and its local branch were removed after 119 release, evidence, and build files were copied and hash-verified. Private verification records are in `.cold-start/hiw-recovery`; the preservation manifest and previous extension builds are in `.cold-start/consolidation-2026-09-14`.
+
+The Chrome ZIP is `dist/chrome-web-store/cold-start-chrome-0.2.9-1cb26140b31d.zip`. The canonical `apps/extension/dist` and `dist-firefox` folders now contain version 0.2.9. The old 0.2.8 builds were archived first. Updating these files does not establish that a running browser has reloaded them. No store upload or acceptance is claimed.
+
+The recovery copy and guide passed the prose scan and manual reading. The guide's verification note was corrected to the released source revision. No runtime code changed during consolidation. Dependencies were reinstalled from the lockfile; the existing complete release gate remains the application verification record.
 
 ## WHERE WE LEFT OFF
 
