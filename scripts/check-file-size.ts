@@ -22,7 +22,7 @@ export type FileSizeReport = {
   staleAllowlist: string[];
 };
 
-export function sourceRoots(repoRoot: string): string[] {
+function sourceRoots(repoRoot: string): string[] {
   const roots = ["scripts"];
   for (const group of ["apps", "packages"]) {
     if (!exists(join(repoRoot, group))) continue;

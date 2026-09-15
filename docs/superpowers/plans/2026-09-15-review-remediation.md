@@ -85,6 +85,10 @@ Baseline measured September 15 over `apps/*/src`, `packages/*/src`, and `scripts
 - No `pricing.ts` row for `openrouter/google/gemini-2.5-flash`; OpenRouter reports cost, so the gap is convention only.
 - `fundingEvidenceFromCitations` restriction also suppresses funding display in the extension header and financing layer; product call.
 
+## Structural follow-ups from the closing review (Opus, September 15, no slop found)
+
+Polish, not bugs; each is one small commit for the next pass. `generation-trace.ts:285` types `reasonCode` as `HowItWinsJobReasonCode` instead of string. `how-it-wins-execution.ts:43-68` stops filing an unpriced model, a non-integer token cap, and a non-finite deadline under `authentication_configuration`; give them a configuration code. `howItWinsCallReservation` says in its name that it returns microdollars and states the USD-per-million equals microdollars-per-token identity once. `alpha-retention.ts:122-134` stops hand-copying the prune predicate; export one `countPrunableHowItWinsJobs`. `llm-provider.ts:301-307` drops the two non-null assertions by inlining the ternary; `stageRequestPolicies` is keyed by `LlmCallStage`. `validation.ts` splits its SQL coercions into `sql-values.ts`. The status GET caps its settlement drain well under 20 jobs or hands it to the cron. `extension-config.ts:504` passes `deadline` into the request builder instead of stripping the query it just added. `alpha-prune.ts:47-70` returns to two typed shapes. Reader traps to state in a comment: `funding-preservation.ts:40-47` status from saved sources while confidence still includes the incoming fact; `SectionRows.tsx:90` dropped the composite React key on financing extras; `failure-code.ts` uses `includes` for the code and `startsWith` for the message on purpose; `extraction-recovery.ts:53-58` classifies a same-host misconfiguration from the provider error because `cause` wins.
+
 ## Evidence recorded on September 15
 
 - Inngest `how-it-wins-read` runs since 2026-09-14 19:00 UTC: seven, all completed, none running; every run after 02:59 UTC used the v2 path.

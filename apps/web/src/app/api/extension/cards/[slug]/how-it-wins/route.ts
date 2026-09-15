@@ -17,8 +17,9 @@ const json = (body: unknown, status = 200) => apiJsonWithTiming(body, [], {
   status, headers: { "Cache-Control": "no-store" }
 });
 
-// The 0.2.8 extension parses this envelope with a strict schema, so an unrequested key breaks
-// every installed poll. deadlineAt ships only to a client that asks for it by query parameter.
+// Extension builds before the deadline poll (the September 14 0.2.9 package; 0.2.8 never calls
+// this route) parse the envelope with a strict schema, so an unrequested key would break their
+// poll. deadlineAt ships only to a client that asks for it by query parameter.
 function wantsDeadline(request: Request) {
   return new URL(request.url).searchParams.get("deadline") === "1";
 }
