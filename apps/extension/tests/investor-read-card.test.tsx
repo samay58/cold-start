@@ -266,6 +266,58 @@ describe("InvestorReadCard", () => {
     await unmount();
   });
 
+  it("shows first-time failure with Try again when eligible and there is no saved read", async () => {
+    const retry = vi.fn();
+    const { container, unmount } = await renderCard(richCard(), false, {
+      phase: "failed",
+      job: {
+        id: "10000000-0000-4000-8000-000000000004",
+        status: "failed",
+        stage: "judge_initial",
+        reasonCode: "transient_provider",
+        canRetry: true,
+        updatedAt: "2026-09-14T20:00:00.000Z"
+      },
+      detail: null,
+      actionPending: false,
+      checkAgain: () => undefined,
+      retry
+    });
+
+    expect(container.textContent).toContain("How it wins couldn't finish.");
+    expect(container.textContent).not.toContain("The update couldn't finish.");
+    const button = container.querySelector<HTMLButtonElement>(".cs-how-it-wins-status button");
+    expect(button?.textContent).toBe("Try again");
+    await act(async () => button?.click());
+    expect(retry).toHaveBeenCalledTimes(1);
+    await unmount();
+  });
+
+  it("explains a superseded read without presenting it as a verdict", async () => {
+    const { container, unmount } = await renderCard(richCard(), false, {
+      phase: "superseded",
+      job: {
+        id: "10000000-0000-4000-8000-000000000005",
+        status: "superseded",
+        stage: "writer",
+        reasonCode: "superseded",
+        canRetry: false,
+        updatedAt: "2026-09-14T20:00:00.000Z"
+      },
+      detail: "Newer company research replaced this read.",
+      actionPending: false,
+      checkAgain: () => undefined,
+      retry: () => undefined
+    });
+
+    const notice = container.querySelector(".cs-how-it-wins-status");
+    expect(notice?.getAttribute("data-state")).toBe("superseded");
+    expect(notice?.textContent).toContain("This read belongs to older research.");
+    expect(notice?.textContent).toContain("Newer company research replaced this read.");
+    expect(notice?.querySelector("button")).toBeNull();
+    await unmount();
+  });
+
   it("offers a read-only check after progress becomes unknown", async () => {
     const checkAgain = vi.fn();
     const { container, unmount } = await renderCard(richCard(), false, {

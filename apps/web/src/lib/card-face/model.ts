@@ -462,6 +462,34 @@ export function moneyBullets(card: PublicCardData): FactBullet[] {
   return bullets;
 }
 
+// fundingEvidenceItems() (packages/core/src/research-sections.ts) always leads with a "Total
+// raised" item and, when there is a single accounting round, a round-named item; moneyBullets()
+// above already composes both as sentences. Skipping those two labels keeps this financing
+// section's contribution to genuinely incremental rows (Investors, and any future financing
+// item) instead of restating the same figures twice. Text keeps every sentence with only the
+// citation markers stripped: 6b9dfea replaced the earlier publicEvidenceText() clip, which
+// truncated financing text to ~260 chars, with this untruncated form.
+export function additionalFinancingBullets(card: PublicCardData, index: CitationIndex, sections: ResearchSection[]): FactBullet[] {
+  const section = sections.find((candidate) => candidate.sectionId === "financing");
+  if (!section || section.status !== "available" || !section.content) {
+    return [];
+  }
+
+  const roundName = card.funding.lastRound.value?.name ?? null;
+  return section.content.items
+    .filter((item) => item.label !== "Total raised" && item.label !== roundName)
+    .map((item) => ({
+      text: stripCitationMarkers(item.text),
+      state: resolvedEvidenceState(card, index, {
+        value: item.text,
+        status: "verified",
+        confidence: "high",
+        citationIds: item.citationIds
+      }),
+      citationIds: item.citationIds
+    }));
+}
+
 // --- Headcount conflict ---
 
 export interface HeadcountConflict {
@@ -492,11 +520,10 @@ export function headcountConflict(card: PublicCardData): HeadcountConflict | nul
 }
 
 // Shared by SectionRows (the desktop People section row) and PocketCard (the pocket's People
-// tab): the same three-way OR decides whether either surface has anything to show.
+// tab): whether either surface has anything to show. Reuses peopleRows so the founders/keyExecs
+// merge and dedup logic lives in one place.
 export function hasPeopleContent(card: PublicCardData, conflict: HeadcountConflict | null): boolean {
-  const founders = card.team.founders.value ?? [];
-  const execs = card.team.keyExecs.value ?? [];
-  return founders.length > 0 || execs.length > 0 || conflict !== null;
+  return peopleRows(card).length > 0 || conflict !== null;
 }
 
 export function peopleRows(card: PublicCardData) {

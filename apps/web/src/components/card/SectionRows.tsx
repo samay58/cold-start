@@ -1,8 +1,9 @@
 import React from "react";
 import type { ReactNode } from "react";
-import { stripCitationMarkers, type ResearchSection, type ResearchSectionContent } from "@cold-start/core";
+import type { ResearchSection } from "@cold-start/core";
 import { formatMediumDate } from "@cold-start/ui";
 import {
+  additionalFinancingBullets,
   citationMarks,
   hasPeopleContent,
   headcountConflict,
@@ -72,26 +73,11 @@ function EmptyBlock({ line, receipt }: { line?: string; receipt: string }) {
 
 // --- Money ---
 
-// fundingEvidenceItems() (packages/core/src/research-sections.ts) always leads with a "Total
-// raised" item and, when there is a single accounting round, a round-named item; moneyBullets
-// already composes both as sentences. Skipping those two labels keeps the financing section's
-// contribution to genuinely incremental rows (Investors, and any future financing item) instead
-// of restating the same figures twice.
-function additionalFinancingItems(card: PublicCardData, sections: ResearchSection[]): ResearchSectionContent["items"] {
-  const section = sections.find((candidate) => candidate.sectionId === "financing");
-  if (!section || section.status !== "available" || !section.content) {
-    return [];
-  }
-
-  const roundName = card.funding.lastRound.value?.name ?? null;
-  return section.content.items.filter((item) => item.label !== "Total raised" && item.label !== roundName);
-}
-
 function MoneySection({ card, sections, index }: { card: PublicCardData; sections: ResearchSection[]; index: CitationIndex }) {
   const bullets = moneyBullets(card);
-  const extraItems = additionalFinancingItems(card, sections);
+  const extraBullets = additionalFinancingBullets(card, index, sections);
 
-  if (bullets.length === 0 && extraItems.length === 0) {
+  if (bullets.length === 0 && extraBullets.length === 0) {
     return (
       <SectionRow label="Money">
         <EmptyBlock line="No filing, no announced round, no reported figure." receipt="No public funding found." />
@@ -101,24 +87,9 @@ function MoneySection({ card, sections, index }: { card: PublicCardData; section
 
   return (
     <SectionRow label="Money">
-      {bullets.map((bullet) => (
+      {[...bullets, ...extraBullets].map((bullet) => (
         <BulletRow bullet={bullet} index={index} key={bullet.text} />
       ))}
-      {extraItems.map((item) => {
-        const state = resolvedEvidenceState(card, index, {
-          value: item.text,
-          status: "verified",
-          confidence: "high",
-          citationIds: item.citationIds
-        });
-        return (
-          <BulletRow
-            bullet={{ text: stripCitationMarkers(item.text), state, citationIds: item.citationIds }}
-            index={index}
-            key={`${item.label}:${item.text}`}
-          />
-        );
-      })}
     </SectionRow>
   );
 }

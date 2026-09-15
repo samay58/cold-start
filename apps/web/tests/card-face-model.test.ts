@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { Citation, ColdStartCard, ResolvedFact } from "@cold-start/core";
 import { emptyResearchSectionForCard } from "@cold-start/core";
 import {
+  additionalFinancingBullets,
   buildCitationIndex,
   callNumber,
   evidenceStateForFact,
+  hasPeopleContent,
   headcountConflict,
   INVESTOR_READ_LABELS,
   isAgedCard,
@@ -90,6 +92,23 @@ describe("peopleRows", () => {
     card.team.keyExecs = resolvedFact([person], ["c2"], { status: "mixed" });
 
     expect(peopleRows(card)[0]?.state).toBe("conflict");
+  });
+});
+
+describe("hasPeopleContent", () => {
+  it("is true whenever peopleRows has a row, without re-reading founders/keyExecs directly", () => {
+    expect(peopleRows(richConflictCard).length).toBeGreaterThan(0);
+    expect(hasPeopleContent(richConflictCard, null)).toBe(true);
+  });
+
+  it("is false with no people and no conflict", () => {
+    expect(peopleRows(emptySectionsCard)).toEqual([]);
+    expect(hasPeopleContent(emptySectionsCard, null)).toBe(false);
+  });
+
+  it("is true on a conflict alone, even with no people rows", () => {
+    expect(peopleRows(emptySectionsCard)).toEqual([]);
+    expect(hasPeopleContent(emptySectionsCard, headcountConflict(richConflictCard))).toBe(true);
   });
 });
 
@@ -222,6 +241,56 @@ describe("moneyBullets", () => {
 
   it("returns nothing when neither total raised nor a last round is known", () => {
     expect(moneyBullets(thinFileCard)).toEqual([]);
+  });
+});
+
+describe("additionalFinancingBullets", () => {
+  it("keeps every sentence of a financing item, only stripping the citation marker (6b9dfea regression)", () => {
+    const qualification = "The company name, geography, product category, and founding team do not match the current boski.com, making this an almost certain name collision rather than a prior round for the same company.";
+    const rawText = `A similarly named company reportedly raised $1M in seed financing from investors backing its consumer retail products and international expansion. ${qualification} [c1]`;
+    expect(rawText.length).toBeGreaterThan(260);
+
+    const section = emptyResearchSectionForCard(richConflictCard, "financing", "available");
+    section.content = {
+      status: "available",
+      summary: null,
+      confidence: "high",
+      items: [{ label: "Different company", text: rawText, citationIds: ["c1"] }]
+    };
+
+    const bullets = additionalFinancingBullets(richConflictCard, buildCitationIndex(richConflictCard), [section]);
+
+    expect(bullets).toHaveLength(1);
+    expect(bullets[0]?.text).toBe(
+      "A similarly named company reportedly raised $1M in seed financing from investors backing its consumer retail products and international expansion. " +
+      qualification
+    );
+    expect(bullets[0]?.text).not.toContain("[c1]");
+    expect(bullets[0]?.citationIds).toEqual(["c1"]);
+  });
+
+  it("skips the total-raised and round-named items moneyBullets already composes", () => {
+    const section = emptyResearchSectionForCard(richConflictCard, "financing", "available");
+    section.content = {
+      status: "available",
+      summary: null,
+      confidence: "high",
+      items: [
+        { label: "Total raised", text: "Raised $58M total. [c3]", citationIds: ["c3"] },
+        { label: "Series B", text: "Series B closed March 2026. [c3]", citationIds: ["c3"] },
+        { label: "Investors", text: "Backed by Root Ventures and Basecamp Fund. [c3]", citationIds: ["c3"] }
+      ]
+    };
+
+    const bullets = additionalFinancingBullets(richConflictCard, buildCitationIndex(richConflictCard), [section]);
+
+    expect(bullets).toEqual([
+      { text: "Backed by Root Ventures and Basecamp Fund.", state: "reported", citationIds: ["c3"] }
+    ]);
+  });
+
+  it("returns nothing when no financing section is available", () => {
+    expect(additionalFinancingBullets(richConflictCard, buildCitationIndex(richConflictCard), [])).toEqual([]);
   });
 });
 
