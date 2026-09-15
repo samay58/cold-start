@@ -8,6 +8,13 @@ import {
   alphaInvites,
   alphaRunRequests
 } from "../schema";
+import {
+  assertNonNegativeInteger,
+  assertPositiveInteger,
+  assertSha256Hex,
+  booleanFromSql,
+  dateFromSql
+} from "../validation";
 
 export type AlphaInviteStatus = "pending" | "active" | "revoked";
 export type AlphaInviteState = "ready" | "expired" | "installation_limit" | "invalid_invite" | "revoked" | "used";
@@ -152,9 +159,9 @@ export async function createAlphaInvite(
     now?: Date;
   }
 ): Promise<AlphaInvite> {
-  assertSha256Hash(input.tokenHash, "tokenHash");
+  assertSha256Hex(input.tokenHash, "tokenHash");
   if (input.presentationTokenHash !== undefined) {
-    assertSha256Hash(input.presentationTokenHash, "presentationTokenHash");
+    assertSha256Hex(input.presentationTokenHash, "presentationTokenHash");
   }
   const now = input.now ?? new Date();
   const profileLimit = input.profileLimit ?? 12;
@@ -219,8 +226,8 @@ export async function rotateAlphaInviteLinkSecrets(
   db: ColdStartDb,
   input: { inviteId: string; tokenHash: string; presentationTokenHash: string; now?: Date }
 ): Promise<AlphaInvite | null> {
-  assertSha256Hash(input.tokenHash, "tokenHash");
-  assertSha256Hash(input.presentationTokenHash, "presentationTokenHash");
+  assertSha256Hex(input.tokenHash, "tokenHash");
+  assertSha256Hex(input.presentationTokenHash, "presentationTokenHash");
   const now = input.now ?? new Date();
   const rows = await db
     .update(alphaInvites)
@@ -245,7 +252,7 @@ export async function findActiveAlphaInviteCardByPresentationTokenHash(
   presentationTokenHash: string,
   now = new Date()
 ): Promise<{ displayName: string | null; ordinal: number | null; cardPngBase64: string | null } | null> {
-  assertSha256Hash(presentationTokenHash, "presentationTokenHash");
+  assertSha256Hex(presentationTokenHash, "presentationTokenHash");
   const rows = await db
     .select({
       displayName: alphaInvites.displayName,
@@ -274,7 +281,7 @@ export async function consumeAlphaInviteAttempt(
   db: ColdStartDb,
   input: { sourceHash: string; limit: number; windowSeconds: number; now?: Date }
 ): Promise<boolean> {
-  assertSha256Hash(input.sourceHash, "sourceHash");
+  assertSha256Hex(input.sourceHash, "sourceHash");
   assertPositiveInteger(input.limit, "limit");
   assertPositiveInteger(input.windowSeconds, "windowSeconds");
   const result = await db.execute<{ result: boolean }>(sql`
@@ -370,8 +377,8 @@ export async function redeemAlphaInvite(
     now?: Date;
   }
 ): Promise<AlphaInstallationAuth | null> {
-  assertSha256Hash(input.tokenHash, "tokenHash");
-  assertSha256Hash(input.accessTokenHash, "accessTokenHash");
+  assertSha256Hex(input.tokenHash, "tokenHash");
+  assertSha256Hex(input.accessTokenHash, "accessTokenHash");
   const now = input.now ?? new Date();
   const result = await db.execute<{ result: AlphaAuthSqlRow | null }>(sql`
     select redeem_alpha_invite(
@@ -393,7 +400,7 @@ export async function findActiveAlphaInstallationByTokenHash(
   tokenHash: string,
   now = new Date()
 ): Promise<AlphaInstallationAuth | null> {
-  assertSha256Hash(tokenHash, "tokenHash");
+  assertSha256Hex(tokenHash, "tokenHash");
   const rows = await db
     .select({
       installationId: alphaInstallations.id,
@@ -934,31 +941,4 @@ function countBy<T, K extends string>(values: readonly T[], key: (value: T) => K
     counts[itemKey] = (counts[itemKey] ?? 0) + 1;
   }
   return counts;
-}
-
-function assertSha256Hash(value: string, field: string) {
-  if (!/^[0-9a-f]{64}$/.test(value)) {
-    throw new TypeError(`${field} must be a lowercase SHA-256 hex digest`);
-  }
-}
-
-function assertNonNegativeInteger(value: number, field: string) {
-  if (!Number.isInteger(value) || value < 0) {
-    throw new RangeError(`${field} must be a non-negative integer`);
-  }
-}
-
-function assertPositiveInteger(value: number, field: string) {
-  if (!Number.isInteger(value) || value <= 0) {
-    throw new RangeError(`${field} must be a positive integer`);
-  }
-}
-
-function dateFromSql(value: Date | string | undefined): Date {
-  if (!value) throw new TypeError("database timestamp is missing");
-  return value instanceof Date ? value : new Date(value);
-}
-
-function booleanFromSql(value: boolean | string): boolean {
-  return value === true || value === "true" || value === "t";
 }

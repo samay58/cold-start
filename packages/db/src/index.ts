@@ -7,6 +7,7 @@ export * from "./repositories/cards";
 export * from "./repositories/evidence";
 export * from "./repositories/generation-runs";
 export * from "./repositories/how-it-wins-judgments";
+export * from "./repositories/how-it-wins-job-state";
 export * from "./repositories/how-it-wins-jobs";
 export * from "./repositories/research-events";
 export * from "./repositories/research-sections";
