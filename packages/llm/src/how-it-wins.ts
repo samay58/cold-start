@@ -13,6 +13,7 @@ import {
   type HowItWinsStrategyId
 } from "@cold-start/core";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
+import type { HowItWinsMessageExecutor } from "./how-it-wins-message";
 import { parseModelString, withProviderFallback } from "./llm-provider";
 import {
   citationIdsFromNote,
@@ -70,6 +71,13 @@ const BANNED_OUTPUT_PHRASES = [
 // a little wider than the ask so a good sentence at 41 words is not re-asked for its own sake.
 const SENTENCE_MAX_WORDS = 45;
 const NOTE_MAX_CITATION_MARKERS = 4;
+
+export class HowItWinsWriterOutputError extends Error {
+  constructor() {
+    super("How it wins writer output failed validation");
+    this.name = "HowItWinsWriterOutputError";
+  }
+}
 
 export class HowItWinsEmptyTextError extends Error {
   constructor(message = "the how-it-wins model returned no text block") {
@@ -250,23 +258,31 @@ type WriterCall = {
   system: string;
   telemetry?: AnthropicTelemetrySink | undefined;
   user: string;
+  executeMessage?: HowItWinsMessageExecutor;
+  nextCallId?: () => string;
 };
 
 async function callOnce(call: WriterCall, maxTokens: number, thinkingDisabled = false): Promise<string> {
-  const message = await createTracedAnthropicMessage({
-    client: call.client,
-    label: call.label,
+  const params = {
     model: call.model,
-    stage: "how_it_wins",
-    telemetry: call.telemetry,
-    params: {
+    max_tokens: maxTokens,
+    ...(thinkingDisabled ? { thinking: { type: "disabled" as const } } : {}),
+    system: [{ type: "text" as const, text: call.system, cache_control: anthropicSystemCacheControl() }],
+    messages: [{ role: "user" as const, content: call.user }]
+  };
+  const invoke = (requestOptions?: Parameters<HowItWinsMessageExecutor>[1] extends (options: infer O) => unknown ? O : never) =>
+    createTracedAnthropicMessage({
+      client: call.client,
+      label: call.label,
       model: call.model,
-      max_tokens: maxTokens,
-      ...(thinkingDisabled ? { thinking: { type: "disabled" as const } } : {}),
-      system: [{ type: "text", text: call.system, cache_control: anthropicSystemCacheControl() }],
-      messages: [{ role: "user", content: call.user }]
-    }
-  });
+      stage: "how_it_wins",
+      telemetry: call.telemetry,
+      params,
+      ...(requestOptions ? { requestOptions } : {})
+    });
+  const message = call.executeMessage
+    ? await call.executeMessage({ callId: call.nextCallId!(), model: call.model, params }, invoke)
+    : await invoke();
 
   return textFromMessage(message);
 }
@@ -311,23 +327,27 @@ export async function synthesizeHowItWins(input: {
   // Only the eval rig sets this, to put an older writer prompt against the shipped one over a
   // single frozen verdict. Production never sets it and always writes with the shipped prompt.
   writerPrompt?: string;
+  executeMessage?: HowItWinsMessageExecutor;
 }): Promise<HowItWinsResult> {
   const judgment = input.judgment;
   const request = frozenHowItWinsWriterRequest(judgment);
   const system = input.writerPrompt ?? request.prompt;
   const user = `Approved judgment:\n${JSON.stringify(request.payload)}\n\nEvidence:\n${JSON.stringify(cardForHowItWinsPrompt(input.card))}`;
-  const askWriter = (userText: string) =>
-    withProviderFallback("how_it_wins", input.models.writer, (model) =>
-      callWithEmptyTextRetry({
-        client: input.client,
-        telemetry: input.telemetry,
-        label: "how-it-wins-frozen-writer",
-        model,
-        system,
-        user: userText,
-        maxTokens: WRITER_MAX_TOKENS
-      })
-    );
+  let callNumber = 0;
+  const nextCallId = () => `writer:${++callNumber}`;
+  const askWriter = (userText: string) => {
+    const run = (model: string) => callWithEmptyTextRetry({
+      client: input.client,
+      telemetry: input.telemetry,
+      label: "how-it-wins-frozen-writer",
+      model,
+      system,
+      user: userText,
+      maxTokens: WRITER_MAX_TOKENS,
+      ...(input.executeMessage ? { executeMessage: input.executeMessage, nextCallId } : {})
+    });
+    return input.executeMessage ? run(input.models.writer) : withProviderFallback("how_it_wins", input.models.writer, run);
+  };
 
   let parsed = parseFrozenHowItWinsWriterDraft(await askWriter(user), judgment);
   let fitRetried = false;
@@ -339,7 +359,7 @@ export async function synthesizeHowItWins(input: {
     parsed = parseFrozenHowItWinsWriterDraft(await askWriter(retryUser(parsed.issues)), judgment);
   }
   if ("issues" in parsed) {
-    throw new Error(`how-it-wins frozen writer invalid: ${parsed.issues.join("; ")}`);
+    throw new HowItWinsWriterOutputError();
   }
 
   let read = howItWinsFromFrozenWriter(parsed.read);

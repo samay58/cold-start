@@ -183,6 +183,8 @@ const howItWinsReadFixture = {
 };
 
 const mocks = vi.hoisted(() => ({
+  requestHowItWinsJob: vi.fn(),
+  dispatchHowItWinsJob: vi.fn(),
   createDb: vi.fn(() => ({})),
   findCardBySlug: vi.fn(),
   findSourcesBySlug: vi.fn(),
@@ -212,6 +214,11 @@ const mocks = vi.hoisted(() => ({
   recordSourcesForCard: vi.fn(),
   sectionsWithSourceCitations: vi.fn(),
   stableenrichLateEnrichmentSkipsForBlocks: vi.fn()
+}));
+
+vi.mock("../src/inngest/how-it-wins-jobs", () => ({
+  requestHowItWinsJob: mocks.requestHowItWinsJob,
+  dispatchHowItWinsJob: mocks.dispatchHowItWinsJob
 }));
 
 vi.mock("@cold-start/db", () => ({
@@ -347,6 +354,8 @@ function persistedTrace(): GenerationTrace {
 
 describe("generate-card analysis how-it-wins step", () => {
   beforeEach(() => {
+    mocks.requestHowItWinsJob.mockResolvedValue({ job: { id: "job-id", inngestEventId: "event-id", slug: "modal" } });
+    mocks.dispatchHowItWinsJob.mockResolvedValue(true);
     vi.clearAllMocks();
     mocks.markGenerationRun.mockResolvedValue({ id: "generation-run-id" });
     mocks.mutateCard.mockResolvedValue(null);
@@ -400,26 +409,21 @@ describe("generate-card analysis how-it-wins step", () => {
   });
 
   it("hands the read to the background function after the card is stored, never inside the run", async () => {
-    const { names, step } = await runAnalysisGeneration();
+    const { names } = await runAnalysisGeneration();
 
     // No judge, no writer, no verifier claims: the analysis run only decides and dispatches.
     expect(mocks.judgeHowItWinsForAnalysis).not.toHaveBeenCalled();
     expect(mocks.synthesizeHowItWins).not.toHaveBeenCalled();
     expect(names).not.toContain("how-it-wins");
-    expect(names.indexOf("request-how-it-wins")).toBeGreaterThan(names.indexOf("upsert-card"));
+    expect(names.indexOf("request-how-it-wins-v2")).toBeGreaterThan(names.indexOf("upsert-card"));
+    expect(names.indexOf("admit-how-it-wins-v2")).toBeGreaterThan(names.indexOf("mark-generation-complete"));
 
-    const dispatched = step.sendEvent.mock.calls.at(-1);
-    expect(dispatched?.[0]).toBe("request-how-it-wins");
-    expect(dispatched?.[1]).toMatchObject({
-      name: "card/how-it-wins.requested",
-      data: {
-        slug: "modal",
-        domain: "modal.com",
-        parentGenerationRunId: "generation-run-id",
-        parentInngestRunId: "inngest-run"
-      }
+    expect(mocks.requestHowItWinsJob).toHaveBeenCalledWith(expect.anything(), {
+      card: expect.objectContaining({ slug: "modal" }), sourceAnalysisRunId: "generation-run-id"
     });
-    expect(typeof (dispatched?.[1] as { data: { requestedAtMs: unknown } }).data.requestedAtMs).toBe("number");
+    expect(mocks.dispatchHowItWinsJob).toHaveBeenCalledWith(expect.anything(), {
+      id: "job-id", inngestEventId: "event-id", slug: "modal"
+    });
   });
 
   it("emits how-it-wins.started after the card is saved and leaves the trace deferred", async () => {
@@ -450,7 +454,7 @@ describe("generate-card analysis how-it-wins step", () => {
   it("skips the dispatch entirely when HOW_IT_WINS_ENABLED=false", async () => {
     const { names } = await runAnalysisGeneration(stepHarness(), { howItWinsEnabled: false });
 
-    expect(names).not.toContain("request-how-it-wins");
+    expect(names).not.toContain("request-how-it-wins-v2");
     const types = eventTypes();
     expect(types).not.toContain("how-it-wins.started");
     expect(types).not.toContain("how-it-wins.complete");
@@ -480,7 +484,7 @@ describe("generate-card analysis how-it-wins step", () => {
 
     const { names } = await runAnalysisGeneration();
 
-    expect(names).not.toContain("request-how-it-wins");
+    expect(names).not.toContain("request-how-it-wins-v2");
     const types = eventTypes();
     expect(types).not.toContain("how-it-wins.started");
     expect(eventOfType("how-it-wins.complete")?.metadata).toMatchObject({ status: "thin_file" });
@@ -506,7 +510,7 @@ describe("generate-card analysis how-it-wins step", () => {
 
     const { names } = await runAnalysisGeneration();
 
-    expect(names).not.toContain("request-how-it-wins");
+    expect(names).not.toContain("request-how-it-wins-v2");
     expect(eventTypes()).not.toContain("how-it-wins.started");
 
     const trace = persistedTrace();

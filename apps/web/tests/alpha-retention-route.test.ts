@@ -17,6 +17,8 @@ const zeroes = {
 const mocks = vi.hoisted(() => ({
   createDb: vi.fn(() => ({ kind: "db" })),
   alphaRetentionPlan: vi.fn(() => plan),
+  pruneHowItWinsJobs: vi.fn().mockResolvedValue(0),
+  clearExpiredHowItWinsRecoveryPayloads: vi.fn().mockResolvedValue(0),
   pruneAlphaRetention: vi.fn()
 }));
 
@@ -25,6 +27,8 @@ vi.mock("@cold-start/db", () => ({
   ALPHA_RETENTION_MAX_DELETIONS: 10_000,
   createDb: mocks.createDb,
   alphaRetentionPlan: mocks.alphaRetentionPlan,
+  pruneHowItWinsJobs: mocks.pruneHowItWinsJobs,
+  clearExpiredHowItWinsRecoveryPayloads: mocks.clearExpiredHowItWinsRecoveryPayloads,
   pruneAlphaRetention: mocks.pruneAlphaRetention
 }));
 
@@ -86,6 +90,7 @@ describe("GET /api/alpha/retention", () => {
       { kind: "db" },
       { plan, kinds: ["events", "accessRequests", "howItWinsJudgments"], batch: 1_000, maximum: 10_000 }
     );
+    expect(mocks.pruneHowItWinsJobs).toHaveBeenCalledWith({ kind: "db" }, { before: plan.howItWinsJudgmentsBefore, limit: 1_000 });
     expect(body).toMatchObject({
       deleted: 1_230,
       accessRequestsDeleted: 42,

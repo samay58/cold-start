@@ -147,21 +147,22 @@ export const howItWinsJudgeCallTraceSchema = z.object({
   stage: z.enum(["global_judge", "critic", "adjudication"]),
   provider: z.string().min(1),
   model: z.string().min(1),
-  inputTokens: z.number().int().nonnegative(),
-  outputTokens: z.number().int().nonnegative(),
-  cacheCreationInputTokens: z.number().int().nonnegative(),
-  cacheReadInputTokens: z.number().int().nonnegative(),
-  actualCostUsd: z.number().nonnegative().nullable(),
-  estimatedCostUsd: z.number().nonnegative().nullable(),
+  responseId: z.string().min(1).optional(),
+  responseModel: z.string().min(1).optional(),
+  servingProvider: z.string().min(1).optional(),
+  inputTokens: z.number().int().nonnegative().optional(),
+  outputTokens: z.number().int().nonnegative().optional(),
+  cacheCreationInputTokens: z.number().int().nonnegative().optional(),
+  cacheReadInputTokens: z.number().int().nonnegative().optional(),
+  actualCostUsd: z.number().nonnegative().nullable().optional(),
+  estimatedCostUsd: z.number().nonnegative().nullable().optional(),
   latencyMs: z.number().nonnegative(),
   retryCount: z.number().int().nonnegative(),
   thinkingState: z.enum(["enabled", "disabled", "unknown"]),
   outcome: z.enum(["ok", "failed"]),
+  providerOutcome: z.enum(["ok", "failed"]).optional(),
+  validationOutcome: z.enum(["not_run", "ok", "failed"]).optional(),
   error: z.string().min(1).optional()
-}).superRefine((call, ctx) => {
-  if (call.actualCostUsd === null && call.estimatedCostUsd === null) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["estimatedCostUsd"], message: "actual or estimated cost is required" });
-  }
 });
 
 export type HowItWinsJudgeCallTrace = z.infer<typeof howItWinsJudgeCallTraceSchema>;

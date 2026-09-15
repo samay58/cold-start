@@ -23,6 +23,10 @@ import {
   type HowItWinsJudgeAdapter,
   type HowItWinsJudgeCallRequest,
   type HowItWinsJudgeCallTrace,
+  type HowItWinsJudgeExecuteCall,
+  type HowItWinsJudgeValidationSink,
+  type HowItWinsPrimaryJudgment,
+  type HowItWinsPrimaryJudgmentSink,
   type HowItWinsJudgeRules
 } from "../src";
 
@@ -403,6 +407,10 @@ describe("createHowItWinsJudge", () => {
     options: {
       telemetry?: (trace: HowItWinsJudgeCallTrace) => void;
       refinement?: boolean;
+      executeCall?: HowItWinsJudgeExecuteCall;
+      onValidation?: HowItWinsJudgeValidationSink;
+      onPrimaryJudgment?: HowItWinsPrimaryJudgmentSink;
+      resumePrimaryJudgment?: HowItWinsPrimaryJudgment;
     } = {}
   ) {
     return createHowItWinsJudge({ adapters: fake, rules, ...options });
@@ -659,6 +667,7 @@ describe("createHowItWinsJudge", () => {
     const fake = adapters();
     const original = fake.strong;
     let failed = false;
+    const validation = vi.fn();
     fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
       if (request.stage === "global_judge" && !failed) {
         failed = true;
@@ -666,25 +675,235 @@ describe("createHowItWinsJudge", () => {
           ok: false,
           error: "output.betRefs contains unknown local bet reference 2",
           retryable: true,
+          failureKind: "structured_output",
           repairInstruction: "Use only local bet reference 1 and return the complete result.",
-          trace: trace(request, "fake-strong", "failed")
+          candidate: { strategyEvaluations: [{ strategyId: "usership" }] },
+          diagnostics: [{
+            stage: "global_judge",
+            code: "invalid_type",
+            path: "strategyEvaluations.0.disposition",
+            strategyId: "usership"
+          }],
+          trace: {
+            ...trace(request, "fake-strong", "failed"),
+            providerOutcome: "ok",
+            validationOutcome: "failed"
+          }
         };
       }
       return original(request);
     });
 
-    await makeJudge(fake)(judgeInput());
+    await makeJudge(fake, { onValidation: validation })(judgeInput());
 
     const globalCalls = fake.strong.mock.calls
       .map(([request]) => request)
       .filter((request) => request.stage === "global_judge");
     expect(globalCalls).toHaveLength(2);
     expect(globalCalls[1]?.payload).toMatchObject({
-      retryCorrection: "Use only local bet reference 1 and return the complete result."
+      retryCorrection: "Use only local bet reference 1 and return the complete result.",
+      previousNormalizedOutput: { strategyEvaluations: [{ strategyId: "usership" }] }
+    });
+    expect(validation.mock.calls[0]?.[0]).toMatchObject({
+      request: { callId: "how-it-wins:monolith" },
+      outcome: "failed",
+      failureKind: "structured_output",
+      diagnostics: [{ path: "strategyEvaluations.0.disposition" }]
     });
   });
 
-  it("stops closed after two transient failures and does not retry semantic failures", async () => {
+  it("runs each logical provider request through the execution hook", async () => {
+    const received: HowItWinsJudgeCallRequest[] = [];
+    const fake = adapters({ onRequest: (request) => { received.push(request); } });
+    const executed: string[] = [];
+    const controller = new AbortController();
+    const deadlineAt = Date.now() + 30_000;
+    const executeCall: HowItWinsJudgeExecuteCall = async (request, invoke) => {
+      executed.push(request.callId);
+      return invoke({ signal: controller.signal, deadlineAt });
+    };
+
+    await makeJudge(fake, { refinement: false, executeCall })(judgeInput({ refinement: false }));
+
+    expect(executed).toEqual(["how-it-wins:monolith"]);
+    expect(received[0]).toMatchObject({ signal: controller.signal, deadlineAt });
+  });
+
+  it("preserves typed execution-hook failures by identity", async () => {
+    const failure = Object.assign(new Error("lease lost"), { code: "lease_lost" });
+    const fake = adapters();
+
+    await expect(makeJudge(fake, {
+      refinement: false,
+      executeCall: async () => { throw failure; }
+    })(judgeInput({ refinement: false }))).rejects.toBe(failure);
+    expect(fake.strong).not.toHaveBeenCalled();
+  });
+
+  it("awaits the validated primary checkpoint before starting optional refinement", async () => {
+    const failure = Object.assign(new Error("checkpoint unavailable"), { code: "lease_lost" });
+    const fake = adapters();
+    const onPrimaryJudgment = vi.fn<HowItWinsPrimaryJudgmentSink>(async () => { throw failure; });
+
+    await expect(makeJudge(fake, { onPrimaryJudgment })(judgeInput())).rejects.toBe(failure);
+
+    expect(onPrimaryJudgment).toHaveBeenCalledOnce();
+    expect(onPrimaryJudgment.mock.calls[0]?.[0]).toMatchObject({
+      schemaVersion: 1,
+      hashes: {
+        evidencePacket: judgeInput().evidencePacketHash,
+        prompt: judgeInput().promptHash,
+        vocabulary: judgeInput().vocabularyHash
+      },
+      body: { strategyEvaluations: expect.arrayContaining([expect.objectContaining({ strategyId: "usership" })]) },
+      repairs: [],
+      calls: [{
+        callId: "how-it-wins:monolith",
+        stage: "global_judge",
+        outcome: "ok",
+        validationOutcome: "ok"
+      }]
+    });
+    expect(fake.critic).not.toHaveBeenCalled();
+  });
+
+  it("resumes a hash-bound primary judgment without repeating its global request", async () => {
+    const input = judgeInput({ refinement: false });
+    const globalRequest: HowItWinsJudgeCallRequest = {
+      callId: "how-it-wins:monolith",
+      stage: "global_judge",
+      attempt: 1,
+      prompt: "stored",
+      payload: {}
+    };
+    const checkpoint: HowItWinsPrimaryJudgment = {
+      schemaVersion: 1,
+      hashes: {
+        evidencePacket: input.evidencePacketHash,
+        prompt: input.promptHash,
+        vocabulary: input.vocabularyHash
+      },
+      body: body(),
+      calls: [{
+        ...trace(globalRequest, "fake-strong"),
+        providerOutcome: "ok",
+        validationOutcome: "ok"
+      }]
+    };
+    const fake = adapters();
+
+    const result = await makeJudge(fake, {
+      refinement: false,
+      resumePrimaryJudgment: checkpoint
+    })(input);
+
+    expect(fake.strong).not.toHaveBeenCalled();
+    expect(fake.critic).not.toHaveBeenCalled();
+    expect(result.strategyEvaluations).toHaveLength(80);
+    expect(result.calls).toEqual(checkpoint.calls);
+  });
+
+  it("rejects a stale or tampered primary checkpoint before any provider call", async () => {
+    const input = judgeInput({ refinement: false });
+    const globalRequest: HowItWinsJudgeCallRequest = {
+      callId: "how-it-wins:monolith",
+      stage: "global_judge",
+      attempt: 1,
+      prompt: "stored",
+      payload: {}
+    };
+    const checkpoint: HowItWinsPrimaryJudgment = {
+      schemaVersion: 1,
+      hashes: {
+        evidencePacket: "stale-packet-hash",
+        prompt: input.promptHash,
+        vocabulary: input.vocabularyHash
+      },
+      body: { ...body(), evidenceCutoff: "2025-01-01T00:00:00.000Z" },
+      calls: [{
+        ...trace(globalRequest, "fake-strong"),
+        providerOutcome: "ok",
+        validationOutcome: "ok"
+      }]
+    };
+    const fake = adapters();
+
+    await expect(makeJudge(fake, {
+      refinement: false,
+      resumePrimaryJudgment: checkpoint
+    })(input)).rejects.toThrow(/hashes do not match/i);
+    expect(fake.strong).not.toHaveBeenCalled();
+
+    checkpoint.hashes.evidencePacket = input.evidencePacketHash;
+    await expect(makeJudge(fake, {
+      refinement: false,
+      resumePrimaryJudgment: checkpoint
+    })(input)).rejects.toThrow(/changed the evidence cutoff/i);
+    expect(fake.strong).not.toHaveBeenCalled();
+  });
+
+  it("reports safe per-attempt validation before correction", async () => {
+    const fake = adapters();
+    const original = fake.strong;
+    fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
+      const result = await original(request);
+      if (!result.ok || request.stage !== "global_judge" || request.attempt > 1) return result;
+      const output = structuredClone(result.output) as {
+        strategyEvaluations: Array<Record<string, unknown>>;
+      };
+      delete output.strategyEvaluations[16]!.dispositionReason;
+      return { ...result, output };
+    });
+    const validation = vi.fn();
+
+    await createHowItWinsJudge({
+      adapters: fake,
+      rules,
+      refinement: false,
+      onValidation: validation
+    })(judgeInput({ refinement: false }));
+
+    expect(validation).toHaveBeenCalledTimes(2);
+    expect(validation.mock.calls[0]?.[0]).toMatchObject({
+      outcome: "failed",
+      failureKind: "structured_output",
+      diagnostics: [{
+        path: "strategyEvaluations.16.dispositionReason",
+        strategyId: HOW_IT_WINS_STRATEGIES[16]!.id
+      }]
+    });
+    expect(validation.mock.calls[1]?.[0]).toMatchObject({ outcome: "ok", diagnostics: [] });
+  });
+
+  it("shares two global requests between transport recovery and schema correction", async () => {
+    const fake = adapters();
+    const original = fake.strong;
+    fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
+      if (request.stage !== "global_judge") return original(request);
+      if (request.attempt === 1) {
+        return {
+          ok: false,
+          error: "transient timeout",
+          retryable: true,
+          failureKind: "transient_provider",
+          trace: trace(request, "fake-strong", "failed")
+        };
+      }
+      const result = await original(request);
+      if (!result.ok) return result;
+      const output = structuredClone(result.output) as {
+        strategyEvaluations: Array<Record<string, unknown>>;
+      };
+      delete output.strategyEvaluations[16]!.dispositionReason;
+      return { ...result, output };
+    });
+
+    await expect(makeJudge(fake, { refinement: false })(judgeInput({ refinement: false })))
+      .rejects.toThrow(/corrected global judgment still failed/i);
+    expect(fake.strong).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops closed after two transient failures and does not retry nonretryable adapter failures", async () => {
     const twice = adapters();
     twice.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => ({
       ok: false,
@@ -714,7 +933,7 @@ describe("createHowItWinsJudge", () => {
       return original(request);
     });
     await expect(makeJudge(semantic)(judgeInput())).rejects.toThrow();
-    expect(semantic.strong.mock.calls.filter(([request]) => request.stage === "global_judge")).toHaveLength(1);
+    expect(semantic.strong.mock.calls.filter(([request]) => request.stage === "global_judge")).toHaveLength(2);
   });
 
   it("accepts only an explicit cited bet revision from adjudication and records one override", async () => {
@@ -1039,6 +1258,34 @@ describe("createHowItWinsJudge", () => {
     expect(result.refinement?.notes.join(" ")).toMatch(/global judgment repaired after/i);
   });
 
+  it("corrects the controlled 80-row union failure that bypassed Column recovery", async () => {
+    const fake = adapters();
+    const original = fake.strong;
+    fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
+      const result = await original(request);
+      if (!result.ok || request.stage !== "global_judge" || request.attempt > 1) return result;
+      const output = structuredClone(result.output) as {
+        strategyEvaluations: Array<Record<string, unknown>>;
+      };
+      delete output.strategyEvaluations[16]!.dispositionReason;
+      return { ...result, output };
+    });
+
+    const result = await makeJudge(fake, { refinement: false })(judgeInput({ refinement: false }));
+
+    const globalRequests = fake.strong.mock.calls
+      .map(([request]) => request)
+      .filter((request) => request.stage === "global_judge");
+    expect(result.strategyEvaluations).toHaveLength(80);
+    expect(globalRequests).toHaveLength(2);
+    expect(globalRequests[1]?.payload).toMatchObject({
+      retryCorrection: expect.stringMatching(/strategyEvaluations\.16\.dispositionReason/),
+      previousNormalizedOutput: expect.objectContaining({
+        strategyEvaluations: expect.any(Array)
+      })
+    });
+  });
+
   it("repairs a contradictory not-yet row in code instead of buying a re-ask", async () => {
     const contradictory = body();
     contradictory.strategyEvaluations = contradictory.strategyEvaluations.map((entry) => entry.strategyId === "aggregation"
@@ -1056,8 +1303,9 @@ describe("createHowItWinsJudge", () => {
       }
       : entry);
     const fake = adapters({ judgment: contradictory });
+    const onPrimaryJudgment = vi.fn<HowItWinsPrimaryJudgmentSink>();
 
-    const result = await makeJudge(fake)(judgeInput());
+    const result = await makeJudge(fake, { refinement: false, onPrimaryJudgment })(judgeInput({ refinement: false }));
 
     expect(fake.strong).toHaveBeenCalledTimes(1);
     expect(result.refinement?.repairs).toHaveLength(1);
@@ -1067,6 +1315,16 @@ describe("createHowItWinsJudge", () => {
       disposition: "not_yet",
       presentRelevance: "unresolved"
     });
+    const primary = onPrimaryJudgment.mock.calls[0]![0];
+    expect(primary.repairs).toEqual(result.refinement?.repairs);
+
+    const replayAdapters = adapters();
+    const replay = await makeJudge(replayAdapters, {
+      refinement: false,
+      resumePrimaryJudgment: primary
+    })(judgeInput({ refinement: false }));
+    expect(replayAdapters.strong).not.toHaveBeenCalled();
+    expect(replay.refinement?.repairs).toEqual(primary.repairs);
   });
 
   it("still buys one re-ask for a contradiction the repair pass cannot settle", async () => {

@@ -413,4 +413,32 @@ describe("createTracedOpenAiCompatMessage", () => {
     expect(traces[0]).toMatchObject({ status: "failed", provider: "deepseek" });
     expect(traces[0]?.error).toMatch(/400/);
   });
+
+  it("cancels a stalled response body when the caller aborts", async () => {
+    let bodyCancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"id":"unfinished"'));
+      },
+      cancel() {
+        bodyCancelled = true;
+      }
+    });
+    fetchMock.mockResolvedValueOnce(new Response(stream, {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    }));
+    const controller = new AbortController();
+    const pending = createTracedOpenAiCompatMessage({
+      ...callInput(),
+      requestOptions: { signal: controller.signal, timeout: 10_000, maxRetries: 0 }
+    });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    controller.abort(new DOMException("caller cancelled", "AbortError"));
+
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    expect(bodyCancelled).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

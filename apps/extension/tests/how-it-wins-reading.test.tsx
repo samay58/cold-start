@@ -1,13 +1,16 @@
 // @vitest-environment jsdom
 
+import type { ColdStartCard, HowItWinsJobStatusEnvelope, HowItWinsJobSummary } from "@cold-start/core";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ColdStartCard } from "@cold-start/core";
 import {
   HOW_IT_WINS_POLL_WINDOW_MS,
   howItWinsPollDelayMs,
-  useHowItWinsReadPoll
+  useHowItWinsJobStatus,
+  type HowItWinsCardFetch,
+  type HowItWinsRetry,
+  type HowItWinsStatusFetch
 } from "../src/research/how-it-wins-reading";
 import { filedHowItWins, minimalWarpCard } from "./lens-card-fixtures";
 
@@ -18,21 +21,50 @@ const SYNTHESIS = {
   openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" as const }]
 };
 
-const waitingCard: ColdStartCard = minimalWarpCard({ synthesis: SYNTHESIS });
 const readCard: ColdStartCard = minimalWarpCard({
   synthesis: { ...SYNTHESIS, howItWins: filedHowItWins() }
 });
 
+function job(
+  status: HowItWinsJobSummary["status"],
+  overrides: Partial<HowItWinsJobSummary> = {}
+): HowItWinsJobSummary {
+  return {
+    id: "10000000-0000-4000-8000-000000000001",
+    status,
+    stage: status === "queued" ? "queued" : status === "succeeded" ? "complete" : "judge_initial",
+    reasonCode: status === "failed" ? "structured_output" : null,
+    canRetry: status === "failed",
+    updatedAt: "2026-09-14T20:00:00.000Z",
+    ...overrides
+  };
+}
+
 type ProbeProps = {
-  pending: boolean;
-  pollKey: string | null;
-  fetchCard: ((signal: AbortSignal) => Promise<ColdStartCard>) | null;
-  onCard: (card: ColdStartCard) => void;
+  enabled?: boolean;
+  scopeKey: string | null;
+  fetchStatus: HowItWinsStatusFetch | null;
+  retryJob?: HowItWinsRetry | null;
+  fetchCard?: HowItWinsCardFetch | null;
+  onCard?: (card: ColdStartCard) => void;
 };
 
-function Probe(props: ProbeProps) {
-  const reading = useHowItWinsReadPoll(props);
-  return <span data-reading={reading ? "true" : "false"} />;
+function Probe({
+  enabled = true,
+  scopeKey,
+  fetchStatus,
+  retryJob = null,
+  fetchCard = null,
+  onCard = () => undefined
+}: ProbeProps) {
+  const view = useHowItWinsJobStatus({ enabled, scopeKey, fetchStatus, retryJob, fetchCard, onCard });
+  return (
+    <div data-job-id={view.job?.id ?? ""} data-phase={view.phase}>
+      <span>{view.detail}</span>
+      <button onClick={view.checkAgain} type="button">Check</button>
+      <button disabled={view.actionPending} onClick={view.retry} type="button">Retry</button>
+    </div>
+  );
 }
 
 function mountProbe(initial: ProbeProps) {
@@ -40,23 +72,27 @@ function mountProbe(initial: ProbeProps) {
   document.body.append(container);
   const root = createRoot(container);
   return {
-    reading() {
-      return container.querySelector("span")?.getAttribute("data-reading") ?? null;
+    phase() {
+      return container.querySelector("div")?.getAttribute("data-phase") ?? null;
+    },
+    jobId() {
+      return container.querySelector("div")?.getAttribute("data-job-id") ?? null;
+    },
+    text() {
+      return container.textContent ?? "";
+    },
+    async click(label: "Check" | "Retry") {
+      const button = [...container.querySelectorAll("button")].find((candidate) => candidate.textContent === label);
+      await act(async () => button?.click());
     },
     async render(props: ProbeProps) {
-      await act(async () => {
-        root.render(<Probe {...props} />);
-      });
+      await act(async () => root.render(<Probe {...props} />));
     },
     async start() {
-      await act(async () => {
-        root.render(<Probe {...initial} />);
-      });
+      await act(async () => root.render(<Probe {...initial} />));
     },
     async tick(ms: number) {
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(ms);
-      });
+      await act(async () => vi.advanceTimersByTimeAsync(ms));
     },
     async unmount() {
       await act(async () => root.unmount());
@@ -65,15 +101,22 @@ function mountProbe(initial: ProbeProps) {
   };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve };
+}
+
 describe("howItWinsPollDelayMs", () => {
   it("opens fast, then settles onto a minute", () => {
     expect([0, 1, 2, 3, 4].map(howItWinsPollDelayMs)).toEqual([8_000, 12_000, 20_000, 30_000, 45_000]);
     expect(howItWinsPollDelayMs(5)).toBe(60_000);
-    expect(howItWinsPollDelayMs(40)).toBe(60_000);
   });
 });
 
-describe("useHowItWinsReadPoll", () => {
+describe("useHowItWinsJobStatus", () => {
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
     vi.useFakeTimers();
@@ -83,126 +126,217 @@ describe("useHowItWinsReadPoll", () => {
     vi.useRealTimers();
   });
 
-  it("waits on the backoff and hands back the card the moment the read lands", async () => {
-    const seen: ColdStartCard[] = [];
-    const fetchCard = vi.fn(async () => (fetchCard.mock.calls.length < 3 ? waitingCard : readCard));
-    const probe = mountProbe({
-      pending: true,
-      pollKey: "warp.dev",
-      fetchCard,
-      onCard: (card) => seen.push(card)
-    });
+  it("does not read status before a saved Investor Lens exists", async () => {
+    const fetchStatus = vi.fn<HowItWinsStatusFetch>();
+    const probe = mountProbe({ enabled: false, scopeKey: "warp.dev", fetchStatus });
     await probe.start();
-    expect(probe.reading()).toBe("true");
-    expect(fetchCard).not.toHaveBeenCalled();
+    expect(probe.phase()).toBe("idle");
+    expect(fetchStatus).not.toHaveBeenCalled();
+    await probe.unmount();
+  });
 
-    await probe.tick(7_999);
-    expect(fetchCard).not.toHaveBeenCalled();
-    await probe.tick(1);
-    expect(fetchCard).toHaveBeenCalledTimes(1);
-    // A card that still carries no read is the one already on screen, so nothing is handed back.
-    expect(seen).toHaveLength(0);
+  it("loads persisted failure state when the panel opens", async () => {
+    const failed = job("failed", { reasonCode: "deadline_expired", canRetry: true });
+    const fetchStatus = vi.fn(async (): Promise<HowItWinsJobStatusEnvelope> => ({ job: failed }));
+    const probe = mountProbe({ scopeKey: "warp.dev", fetchStatus });
+    await probe.start();
+    expect(probe.phase()).toBe("failed");
+    expect(probe.jobId()).toBe(failed.id);
+    expect(probe.text()).toContain("The read ran out of time.");
+    await probe.unmount();
+  });
 
+  it("follows a short admission gap from no job through queued to success", async () => {
+    const responses: HowItWinsJobStatusEnvelope[] = [
+      { job: null },
+      { job: job("queued") },
+      { job: job("succeeded", { stage: "complete", outcome: "read", updatedAt: "2026-09-14T20:01:00.000Z" }) }
+    ];
+    const fetchStatus = vi.fn(async () => responses.shift() ?? { job: null });
+    const fetchCard = vi.fn(async () => readCard);
+    const onCard = vi.fn();
+    const probe = mountProbe({ scopeKey: "warp.dev", fetchStatus, fetchCard, onCard });
+    await probe.start();
+
+    expect(probe.phase()).toBe("idle");
+    expect(fetchStatus).toHaveBeenCalledTimes(1);
+    await probe.tick(8_000);
+    expect(probe.phase()).toBe("reading");
     await probe.tick(12_000);
-    expect(fetchCard).toHaveBeenCalledTimes(2);
-    await probe.tick(20_000);
-    expect(fetchCard).toHaveBeenCalledTimes(3);
-    expect(seen).toEqual([readCard]);
-
-    // The wait is over: nothing more is fetched once the caller stops asking.
-    await probe.render({ pending: false, pollKey: "warp.dev", fetchCard, onCard: (card) => seen.push(card) });
-    await probe.tick(120_000);
-    expect(fetchCard).toHaveBeenCalledTimes(3);
-    expect(probe.reading()).toBe("false");
+    expect(probe.phase()).toBe("succeeded");
+    expect(fetchStatus).toHaveBeenCalledTimes(3);
+    expect(fetchCard).toHaveBeenCalledTimes(1);
+    expect(onCard).toHaveBeenCalledWith(readCard);
     await probe.unmount();
   });
 
-  it("keeps waiting through a failed fetch", async () => {
-    const fetchCard = vi.fn(async () => {
-      if (fetchCard.mock.calls.length === 1) {
-        throw new Error("network");
-      }
-      return waitingCard;
+  it("stops all-null admission polling while leaving the crown at rest", async () => {
+    const fetchStatus = vi.fn(async (): Promise<HowItWinsJobStatusEnvelope> => ({ job: null }));
+    const fetchCard = vi.fn<HowItWinsCardFetch>();
+    const probe = mountProbe({ scopeKey: "warp.dev", fetchStatus, fetchCard });
+    await probe.start();
+
+    expect(probe.phase()).toBe("idle");
+    await probe.tick(40_000);
+    expect(fetchStatus).toHaveBeenCalledTimes(4);
+    expect(probe.phase()).toBe("idle");
+    await probe.tick(60_000);
+    expect(fetchStatus).toHaveBeenCalledTimes(4);
+    expect(fetchCard).not.toHaveBeenCalled();
+    await probe.unmount();
+  });
+
+  it("polls a saved job and refreshes the card after success", async () => {
+    const responses = [
+      { job: job("running") },
+      { job: job("succeeded", { stage: "complete", outcome: "read", updatedAt: "2026-09-14T20:01:00.000Z" }) }
+    ];
+    const fetchStatus = vi.fn(async () => responses.shift() ?? responses[0]!);
+    const fetchCard = vi.fn(async () => readCard);
+    const onCard = vi.fn();
+    const retryJob = vi.fn<HowItWinsRetry>();
+    const probe = mountProbe({ scopeKey: "warp.dev", fetchStatus, fetchCard, onCard, retryJob });
+    await probe.start();
+
+    expect(probe.phase()).toBe("reading");
+    expect(fetchStatus).toHaveBeenCalledTimes(1);
+    expect(fetchCard).not.toHaveBeenCalled();
+    expect(retryJob).not.toHaveBeenCalled();
+
+    await probe.tick(8_000);
+    expect(probe.phase()).toBe("succeeded");
+    expect(fetchCard).toHaveBeenCalledTimes(1);
+    expect(onCard).toHaveBeenCalledWith(readCard);
+    expect(retryJob).not.toHaveBeenCalled();
+    await probe.unmount();
+  });
+
+  it("lets Check again refetch a card that lagged behind a succeeded job", async () => {
+    const succeeded = job("succeeded", { stage: "complete", outcome: "read" });
+    const fetchStatus = vi.fn(async (): Promise<HowItWinsJobStatusEnvelope> => ({ job: succeeded }));
+    const staleCard = minimalWarpCard({ synthesis: SYNTHESIS });
+    const fetchCard = vi.fn(async () => fetchCard.mock.calls.length === 1 ? staleCard : readCard);
+    const onCard = vi.fn();
+    const probe = mountProbe({ scopeKey: "warp.dev", fetchStatus, fetchCard, onCard });
+    await probe.start();
+
+    expect(probe.phase()).toBe("unknown");
+    expect(onCard).not.toHaveBeenCalled();
+    await probe.click("Check");
+    expect(fetchCard).toHaveBeenCalledTimes(2);
+    expect(onCard).toHaveBeenCalledWith(readCard);
+    await probe.unmount();
+  });
+
+  it("ends an unconfirmed polling window as unknown and checks again without retrying", async () => {
+    const fetchStatus = vi.fn(async (): Promise<HowItWinsJobStatusEnvelope> => ({ job: job("running") }));
+    const retryJob = vi.fn<HowItWinsRetry>();
+    const probe = mountProbe({ scopeKey: "warp.dev", fetchStatus, retryJob });
+    await probe.start();
+    await probe.tick(HOW_IT_WINS_POLL_WINDOW_MS);
+    expect(probe.phase()).toBe("unknown");
+    const statusCalls = fetchStatus.mock.calls.length;
+
+    await probe.click("Check");
+    expect(fetchStatus.mock.calls.length).toBe(statusCalls + 1);
+    expect(retryJob).not.toHaveBeenCalled();
+    await probe.unmount();
+  });
+
+  it("admits one retry when the button is clicked twice", async () => {
+    const retryResponse = deferred<HowItWinsJobStatusEnvelope>();
+    const failed = job("failed", { canRetry: true });
+    const fetchStatus = vi.fn(async (): Promise<HowItWinsJobStatusEnvelope> => ({ job: failed }));
+    const retryJob = vi.fn<HowItWinsRetry>(() => retryResponse.promise);
+    const probe = mountProbe({ scopeKey: "warp.dev", fetchStatus, retryJob });
+    await probe.start();
+
+    await act(async () => {
+      const buttons = [...document.querySelectorAll<HTMLButtonElement>("button")]
+        .filter((button) => button.textContent === "Retry");
+      buttons[0]?.click();
+      buttons[0]?.click();
     });
-    const probe = mountProbe({ pending: true, pollKey: "warp.dev", fetchCard, onCard: () => undefined });
-    await probe.start();
+    expect(retryJob).toHaveBeenCalledTimes(1);
+    expect(retryJob.mock.calls[0]?.[0]).toBe(failed.id);
+    expect(retryJob.mock.calls[0]?.[1]).toMatch(/^[0-9a-f-]{36}$/);
 
+    await act(async () => retryResponse.resolve({ job: job("queued", { canRetry: false }) }));
+    await probe.unmount();
+  });
+
+  it("checks saved status after a lost retry response without submitting again", async () => {
+    const fetchStatus = vi.fn(async (): Promise<HowItWinsJobStatusEnvelope> => ({ job: job("failed", { canRetry: true }) }));
+    const retryJob = vi.fn<HowItWinsRetry>(async () => { throw new TypeError("Network response lost"); });
+    const probe = mountProbe({ scopeKey: "warp.dev", fetchStatus, retryJob });
+    await probe.start();
+    await probe.click("Retry");
+    expect(probe.phase()).toBe("unknown");
+    expect(probe.text()).toContain("The retry could not be confirmed.");
+    fetchStatus.mockResolvedValue({ job: job("running", { canRetry: false }) });
+    await probe.click("Check");
+    expect(probe.phase()).toBe("reading");
+    expect(retryJob).toHaveBeenCalledTimes(1);
+    expect(fetchStatus).toHaveBeenCalledTimes(2);
+    await probe.unmount();
+  });
+
+  it("ignores a late response after navigation", async () => {
+    const oldResponse = deferred<HowItWinsJobStatusEnvelope>();
+    const failedNewJob = job("failed", {
+      id: "20000000-0000-4000-8000-000000000002",
+      canRetry: false,
+      updatedAt: "2026-09-14T20:02:00.000Z"
+    });
+    const fetchOld = vi.fn(() => oldResponse.promise);
+    const fetchNew = vi.fn(async (): Promise<HowItWinsJobStatusEnvelope> => ({ job: failedNewJob }));
+    const probe = mountProbe({ scopeKey: "warp.dev", fetchStatus: fetchOld });
+    await probe.start();
+    expect(probe.phase()).toBe("checking");
+
+    await probe.render({ scopeKey: "exa.ai", fetchStatus: fetchNew });
+    expect(probe.phase()).toBe("failed");
+    expect(probe.jobId()).toBe(failedNewJob.id);
+
+    await act(async () => oldResponse.resolve({ job: job("succeeded", { outcome: "read" }) }));
+    expect(probe.phase()).toBe("failed");
+    expect(probe.jobId()).toBe(failedNewJob.id);
+    await probe.unmount();
+  });
+
+  it("accepts a newer job admitted elsewhere and ignores an older follow-up", async () => {
+    const first = job("running", { updatedAt: "2026-09-14T20:00:00.000Z" });
+    const newer = job("running", {
+      id: "30000000-0000-4000-8000-000000000003",
+      updatedAt: "2026-09-14T20:02:00.000Z"
+    });
+    const older = job("running", {
+      id: first.id,
+      updatedAt: "2026-09-14T20:01:00.000Z"
+    });
+    const responses = [{ job: first }, { job: newer }, { job: older }];
+    const fetchStatus = vi.fn(async () => responses.shift() ?? { job: newer });
+    const probe = mountProbe({ scopeKey: "warp.dev", fetchStatus });
+    await probe.start();
     await probe.tick(8_000);
-    expect(fetchCard).toHaveBeenCalledTimes(1);
-    expect(probe.reading()).toBe("true");
+    expect(probe.jobId()).toBe(newer.id);
     await probe.tick(12_000);
-    expect(fetchCard).toHaveBeenCalledTimes(2);
-    expect(probe.reading()).toBe("true");
+    expect(probe.phase()).toBe("reading");
+    expect(probe.jobId()).toBe(newer.id);
     await probe.unmount();
   });
 
-  it("gives the wait up after eight minutes and stops saying it is reading", async () => {
-    const fetchCard = vi.fn(async () => waitingCard);
-    const probe = mountProbe({ pending: true, pollKey: "warp.dev", fetchCard, onCard: () => undefined });
+  it("marks an old server as unknown without calling the retry route", async () => {
+    const { ApiError } = await import("../src/shared/extension-config");
+    const fetchStatus = vi.fn(async () => {
+      throw new ApiError("request failed with 404", 404);
+    });
+    const retryJob = vi.fn<HowItWinsRetry>();
+    const probe = mountProbe({ scopeKey: "warp.dev", fetchStatus, retryJob });
     await probe.start();
-
-    await probe.tick(HOW_IT_WINS_POLL_WINDOW_MS);
-    expect(probe.reading()).toBe("false");
-    const calls = fetchCard.mock.calls.length;
-    expect(calls).toBeGreaterThan(5);
-
-    await probe.tick(300_000);
-    expect(fetchCard).toHaveBeenCalledTimes(calls);
+    expect(probe.phase()).toBe("unknown");
+    expect(probe.text()).toContain("This API does not report saved progress yet.");
+    expect(retryJob).not.toHaveBeenCalled();
     await probe.unmount();
-  });
-
-  it("waits again on the same domain once the spent wait is cleared", async () => {
-    const fetchCard = vi.fn(async () => waitingCard);
-    const props = { pollKey: "warp.dev", fetchCard, onCard: () => undefined };
-    const probe = mountProbe({ pending: true, ...props });
-    await probe.start();
-    await probe.tick(HOW_IT_WINS_POLL_WINDOW_MS);
-    expect(probe.reading()).toBe("false");
-    const spent = fetchCard.mock.calls.length;
-
-    // A new run on the same domain: nothing pending for a beat, then a fresh read to wait on.
-    await probe.render({ pending: false, ...props });
-    await probe.render({ pending: true, ...props });
-    expect(probe.reading()).toBe("true");
-    await probe.tick(8_000);
-    expect(fetchCard.mock.calls.length).toBe(spent + 1);
-    await probe.unmount();
-  });
-
-  it("stops on unmount and starts over on a new domain", async () => {
-    const fetchCard = vi.fn(async () => waitingCard);
-    const probe = mountProbe({ pending: true, pollKey: "warp.dev", fetchCard, onCard: () => undefined });
-    await probe.start();
-    await probe.tick(8_000);
-    expect(fetchCard).toHaveBeenCalledTimes(1);
-
-    // A new domain restarts the schedule at its first delay rather than continuing the old one.
-    await probe.render({ pending: true, pollKey: "exa.ai", fetchCard, onCard: () => undefined });
-    await probe.tick(7_999);
-    expect(fetchCard).toHaveBeenCalledTimes(1);
-    await probe.tick(1);
-    expect(fetchCard).toHaveBeenCalledTimes(2);
-
-    await probe.unmount();
-    await probe.tick(300_000);
-    expect(fetchCard).toHaveBeenCalledTimes(2);
-  });
-
-  it("does nothing without a domain or a fetch", async () => {
-    const fetchCard = vi.fn(async () => waitingCard);
-    const noDomain = mountProbe({ pending: true, pollKey: null, fetchCard, onCard: () => undefined });
-    await noDomain.start();
-    expect(noDomain.reading()).toBe("false");
-    await noDomain.tick(300_000);
-    expect(fetchCard).not.toHaveBeenCalled();
-    await noDomain.unmount();
-
-    const noFetch = mountProbe({ pending: true, pollKey: "warp.dev", fetchCard: null, onCard: () => undefined });
-    await noFetch.start();
-    // The wait is still honest with no fetch wired: it says it is reading and simply never polls.
-    expect(noFetch.reading()).toBe("true");
-    await noFetch.tick(300_000);
-    expect(fetchCard).not.toHaveBeenCalled();
-    await noFetch.unmount();
   });
 });

@@ -14,7 +14,7 @@ import {
   type InvestorReadDisplay,
   type LensTensionClaim
 } from "./investor-lens";
-import { useHowItWinsReading } from "./how-it-wins-reading";
+import { useHowItWinsJob, type HowItWinsJobView } from "./how-it-wins-reading";
 import { EMPHASIS_EMPTY_COPY, EMPHASIS_LABELS, LENS_CASE_LABEL, LENS_TENSION_EMPTY_COPY } from "./investor-read-copy";
 import { HowItWinsEdge } from "./HowItWinsEdge";
 import { advisoryCopy, isSynthesisAdvisory } from "./synthesis-advisory-copy";
@@ -423,6 +423,56 @@ function LensCategoryCard({
   );
 }
 
+function HowItWinsJobNotice({
+  hasSavedRead,
+  view
+}: {
+  hasSavedRead: boolean;
+  view: HowItWinsJobView;
+}) {
+  if (view.phase === "idle" || view.phase === "checking" || view.phase === "succeeded") {
+    return null;
+  }
+
+  if (view.phase === "reading" && !hasSavedRead) {
+    return null;
+  }
+
+  let message: string;
+  let action: "check" | "retry" | null = null;
+  if (view.phase === "reading") {
+    message = "Reading how it wins...";
+  } else if (view.phase === "failed") {
+    message = hasSavedRead ? "The update couldn't finish." : "How it wins couldn't finish.";
+    action = view.job?.canRetry ? "retry" : null;
+  } else if (view.phase === "unknown") {
+    message = hasSavedRead ? "Couldn't check for an updated read." : "Couldn't check progress.";
+    action = "check";
+  } else if (view.phase === "cancelled") {
+    message = "The read stopped.";
+  } else {
+    message = "This read belongs to older research.";
+  }
+
+  return (
+    <div aria-live="polite" className="cs-how-it-wins-status" data-state={view.phase} role="status">
+      <span>
+        <strong>{message}</strong>
+        {view.detail ? <small>{view.detail}</small> : null}
+      </span>
+      {action ? (
+        <button
+          disabled={view.actionPending}
+          onClick={action === "retry" ? view.retry : view.checkAgain}
+          type="button"
+        >
+          {view.actionPending ? "Starting..." : action === "retry" ? "Try again" : "Check again"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export function InvestorReadCard({
   card,
   read,
@@ -434,7 +484,7 @@ export function InvestorReadCard({
 }) {
   const emitAlphaEvent = useAlphaEvent();
   const prefersReducedMotion = usePrefersReducedMotion();
-  const readingHowItWins = useHowItWinsReading();
+  const howItWinsJob = useHowItWinsJob();
   const categoryUid = useId().replace(/:/g, "");
   const [openCategory, setOpenCategory] = useState<InvestorLensCategoryId | null>("why-care");
   const categories = investorLensCategories(read);
@@ -444,7 +494,8 @@ export function InvestorReadCard({
   // The crown is built here rather than carried on the read: it is the one part of the packet
   // that depends on panel-local state, since a read still running in the background leaves the
   // card correct and the crown empty.
-  const howItWins = howItWinsDisplayForCard(card, { pending: readingHowItWins });
+  const howItWins = howItWinsDisplayForCard(card, { pending: howItWinsJob.phase === "reading" });
+  const hasSavedHowItWins = Boolean(card.synthesis?.howItWins);
   const showPosture = postureLines.length > 0 || !read.independentlyBacked;
 
   function trackDisclosure(disclosure: LensDisclosureId, expanded: boolean) {
@@ -460,6 +511,7 @@ export function InvestorReadCard({
       {howItWins.state === "not_read" ? null : (
         <HowItWinsEdge display={howItWins} prefersReducedMotion={prefersReducedMotion} />
       )}
+      <HowItWinsJobNotice hasSavedRead={hasSavedHowItWins} view={howItWinsJob} />
       <motion.header
         className="cs-investor-read-head"
         {...stageEntranceProps(LENS_ENTRANCE_STAGE_DELAYS.header, prefersReducedMotion)}

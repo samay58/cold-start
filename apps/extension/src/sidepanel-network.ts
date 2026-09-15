@@ -13,10 +13,13 @@ import {
   buildCardRequest,
   buildGenerateRequest,
   buildGenerationStatusRequest,
+  buildHowItWinsRetryRequest,
+  buildHowItWinsStatusRequest,
   parseBootstrapResponse,
   parseCardResponse,
   parseGenerateResponse,
   parseGenerationStatusResponse,
+  parseHowItWinsJobResponse,
   readableCompanyNameFromDomain,
   type ExtensionBootstrapResponse,
   type ExtensionResearchRunEvent,
@@ -113,6 +116,31 @@ export async function fetchCard(domain: string, settings: Settings, signal: Abor
   const request = buildCardRequest(domain, settings, signal, chrome.runtime.id);
   const response = await fetch(request.url, request.init);
   return parseCardResponse(response);
+}
+
+export async function fetchHowItWinsJob(domain: string, settings: Settings, signal: AbortSignal) {
+  const request = buildHowItWinsStatusRequest(domain, settings, signal, chrome.runtime.id);
+  const response = await fetch(request.url, request.init);
+  return parseHowItWinsJobResponse(response);
+}
+
+export async function retryHowItWinsJob(
+  domain: string,
+  settings: Settings,
+  jobId: string,
+  requestId: string,
+  signal: AbortSignal
+) {
+  const request = buildHowItWinsRetryRequest(
+    domain,
+    settings,
+    jobId,
+    requestId,
+    signal,
+    chrome.runtime.id
+  );
+  const response = await fetch(request.url, request.init);
+  return parseHowItWinsJobResponse(response);
 }
 
 export async function fetchBootstrap(domain: string, settings: Settings, signal: AbortSignal, storedSections: ResearchSection[] = []) {

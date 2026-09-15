@@ -35,16 +35,17 @@ import { CompanyArc, type CompanyArcState } from "./company/CompanyArc";
 import { CompanyLogo } from "./company/CompanyLogo";
 import { LENS_RUN_FAILED_NOTICE } from "./shared/extension-format";
 import { sectionIdForLayer, type ResearchLayerId } from "./research/research-layer";
-import { howItWinsPendingForCard } from "./research/investor-lens";
-import { HowItWinsReadingProvider, useHowItWinsReadPoll } from "./research/how-it-wins-reading";
+import { HowItWinsJobProvider, useHowItWinsJobStatus } from "./research/how-it-wins-reading";
 import { resolveTheme, useTheme, type ThemePreference } from "./shared/theme";
 import {
   fetchBootstrap,
   fetchCard,
+  fetchHowItWinsJob,
   isActiveRun,
   markPerformance,
   pollGenerationUntilCard,
   resumeSectionGenerationAndPoll,
+  retryHowItWinsJob,
   sectionsForCard,
   startedAtMs,
   startAnalysisGenerationAndPoll,
@@ -830,31 +831,41 @@ export function SidePanel() {
     void writeCachedCard(domain, settings, requestState.card);
   }, [domain, requestState, settings]);
 
-  // The How it wins read runs in the background and lands minutes after the analysis run
-  // settles, so a settled profile whose crown has not arrived waits for it here. No wait starts
-  // while any run is in flight: the card those runs are about to replace is not the one waiting.
-  const howItWinsPending = requestState.status === "success"
-    && !requestState.analysisRun
-    && !requestState.profileRun
-    && !requestState.activeSectionRun
-    && howItWinsPendingForCard(requestState.card, requestState.events ?? []);
-
   const fetchCardWhileReading = useMemo(
     () => (domain && settings ? (signal: AbortSignal) => fetchCard(domain, settings, signal) : null),
+    [domain, settings]
+  );
+
+  const fetchHowItWinsStatus = useMemo(
+    () => (domain && settings ? (signal: AbortSignal) => fetchHowItWinsJob(domain, settings, signal) : null),
+    [domain, settings]
+  );
+
+  const retryHowItWins = useMemo(
+    () => (domain && settings
+      ? (jobId: string, requestId: string, signal: AbortSignal) =>
+          retryHowItWinsJob(domain, settings, jobId, requestId, signal)
+      : null),
     [domain, settings]
   );
 
   // The read arriving swaps the card in state, and the effect above writes that card through to
   // the cache, so reopening the panel keeps the crown instead of starting the wait again.
   const applyReadCard = useCallback((card: ColdStartCard) => {
-    setRequestState((current) => current.status === "success"
+    setRequestState((current) => current.status === "success" && current.card.domain === card.domain
       ? { ...current, card, sections: sectionsForCard(card, current.sections) }
       : current);
   }, []);
 
-  const howItWinsReading = useHowItWinsReadPoll({
-    pending: howItWinsPending,
-    pollKey: domain,
+  const howItWinsJob = useHowItWinsJobStatus({
+    enabled: requestState.status === "success"
+      && Boolean(requestState.card.synthesis)
+      && !requestState.analysisRun
+      && !requestState.profileRun
+      && !requestState.activeSectionRun,
+    scopeKey: domain,
+    fetchStatus: fetchHowItWinsStatus,
+    retryJob: retryHowItWins,
     fetchCard: fetchCardWhileReading,
     onCard: applyReadCard
   });
@@ -1865,7 +1876,7 @@ export function SidePanel() {
     }
     panel = (
       <AlphaAnalyticsProvider settings={settings ?? undefined}>
-        <HowItWinsReadingProvider value={howItWinsReading}>
+        <HowItWinsJobProvider value={howItWinsJob}>
           <CompanyArc
             alphaAccess={alphaAccess}
             arc={arc}
@@ -1878,7 +1889,7 @@ export function SidePanel() {
             onStart={() => handleStartGeneration(true)}
             queuedLayerIds={sectionQueue}
           />
-        </HowItWinsReadingProvider>
+        </HowItWinsJobProvider>
       </AlphaAnalyticsProvider>
     );
   } else if (requestState.status === "pending") {

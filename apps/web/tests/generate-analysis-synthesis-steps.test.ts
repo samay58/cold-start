@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ColdStartCard, GenerationTrace } from "@cold-start/core";
+import { OpenAiCompatHttpError } from "@cold-start/llm";
 
 import type { GenerationStepWarning } from "../src/inngest/client";
 
@@ -127,6 +128,8 @@ const whyItMatters = { text: "Modal has cited public product evidence. [c1]", ci
 const bullCase = { text: "Modal customers deploy production containers on the platform. [c1]", citationIds: ["c1"] };
 
 const mocks = vi.hoisted(() => ({
+  requestHowItWinsJob: vi.fn(),
+  dispatchHowItWinsJob: vi.fn(),
   createDb: vi.fn(() => ({})),
   findCardBySlug: vi.fn(),
   findSourcesBySlug: vi.fn(),
@@ -152,6 +155,11 @@ const mocks = vi.hoisted(() => ({
   recordSourcesForCard: vi.fn(),
   sectionsWithSourceCitations: vi.fn(),
   stableenrichLateEnrichmentSkipsForBlocks: vi.fn()
+}));
+
+vi.mock("../src/inngest/how-it-wins-jobs", () => ({
+  requestHowItWinsJob: mocks.requestHowItWinsJob,
+  dispatchHowItWinsJob: mocks.dispatchHowItWinsJob
 }));
 
 vi.mock("@cold-start/db", () => ({
@@ -307,6 +315,8 @@ function persistedTrace(): GenerationTrace {
 
 describe("generate-card analysis synthesize/verify steps", () => {
   beforeEach(() => {
+    mocks.requestHowItWinsJob.mockResolvedValue({ job: { id: "job-id", inngestEventId: "event-id", slug: "modal" } });
+    mocks.dispatchHowItWinsJob.mockResolvedValue(true);
     vi.clearAllMocks();
     mocks.markGenerationRun.mockResolvedValue({ id: "generation-run-id" });
     mocks.mutateCard.mockResolvedValue(null);
@@ -418,7 +428,8 @@ describe("generate-card analysis synthesize/verify steps", () => {
     );
     // The one dispatch an analysis run makes: the deferred how-it-wins read, sent after the card
     // is stored. No contact or block enrichment is dispatched from the analysis path.
-    expect(step.sendEvent.mock.calls.map(([name]: [string]) => name)).toEqual(["request-how-it-wins"]);
+    expect(mocks.dispatchHowItWinsJob).toHaveBeenCalledOnce();
+    expect(step.sendEvent).not.toHaveBeenCalled();
     // Runs the whole analysis handler with the real gate, synthesize, and verify units. It lands
     // around 2s alone and can pass 5s when the rest of the suite is competing for the machine.
   }, 15_000);
@@ -763,10 +774,9 @@ describe("generate-card analysis synthesize/verify steps", () => {
       bearCase: [],
       openQuestions: [{ question: "What buyer owns the renewal decision?", category: "buyer_budget" }]
     });
-    // Shaped exactly like the error packages/llm/src/openai-compat.ts throws after its own
-    // in-process retry loop is exhausted on a sustained 529 (isTransientLlmError parses the
-    // status back out of this exact message format).
-    mocks.verifySynthesis.mockRejectedValueOnce(new Error("openai-compat request failed with 529: overloaded"));
+    // The compatibility transport preserves the HTTP status structurally after its own retry
+    // loop is exhausted, so the worker can classify the failure without parsing error text.
+    mocks.verifySynthesis.mockRejectedValueOnce(new OpenAiCompatHttpError({ status: 529, message: "openai-compat request failed with 529: overloaded" }));
     mocks.verifySynthesis.mockResolvedValueOnce([
       { ...whyItMatters, status: "supported" },
       { ...bullCase, status: "supported" }

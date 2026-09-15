@@ -8,6 +8,7 @@ import {
   globalJudgmentTransportSchema,
   howItWinsEvidenceItemSchema,
   howItWinsJudgeCallTraceSchema,
+  howItWinsJudgmentBodySchema,
   howItWinsJudgmentSchema,
   howItWinsStrategyIdForName,
   howItWinsStrategyIdSchema,
@@ -35,6 +36,11 @@ import {
   HOW_IT_WINS_JUDGE_PROMPTS
 } from "./how-it-wins-judge-prompts";
 import { isTransientLlmError } from "./transient-error";
+import {
+  howItWinsCorrectionFeedback,
+  howItWinsOutputDiagnostics,
+  type HowItWinsOutputDiagnostic
+} from "./how-it-wins-output-diagnostics";
 
 export type { HowItWinsJudgeCallTrace } from "@cold-start/core";
 export { HowItWinsJudgmentClosedError as HowItWinsJudgeClosedError };
@@ -156,7 +162,18 @@ export type HowItWinsJudgeCallRequest = {
   attempt: number;
   prompt: string;
   payload: unknown;
+  model?: string;
+  signal?: AbortSignal;
+  deadlineAt?: number;
 };
+
+export type HowItWinsJudgeFailureKind =
+  | "structured_output"
+  | "semantic_contract"
+  | "transient_provider"
+  | "authentication_configuration"
+  | "cancellation_deadline"
+  | "internal";
 
 export type HowItWinsJudgeAdapterResult =
   | { ok: true; output: unknown; trace: HowItWinsJudgeCallTrace }
@@ -164,7 +181,10 @@ export type HowItWinsJudgeAdapterResult =
     ok: false;
     error: string;
     retryable: boolean;
+    failureKind?: HowItWinsJudgeFailureKind;
     repairInstruction?: string;
+    candidate?: unknown;
+    diagnostics?: HowItWinsOutputDiagnostic[];
     trace: HowItWinsJudgeCallTrace;
   };
 
@@ -173,6 +193,39 @@ export type HowItWinsJudgeAdapter = (
 ) => Promise<HowItWinsJudgeAdapterResult>;
 
 export type HowItWinsJudgeTelemetrySink = (trace: HowItWinsJudgeCallTrace) => void;
+
+export type HowItWinsJudgeExecuteCall = (
+  request: HowItWinsJudgeCallRequest,
+  invoke: (execution?: { signal?: AbortSignal; deadlineAt?: number }) => Promise<HowItWinsJudgeAdapterResult>
+) => Promise<HowItWinsJudgeAdapterResult>;
+
+export type HowItWinsJudgeValidationEvent = {
+  request: HowItWinsJudgeCallRequest;
+  trace: HowItWinsJudgeCallTrace;
+  outcome: "ok" | "failed";
+  failureKind?: "structured_output" | "semantic_contract";
+  diagnostics: HowItWinsOutputDiagnostic[];
+};
+
+export type HowItWinsJudgeValidationSink = (
+  event: HowItWinsJudgeValidationEvent
+) => void | Promise<void>;
+
+export type HowItWinsPrimaryJudgment = {
+  schemaVersion: 1;
+  hashes: {
+    evidencePacket: string;
+    prompt: string;
+    vocabulary: string;
+  };
+  body: HowItWinsJudgmentBody;
+  calls: HowItWinsJudgeCallTrace[];
+  repairs?: string[];
+};
+
+export type HowItWinsPrimaryJudgmentSink = (
+  primary: HowItWinsPrimaryJudgment
+) => void | Promise<void>;
 
 export type HowItWinsJudgeInput = {
   evidencePacket: z.infer<typeof evidencePacketSchema>;
@@ -326,7 +379,7 @@ function refinementNote(label: string, error: unknown) {
   return `${label}: ${contractViolationMessage(error)}`.slice(0, 300);
 }
 
-export function createHowItWinsJudge(config: {
+export type HowItWinsJudgeConfig = {
   adapters: { strong: HowItWinsJudgeAdapter; critic: HowItWinsJudgeAdapter };
   rules: HowItWinsJudgeRules;
   siblingMap?: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>>;
@@ -334,12 +387,86 @@ export function createHowItWinsJudge(config: {
   // Named at construction so a same-provider critic costs nothing. The old check compared
   // provider strings on the returned traces, after both paid calls had already run.
   providers?: { strong: string; critic: string };
+  models?: { strong: string; critic: string };
   // Default true. False skips the critic and adjudication calls after the global judgment: no
   // second paid pass, no patch. The taste question those passes answer (do the trims they make
   // match what the read should say) is Samay's blind read to make, so this needs a switch that
   // costs no deploy.
   refinement?: boolean;
+  executeCall?: HowItWinsJudgeExecuteCall;
+  onValidation?: HowItWinsJudgeValidationSink;
+  onPrimaryJudgment?: HowItWinsPrimaryJudgmentSink;
+  resumePrimaryJudgment?: HowItWinsPrimaryJudgment;
+  signal?: AbortSignal;
+  deadlineAt?: number;
+};
+
+const MAX_CORRECTION_CANDIDATE_BYTES = 512 * 1024;
+
+function correctionCandidate(candidate: unknown) {
+  if (candidate === undefined) return {};
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(candidate);
+  } catch {
+    throw new HowItWinsJudgmentClosedError("the prior normalized output cannot be serialized for correction");
+  }
+  if (Buffer.byteLength(serialized, "utf8") > MAX_CORRECTION_CANDIDATE_BYTES) {
+    throw new HowItWinsJudgmentClosedError("the prior normalized output exceeds the correction input limit");
+  }
+  return { previousNormalizedOutput: candidate };
+}
+
+const primaryJudgmentSchema = z.object({
+  schemaVersion: z.literal(1),
+  hashes: z.object({
+    evidencePacket: z.string().min(1),
+    prompt: z.string().min(1),
+    vocabulary: z.string().min(1)
+  }).strict(),
+  body: howItWinsJudgmentBodySchema,
+  calls: z.array(howItWinsJudgeCallTraceSchema).min(1).max(2),
+  repairs: z.array(z.string().min(1).max(300)).max(200).default([])
+}).strict();
+
+function validatedPrimaryJudgment(input: {
+  checkpoint: HowItWinsPrimaryJudgment;
+  expectedHashes: HowItWinsPrimaryJudgment["hashes"];
+  packet: z.infer<typeof evidencePacketSchema>;
+  siblingMap: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>>;
 }) {
+  let checkpoint: HowItWinsPrimaryJudgment;
+  try {
+    checkpoint = primaryJudgmentSchema.parse(input.checkpoint);
+  } catch {
+    throw new HowItWinsJudgmentClosedError("resumed primary judgment failed its stored schema");
+  }
+  if (hashHowItWinsJudgeValue(checkpoint.hashes) !== hashHowItWinsJudgeValue(input.expectedHashes)) {
+    throw new HowItWinsJudgmentClosedError("resumed primary judgment hashes do not match this request");
+  }
+  const expectedCallIds = checkpoint.calls.length === 1
+    ? ["how-it-wins:monolith"]
+    : ["how-it-wins:monolith", "how-it-wins:monolith:2"];
+  checkpoint.calls.forEach((call, index) => {
+    if (
+      call.stage !== "global_judge" ||
+      call.callId !== expectedCallIds[index] ||
+      call.retryCount < index ||
+      (index < checkpoint.calls.length - 1 && call.validationOutcome === "ok")
+    ) {
+      throw new HowItWinsJudgmentClosedError("resumed primary judgment has inconsistent global calls");
+    }
+  });
+  const finalCall = checkpoint.calls[checkpoint.calls.length - 1]!;
+  if (finalCall.outcome !== "ok" || finalCall.validationOutcome !== "ok") {
+    throw new HowItWinsJudgmentClosedError("resumed primary judgment was not fully validated");
+  }
+  assertFrozenEvidence(checkpoint.body, input.packet);
+  assertRequiredSiblingResolutions(checkpoint.body, input.siblingMap);
+  return checkpoint;
+}
+
+export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
   assertExactRules(config.rules);
   if (config.providers && config.providers.strong === config.providers.critic) {
     throw new HowItWinsJudgmentClosedError("critic must use a different provider from the global judge");
@@ -373,12 +500,27 @@ export function createHowItWinsJudge(config: {
 
     const calls: HowItWinsJudgeCallTrace[] = [];
     const invoke = async (adapter: HowItWinsJudgeAdapter, request: HowItWinsJudgeCallRequest) => {
+      config.signal?.throwIfAborted();
+      if (config.deadlineAt !== undefined && Date.now() >= config.deadlineAt) {
+        throw new DOMException("how-it-wins job deadline expired", "TimeoutError");
+      }
       let result: HowItWinsJudgeAdapterResult;
-      try {
-        result = await adapter(request);
-      } catch (error) {
-        if (isTransientLlmError(error)) throw error;
-        throw new HowItWinsJudgmentClosedError(`${request.callId} threw without returning trace data`);
+      const invokeAdapter = (execution?: { signal?: AbortSignal; deadlineAt?: number }) => adapter({
+        ...request,
+        ...(execution?.signal ? { signal: execution.signal } : {}),
+        ...(execution?.deadlineAt !== undefined ? { deadlineAt: execution.deadlineAt } : {})
+      });
+      if (config.executeCall) {
+        // Durable execution owns lease, reservation, and storage errors. Preserve those typed
+        // failures exactly so the worker can settle the job without treating them as model output.
+        result = await config.executeCall(request, invokeAdapter);
+      } else {
+        try {
+          result = await invokeAdapter();
+        } catch (error) {
+          if (isTransientLlmError(error)) throw error;
+          throw new HowItWinsJudgmentClosedError(`${request.callId} threw without returning trace data`);
+        }
       }
       const trace = howItWinsJudgeCallTraceSchema.parse(result.trace);
       if (
@@ -394,10 +536,21 @@ export function createHowItWinsJudge(config: {
       config.telemetry?.(trace);
       return result;
     };
+    const reportValidation = async (event: HowItWinsJudgeValidationEvent) => {
+      const trace = {
+        ...event.trace,
+        validationOutcome: event.outcome === "ok" ? "ok" as const : "failed" as const
+      };
+      let callIndex = calls.length - 1;
+      while (callIndex >= 0 && calls[callIndex]?.callId !== event.request.callId) callIndex -= 1;
+      if (callIndex >= 0) calls[callIndex] = trace;
+      await config.onValidation?.({ ...event, trace });
+    };
     const correctedRequest = (
       request: HowItWinsJudgeCallRequest,
       correction: string | undefined,
-      callIdSuffix: string
+      callIdSuffix: string,
+      candidate?: unknown
     ): HowItWinsJudgeCallRequest => ({
       ...request,
       callId: `${request.callId}:${callIdSuffix}`,
@@ -406,7 +559,8 @@ export function createHowItWinsJudge(config: {
         ? {
           payload: {
             ...(request.payload as Record<string, unknown>),
-            retryCorrection: correction
+            retryCorrection: correction,
+            ...correctionCandidate(candidate)
           }
         }
         : {})
@@ -436,10 +590,11 @@ export function createHowItWinsJudge(config: {
         requiredSiblingIdsByStrategy: siblingMap,
         scouts: [],
         missingStrategyIds: HOW_IT_WINS_STRATEGIES.map((strategy) => strategy.id)
-      }
+      },
+      ...(config.models ? { model: config.models.strong } : {}),
+      ...(config.signal ? { signal: config.signal } : {}),
+      ...(config.deadlineAt !== undefined ? { deadlineAt: config.deadlineAt } : {})
     };
-    const globalResult = await invokeTransport(config.adapters.strong, globalRequest);
-    if (!globalResult.ok) throw new HowItWinsJudgmentClosedError("global judgment failed");
     // The deterministic repair pass runs first, inside parseGlobalJudgment. Whatever survives it
     // is a contradiction that needs evidence to settle, which only the model can supply.
     const acceptGlobalJudgment = (output: unknown) => {
@@ -448,36 +603,145 @@ export function createHowItWinsJudge(config: {
       assertRequiredSiblingResolutions(accepted.body, siblingMap);
       return accepted;
     };
-
     const refinement: HowItWinsRefinementRecord = {
       critic: "ok",
       adjudication: "not_needed",
       notes: [],
       repairs: []
     };
-    let globalTraceProvider = globalResult.trace.provider;
+    const primaryHashes = {
+      evidencePacket: input.evidencePacketHash,
+      prompt: input.promptHash,
+      vocabulary: input.vocabularyHash
+    };
+    let globalTraceProvider: string;
     let globalJudgment: HowItWinsJudgmentBody;
-    try {
-      const accepted = acceptGlobalJudgment(globalResult.output);
-      globalJudgment = accepted.body;
-      refinement.repairs.push(...accepted.repairs);
-    } catch (error) {
-      // Exactly one re-ask, never two. A global judge call runs about a dollar and five minutes,
-      // so a second repair costs more than it is worth. Anything but a contract violation, and
-      // any failure on the corrected answer, still fails closed.
-      if (!(error instanceof HowItWinsJudgmentClosedError)) throw error;
-      const detail = contractViolationMessage(error);
-      const repair = await invoke(config.adapters.strong, correctedRequest(
-        globalRequest,
-        `Return one complete corrected global_judge result. The previous judgment failed a contract check: ${detail}`.slice(0, 500),
-        "repair"
-      ));
-      if (!repair.ok) throw new HowItWinsJudgmentClosedError("global judgment failed");
-      globalTraceProvider = repair.trace.provider;
-      const accepted = acceptGlobalJudgment(repair.output);
-      globalJudgment = accepted.body;
-      refinement.repairs.push(...accepted.repairs);
-      refinement.notes.push(refinementNote("global judgment repaired after", error));
+    if (config.resumePrimaryJudgment) {
+      const resumed = validatedPrimaryJudgment({
+        checkpoint: config.resumePrimaryJudgment,
+        expectedHashes: primaryHashes,
+        packet,
+        siblingMap
+      });
+      calls.push(...resumed.calls);
+      globalTraceProvider = resumed.calls[resumed.calls.length - 1]!.provider;
+      globalJudgment = resumed.body;
+      refinement.repairs.push(...(resumed.repairs ?? []));
+    } else {
+      let globalResultRequest = globalRequest;
+      let globalResult = await invoke(config.adapters.strong, globalResultRequest);
+      if (!globalResult.ok) {
+        if (globalResult.failureKind === "structured_output" && globalResult.trace.providerOutcome === "ok") {
+          await reportValidation({
+            request: globalResultRequest,
+            trace: globalResult.trace,
+            outcome: "failed",
+            failureKind: "structured_output",
+            diagnostics: globalResult.diagnostics ?? []
+          });
+        }
+        if (!globalResult.retryable) throw new HowItWinsJudgmentClosedError("global judgment failed");
+        globalResultRequest = correctedRequest(
+          globalRequest,
+          globalResult.repairInstruction,
+          "2",
+          globalResult.candidate
+        );
+        globalResult = await invoke(config.adapters.strong, globalResultRequest);
+        if (!globalResult.ok) {
+          if (globalResult.failureKind === "structured_output" && globalResult.trace.providerOutcome === "ok") {
+            await reportValidation({
+              request: globalResultRequest,
+              trace: globalResult.trace,
+              outcome: "failed",
+              failureKind: "structured_output",
+              diagnostics: globalResult.diagnostics ?? []
+            });
+          }
+          throw new HowItWinsJudgmentClosedError("global judgment failed");
+        }
+      }
+      globalTraceProvider = globalResult.trace.provider;
+      try {
+        const accepted = acceptGlobalJudgment(globalResult.output);
+        await reportValidation({
+          request: globalResultRequest,
+          trace: globalResult.trace,
+          outcome: "ok",
+          diagnostics: []
+        });
+        globalJudgment = accepted.body;
+        refinement.repairs.push(...accepted.repairs);
+      } catch (error) {
+        // Exactly one re-ask, never two. A global judge call runs about a dollar and five minutes,
+        // so a second repair costs more than it is worth. Anything but a contract violation, and
+        // any failure on the corrected answer, still fails closed.
+        const diagnostics = howItWinsOutputDiagnostics({
+          stage: "global_judge",
+          error,
+          candidate: globalResult.output
+        });
+        if (!(error instanceof HowItWinsJudgmentClosedError) && diagnostics === null) throw error;
+        await reportValidation({
+          request: globalResultRequest,
+          trace: globalResult.trace,
+          outcome: "failed",
+          failureKind: diagnostics ? "structured_output" : "semantic_contract",
+          diagnostics: diagnostics ?? []
+        });
+        if (globalResultRequest.attempt >= 2) {
+          throw new HowItWinsJudgmentClosedError(`corrected global judgment still failed: ${contractViolationMessage(error)}`);
+        }
+        const detail = diagnostics
+          ? howItWinsCorrectionFeedback(diagnostics)
+          : `Return one complete corrected global_judge result. The previous judgment failed a contract check: ${contractViolationMessage(error)}`;
+        const repairRequest = correctedRequest(
+          globalRequest,
+          detail.slice(0, 4096),
+          "2",
+          globalResult.output
+        );
+        const repair = await invoke(config.adapters.strong, repairRequest);
+        if (!repair.ok) throw new HowItWinsJudgmentClosedError("global judgment failed");
+        globalTraceProvider = repair.trace.provider;
+        let accepted: ReturnType<typeof acceptGlobalJudgment>;
+        try {
+          accepted = acceptGlobalJudgment(repair.output);
+          await reportValidation({
+            request: repairRequest,
+            trace: repair.trace,
+            outcome: "ok",
+            diagnostics: []
+          });
+        } catch (repairError) {
+          const repairDiagnostics = howItWinsOutputDiagnostics({
+            stage: "global_judge",
+            error: repairError,
+            candidate: repair.output
+          });
+          if (!(repairError instanceof HowItWinsJudgmentClosedError) && repairDiagnostics === null) throw repairError;
+          await reportValidation({
+            request: repairRequest,
+            trace: repair.trace,
+            outcome: "failed",
+            failureKind: repairDiagnostics ? "structured_output" : "semantic_contract",
+            diagnostics: repairDiagnostics ?? []
+          });
+          throw new HowItWinsJudgmentClosedError(
+            `corrected global judgment still failed: ${contractViolationMessage(repairError)}`
+          );
+        }
+        globalJudgment = accepted.body;
+        refinement.repairs.push(...accepted.repairs);
+        refinement.notes.push(refinementNote("global judgment repaired after", error));
+      }
+      await config.onPrimaryJudgment?.({
+        schemaVersion: 1,
+        hashes: primaryHashes,
+        body: structuredClone(globalJudgment),
+        calls: structuredClone(calls),
+        repairs: [...refinement.repairs]
+      });
     }
 
     // No critic call, no adjudication call: the global judgment is the answer. Whatever the
@@ -508,7 +772,10 @@ export function createHowItWinsJudge(config: {
         vocabulary: input.vocabulary,
         rules: config.rules,
         judgment: semanticJudgmentForModel(globalJudgment)
-      }
+      },
+      ...(config.models ? { model: config.models.critic } : {}),
+      ...(config.signal ? { signal: config.signal } : {}),
+      ...(config.deadlineAt !== undefined ? { deadlineAt: config.deadlineAt } : {})
     };
     // Everything past the global judgment is refinement. A failure here drops back to the global
     // judgment and records why, rather than throwing away a judgment that already cost the run.
@@ -553,7 +820,10 @@ export function createHowItWinsJudge(config: {
           judgment: semanticJudgmentForModel(globalJudgment),
           disputes: materialFindings,
           disputedStrategyIds
-        }
+        },
+        ...(config.models ? { model: config.models.strong } : {}),
+        ...(config.signal ? { signal: config.signal } : {}),
+        ...(config.deadlineAt !== undefined ? { deadlineAt: config.deadlineAt } : {})
       };
       const adjudicationResult = await invokeTransport(config.adapters.strong, adjudicationRequest);
       if (!adjudicationResult.ok) {

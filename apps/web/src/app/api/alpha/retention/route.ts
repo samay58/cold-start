@@ -5,6 +5,8 @@ import {
   ALPHA_RETENTION_MAX_DELETIONS,
   alphaRetentionPlan,
   createDb,
+  pruneHowItWinsJobs,
+  clearExpiredHowItWinsRecoveryPayloads,
   pruneAlphaRetention
 } from "@cold-start/db";
 
@@ -38,6 +40,8 @@ export async function GET(request: Request) {
     batch: ALPHA_RETENTION_BATCH_SIZE,
     maximum: ALPHA_RETENTION_MAX_DELETIONS
   });
+  const howItWinsJobsDeleted = await pruneHowItWinsJobs(db, { before: plan.howItWinsJudgmentsBefore, limit: ALPHA_RETENTION_BATCH_SIZE });
+  await clearExpiredHowItWinsRecoveryPayloads(db);
   const deleted = result.events.deleted;
   const accessRequestsDeleted = result.accessRequests.deleted;
   const howItWinsJudgmentsDeleted = result.howItWinsJudgments.deleted;
@@ -72,6 +76,7 @@ export async function GET(request: Request) {
       before: plan.eventsBefore.toISOString(),
       accessRequestsDeleted,
       howItWinsJudgmentsDeleted,
+      howItWinsJobsDeleted,
       howItWinsJudgmentsBefore: plan.howItWinsJudgmentsBefore.toISOString()
     },
     { headers: { "Cache-Control": "no-store" } }

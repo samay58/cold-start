@@ -19,19 +19,34 @@ import {
   type HowItWinsJudgeAdapter,
   type HowItWinsJudgeCallRequest
 } from "./how-it-wins-judge";
+import { howItWinsOutputDiagnostics } from "./how-it-wins-output-diagnostics";
 import { parseModelString, quirksForModel } from "./llm-provider";
+import { OpenAiCompatHttpError } from "./openai-compat-error";
 import { isTransientLlmError } from "./transient-error";
 
 const TOOL_NAME = "emit_how_it_wins_judgment";
 
 const STAGE_TIMEOUT_MS: Record<HowItWinsJudgeCallRequest["stage"], number> = {
-  global_judge: 360_000,
+  global_judge: 240_000,
   critic: 180_000,
   adjudication: 180_000
 };
 
+const MAX_REQUEST_TIMEOUT_MS = 240_000;
+
 function benchmarkTimeoutMsForStage(stage: HowItWinsJudgeCallRequest["stage"]) {
   return STAGE_TIMEOUT_MS[stage];
+}
+
+export function howItWinsRequestTimeoutMs(input: {
+  stage: HowItWinsJudgeCallRequest["stage"];
+  deadlineAt?: number;
+  now?: number;
+}) {
+  const remainingMs = input.deadlineAt === undefined
+    ? Number.POSITIVE_INFINITY
+    : Math.max(0, input.deadlineAt - (input.now ?? Date.now()));
+  return Math.min(benchmarkTimeoutMsForStage(input.stage), MAX_REQUEST_TIMEOUT_MS, remainingMs);
 }
 
 const judgmentContract = `The judgment object is a compact semantic transport. Code assigns durable bet, claim, question, disagreement, and override identifiers. Do not create or return those identifiers. Do not repeat evidenceCutoff or evidenceRegistry because code injects the frozen packet exactly.
@@ -264,6 +279,37 @@ function toolFor(request: HowItWinsJudgeCallRequest): Tool {
     description: "Return the required structured judgment-stage output.",
     input_schema: benchmarkToolSchemaForRequest(request)
   } as Tool;
+}
+
+export function howItWinsJudgeProviderRequest(
+  request: HowItWinsJudgeCallRequest,
+  model = request.model
+) {
+  if (!model) throw new Error(`${request.callId} needs its requested model to build provider params`);
+  const maxTokens = request.stage === "global_judge" ? 50_000 : 12_000;
+  const cachedSystemText = benchmarkCachedSystemTextForRequest(request);
+  return {
+    model,
+    max_tokens: maxTokens,
+    ...(quirksForModel(model).omitSamplingParams ? {} : { temperature: 0 }),
+    system: [
+      { type: "text" as const, text: `${request.prompt}\n\n${stageContracts[request.stage]}` },
+      ...(cachedSystemText
+        ? [{
+          type: "text" as const,
+          text: cachedSystemText,
+          cache_control: anthropicSystemCacheControl()
+        }]
+        : [])
+    ],
+    tool_choice: { type: "tool" as const, name: TOOL_NAME },
+    tools: [toolFor(request)],
+    messages: [{ role: "user" as const, content: JSON.stringify(benchmarkProviderPayloadForRequest(request)) }]
+  };
+}
+
+export function howItWinsJudgeRequestSize(request: HowItWinsJudgeCallRequest, model = request.model) {
+  return Buffer.byteLength(JSON.stringify(howItWinsJudgeProviderRequest(request, model)), "utf8");
 }
 
 function toolInput(message: { content: Array<{ type: string; name?: string; input?: unknown }> }) {
@@ -598,37 +644,39 @@ function deadline(input: {
   stage: HowItWinsJudgeCallRequest["stage"];
   timeoutMs: number;
   timers: JudgeTransportTimers;
+  signal?: AbortSignal;
+  deadlineAt?: number;
 }) {
   const controller = new AbortController();
+  const timeoutMs = Math.min(
+    input.timeoutMs,
+    howItWinsRequestTimeoutMs({ stage: input.stage, ...(input.deadlineAt !== undefined ? { deadlineAt: input.deadlineAt } : {}) })
+  );
+  const onCallerAbort = () => controller.abort(input.signal?.reason);
+  if (input.signal?.aborted) onCallerAbort();
+  else input.signal?.addEventListener("abort", onCallerAbort, { once: true });
   const timer = input.timers.setTimeout(() => {
     controller.abort(new DOMException(
-      `how-it-wins ${input.stage} stage timed out after ${input.timeoutMs}ms`,
+      `how-it-wins ${input.stage} stage timed out after ${timeoutMs}ms`,
       "TimeoutError"
     ));
-  }, input.timeoutMs);
+  }, timeoutMs);
   return {
     signal: controller.signal,
-    clear: () => input.timers.clearTimeout(timer)
+    timeoutMs,
+    clear: () => {
+      input.timers.clearTimeout(timer);
+      input.signal?.removeEventListener("abort", onCallerAbort);
+    }
   };
-}
-
-// The OpenAI-compat path (the DeepSeek critic) takes no abort signal, so the stage deadline is
-// applied by racing it. The underlying request keeps its own provider timeout; this only bounds
-// how long the judge waits.
-function withDeadline<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) return Promise.reject(signal.reason);
-  return new Promise<T>((resolve, reject) => {
-    const onAbort = () => reject(signal.reason);
-    signal.addEventListener("abort", onAbort, { once: true });
-    work.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
-  });
 }
 
 function mapTrace(
   request: HowItWinsJudgeCallRequest,
   trace: GenerationLlmCallTrace | undefined,
   outcome: "ok" | "failed",
-  error?: unknown
+  error?: unknown,
+  providerSucceeded = outcome === "ok"
 ): HowItWinsJudgeCallTrace {
   if (!trace) throw new Error(`${request.callId} returned no provider trace`);
   return {
@@ -636,16 +684,22 @@ function mapTrace(
     stage: request.stage,
     provider: trace.provider ?? "anthropic",
     model: trace.model,
-    inputTokens: trace.inputTokens ?? 0,
-    outputTokens: trace.outputTokens ?? 0,
-    cacheCreationInputTokens: trace.cacheCreationInputTokens ?? 0,
-    cacheReadInputTokens: trace.cacheReadInputTokens ?? 0,
-    actualCostUsd: null,
-    estimatedCostUsd: trace.estimatedCostUsd ?? 0,
+    ...(trace.responseId ? { responseId: trace.responseId } : {}),
+    ...(trace.responseModel ? { responseModel: trace.responseModel } : {}),
+    ...(trace.servingProvider ? { servingProvider: trace.servingProvider } : {}),
+    ...(trace.inputTokens !== undefined ? { inputTokens: trace.inputTokens } : {}),
+    ...(trace.outputTokens !== undefined ? { outputTokens: trace.outputTokens } : {}),
+    ...(trace.cacheCreationInputTokens !== undefined
+      ? { cacheCreationInputTokens: trace.cacheCreationInputTokens }
+      : {}),
+    ...(trace.cacheReadInputTokens !== undefined ? { cacheReadInputTokens: trace.cacheReadInputTokens } : {}),
+    ...(trace.estimatedCostUsd !== undefined ? { estimatedCostUsd: trace.estimatedCostUsd } : {}),
     latencyMs: trace.durationMs,
     retryCount: request.attempt - 1 + (trace.retryCount ?? 0),
     thinkingState: "disabled",
     outcome,
+    providerOutcome: providerSucceeded ? "ok" : "failed",
+    validationOutcome: providerSucceeded ? (outcome === "ok" ? "ok" : "failed") : "not_run",
     ...(outcome === "failed" ? { error: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300) } : {})
   };
 }
@@ -664,6 +718,18 @@ type JudgeTransportInput = {
   rethrowTransientOnAttempt?: number;
 };
 
+function nonretryableFailureKind(error: unknown): "authentication_configuration" | "internal" {
+  if (error instanceof Anthropic.APIError) {
+    return error.status !== undefined && error.status >= 400 && error.status < 500
+      ? "authentication_configuration"
+      : "internal";
+  }
+  if (error instanceof OpenAiCompatHttpError) {
+    return error.status >= 400 && error.status < 500 ? "authentication_configuration" : "internal";
+  }
+  return "internal";
+}
+
 // The one judge transport. Anthropic models always stream: a non-streaming call with the
 // global_judge max_tokens of 50000 throws client-side inside the SDK ("Streaming is required for
 // operations that may take longer than 10 minutes"), which is what kept production from ever
@@ -671,33 +737,21 @@ type JudgeTransportInput = {
 function createHowItWinsJudgeTransport(input: JudgeTransportInput): HowItWinsJudgeAdapter {
   return async (request) => {
     let providerTrace: GenerationLlmCallTrace | undefined;
-    let rawToolOutputReceived = false;
+    let providerSucceeded = false;
+    let structuredOutputFailure = false;
+    let structuredCandidate: unknown;
     const callDeadline = deadline({
       stage: request.stage,
       timeoutMs: input.timeoutMsForStage?.(request.stage) ?? benchmarkTimeoutMsForStage(request.stage),
-      timers: input.timers ?? realTimers
+      timers: input.timers ?? realTimers,
+      ...(request.signal ? { signal: request.signal } : {}),
+      ...(request.deadlineAt !== undefined ? { deadlineAt: request.deadlineAt } : {})
     });
     try {
-      const maxTokens = request.stage === "global_judge" ? 50_000 : 12_000;
-      const cachedSystemText = benchmarkCachedSystemTextForRequest(request);
-      const params = {
-        model: input.model,
-        max_tokens: maxTokens,
-        ...(quirksForModel(input.model).omitSamplingParams ? {} : { temperature: 0 }),
-        system: [
-          { type: "text" as const, text: `${request.prompt}\n\n${stageContracts[request.stage]}` },
-          ...(cachedSystemText
-            ? [{
-              type: "text" as const,
-              text: cachedSystemText,
-              cache_control: anthropicSystemCacheControl()
-            }]
-            : [])
-        ],
-        tool_choice: { type: "tool" as const, name: TOOL_NAME },
-        tools: [toolFor(request)],
-        messages: [{ role: "user" as const, content: JSON.stringify(benchmarkProviderPayloadForRequest(request)) }]
-      };
+      if (request.model && request.model !== input.model) {
+        throw new HowItWinsJudgmentClosedError(`${request.callId} model does not match its adapter`);
+      }
+      const params = howItWinsJudgeProviderRequest(request, input.model);
       const emit = (trace: GenerationLlmCallTrace) => {
         providerTrace = trace;
         input.telemetry?.(trace);
@@ -710,7 +764,12 @@ function createHowItWinsJudgeTransport(input: JudgeTransportInput): HowItWinsJud
             const finalMessage = await input.client.messages
               .stream(
                 { ...params, model: resolved.model },
-                { signal: callDeadline.signal, ...anthropicCacheRequestOptions() }
+                {
+                  signal: callDeadline.signal,
+                  maxRetries: 0,
+                  timeout: callDeadline.timeoutMs,
+                  ...anthropicCacheRequestOptions()
+                }
               )
               .finalMessage();
             const usage = {
@@ -729,6 +788,8 @@ function createHowItWinsJudgeTransport(input: JudgeTransportInput): HowItWinsJud
               provider: "anthropic",
               status: "ok",
               durationMs: Date.now() - startedAt,
+              responseId: finalMessage.id,
+              responseModel: finalMessage.model,
               usage,
               estimatedCostUsd: estimateAnthropicCostUsd(resolved.model, usage),
               retryCount: 0
@@ -742,7 +803,6 @@ function createHowItWinsJudgeTransport(input: JudgeTransportInput): HowItWinsJud
               provider: "anthropic",
               status: "failed",
               durationMs: Date.now() - startedAt,
-              estimatedCostUsd: 0,
               retryCount: 0,
               error
             }));
@@ -752,14 +812,19 @@ function createHowItWinsJudgeTransport(input: JudgeTransportInput): HowItWinsJud
         : await (async () => {
           const startedAt = Date.now();
           try {
-            return await withDeadline(createTracedAnthropicMessage({
+            return await createTracedAnthropicMessage({
               client: input.client,
               label: request.callId,
               model: input.model,
               stage: "how_it_wins",
               telemetry: emit,
-              params
-            }), callDeadline.signal);
+              params,
+              requestOptions: {
+                signal: callDeadline.signal,
+                maxRetries: 0,
+                timeout: callDeadline.timeoutMs
+              }
+            });
           } catch (error) {
             // The stage deadline can win the race before the traced call emits anything, and
             // every failure still has to come back as a result carrying a trace.
@@ -771,7 +836,6 @@ function createHowItWinsJudgeTransport(input: JudgeTransportInput): HowItWinsJud
                 provider: resolved.provider,
                 status: "failed",
                 durationMs: Date.now() - startedAt,
-                estimatedCostUsd: 0,
                 retryCount: 0,
                 error
               }));
@@ -779,10 +843,23 @@ function createHowItWinsJudgeTransport(input: JudgeTransportInput): HowItWinsJud
             throw error;
           }
         })();
-      const rawOutput = toolInput(message);
-      rawToolOutputReceived = true;
+      providerSucceeded = true;
+      let rawOutput: unknown;
+      let output: unknown;
+      try {
+        rawOutput = toolInput(message);
+        structuredCandidate = rawOutput;
+      } catch (error) {
+        structuredOutputFailure = true;
+        throw error;
+      }
       input.onRawOutput?.(request, rawOutput);
-      const output = normalizeBenchmarkToolOutput(request, rawOutput);
+      try {
+        output = normalizeBenchmarkToolOutput(request, rawOutput);
+      } catch (error) {
+        structuredOutputFailure = true;
+        throw error;
+      }
       input.onOutput?.(request, output);
       return { ok: true, output, trace: mapTrace(request, providerTrace, "ok") };
     } catch (error) {
@@ -794,13 +871,26 @@ function createHowItWinsJudgeTransport(input: JudgeTransportInput): HowItWinsJud
       return {
         ok: false,
         error: error instanceof Error ? error.message : String(error),
-        retryable: isTransientLlmError(error) || rawToolOutputReceived,
-        ...(rawToolOutputReceived
+        retryable: structuredOutputFailure || (isTransientLlmError(error) && !callDeadline.signal.aborted),
+        failureKind: structuredOutputFailure
+          ? "structured_output"
+          : callDeadline.signal.aborted
+            ? "cancellation_deadline"
+            : isTransientLlmError(error)
+              ? "transient_provider"
+              : nonretryableFailureKind(error),
+        ...(structuredOutputFailure
           ? {
-            repairInstruction: `Return one complete corrected ${request.stage} result. Previous structured output failed validation: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500)
+            repairInstruction: `Return one complete corrected ${request.stage} result. Previous structured output could not be normalized to the required schema.`,
+            ...(structuredCandidate === undefined ? {} : { candidate: structuredCandidate }),
+            diagnostics: howItWinsOutputDiagnostics({
+              stage: request.stage,
+              error,
+              candidate: structuredCandidate
+            }) ?? []
           }
           : {}),
-        trace: mapTrace(request, providerTrace, "failed", error)
+        trace: mapTrace(request, providerTrace, "failed", error, providerSucceeded)
       };
     } finally {
       callDeadline.clear();

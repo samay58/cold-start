@@ -34,7 +34,7 @@ export const HOW_IT_WINS_COPY = {
   nothingStandsOut: "Nothing stands out yet.",
   // The read runs in the background after the analysis run settles, so the crown mounts empty
   // and says what it is doing. Flat status, no ellipsis and no promise about when it lands.
-  reading: "Reading the record."
+  reading: "Reading how it wins..."
 } as const;
 
 // The Pay attention to category's flat empty-state copy, one line per state the emphasis read

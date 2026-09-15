@@ -101,7 +101,7 @@ import {
   fetchFounderVoiceStepBody,
   nextFounderVoiceIndex
 } from "./emphasis-read";
-import { buildHowItWinsRequestedEvent } from "./how-it-wins-function";
+import { requestHowItWinsJob, dispatchHowItWinsJob } from "./how-it-wins-jobs";
 import { howItWinsEvaluatorFor } from "./how-it-wins";
 import {
   assertTerminalCardQuality,
@@ -1400,16 +1400,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         await recordEvent("how-it-wins-started", "how-it-wins.started", "Reading how it wins", {}, null);
         mergeTracePatch(trace, { howItWins: { enabled: true, status: "deferred" } });
         trace.steps = { ...trace.steps, "how-it-wins": { status: "started" } };
-        await step.sendEvent(
-          "request-how-it-wins",
-          buildHowItWinsRequestedEvent({
-            slug: cardToStore.slug,
-            domain,
-            requestedAtMs,
-            parentGenerationRunId: generationRunDbId,
-            parentInngestRunId: trace.inngest?.runId ?? null
-          })
-        );
+
       } else {
         // The run produced no fresh synthesis to hang a read on (the gate blocked it, every claim
         // dropped, or the card was too underfilled to store). Nothing is dispatched.
@@ -1473,6 +1464,24 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
             ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
           });
     });
+    if (mode === "analysis" && howItWinsDeferred && analysisFiledFreshSynthesis && generatedStore) {
+        if (generationRunDbId) {
+          const requested = await step.run("admit-how-it-wins-v2", async () => {
+            try {
+              const { job } = await requestHowItWinsJob(db, { card: cardToStore, sourceAnalysisRunId: generationRunDbId });
+              return { job: { id: job.id, inngestEventId: job.inngestEventId, slug: job.slug } };
+            } catch {
+              return { failed: true as const };
+            }
+          });
+          if ("job" in requested) {
+            await step.run("request-how-it-wins-v2", () => dispatchHowItWinsJob(db, requested.job));
+          } else {
+            mergeTracePatch(trace, { howItWins: { enabled: true, status: "failed" } });
+            trace.steps = { ...trace.steps, "how-it-wins": { status: "failed", message: "How it wins admission failed" } };
+          }
+        }
+    }
     await recordEvent("generation-complete", "generation.complete", "Research run complete", {
       costUsd: finalGenerationCostUsd,
       mode

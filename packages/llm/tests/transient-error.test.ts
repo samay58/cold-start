@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
-import { isProviderUnavailableLlmError, isTransientLlmError } from "../src/index";
+import { OpenAiCompatHttpError, isProviderUnavailableLlmError, isTransientLlmError } from "../src/index";
 
 describe("isTransientLlmError", () => {
   describe("Anthropic SDK errors", () => {
@@ -44,16 +44,16 @@ describe("isTransientLlmError", () => {
   });
 
   describe("openai-compat adapter errors", () => {
-    it("treats a status-coded 529 message as transient", () => {
-      expect(isTransientLlmError(new Error("openai-compat request failed with 529: overloaded"))).toBe(true);
+    it("treats a typed 529 error as transient", () => {
+      expect(isTransientLlmError(new OpenAiCompatHttpError({ status: 529, message: "overloaded" }))).toBe(true);
     });
 
-    it("treats a status-coded 429 message as transient", () => {
-      expect(isTransientLlmError(new Error("openai-compat request failed with 429: rate limited"))).toBe(true);
+    it("treats a typed 429 error as transient", () => {
+      expect(isTransientLlmError(new OpenAiCompatHttpError({ status: 429, message: "rate limited" }))).toBe(true);
     });
 
-    it("treats a status-coded 400 message as semantic (not transient)", () => {
-      expect(isTransientLlmError(new Error("openai-compat request failed with 400: bad request"))).toBe(false);
+    it("treats a typed 400 error as semantic (not transient)", () => {
+      expect(isTransientLlmError(new OpenAiCompatHttpError({ status: 400, message: "bad request" }))).toBe(false);
     });
 
     it("treats a raw fetch TypeError as transient", () => {
@@ -96,7 +96,7 @@ describe("isProviderUnavailableLlmError", () => {
 
   it("treats transient transport failures as provider unavailability", () => {
     expect(isProviderUnavailableLlmError(new Anthropic.APIConnectionTimeoutError())).toBe(true);
-    expect(isProviderUnavailableLlmError(new Error("openai-compat request failed with 529: overloaded"))).toBe(true);
+    expect(isProviderUnavailableLlmError(new OpenAiCompatHttpError({ status: 529, message: "overloaded" }))).toBe(true);
   });
 
   it("does not hide authentication or model-contract failures behind a fallback", () => {

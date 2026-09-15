@@ -562,7 +562,7 @@ describe("synthesizeHowItWins", () => {
     const judgment = frozenJudgment();
     await expect(
       synthesizeHowItWins({ client: {} as Anthropic, models: writerModels(), card, judgment })
-    ).rejects.toThrow(/how-it-wins frozen writer invalid/);
+    ).rejects.toThrow(/How it wins writer output failed validation/);
 
     expect(tracedMessage).toHaveBeenCalledTimes(2);
   });

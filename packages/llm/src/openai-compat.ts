@@ -3,6 +3,7 @@ import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import { buildLlmCallTrace, type AnthropicTelemetrySink, type AnthropicUsage } from "./call-trace";
 import { providerConfigFor, quirksForModel, type LlmRequestOptions, type ResolvedLlmModel } from "./llm-provider";
 import { estimateLlmCostUsd } from "./pricing";
+import { OpenAiCompatHttpError } from "./openai-compat-error";
 
 type AnthropicMessageParams = Parameters<Anthropic["messages"]["create"]>[0];
 
@@ -268,6 +269,49 @@ function retryAfterMs(response: Response, fallbackMs: number) {
   return fallbackMs;
 }
 
+async function readResponseTextWithAbort(input: {
+  response: Response;
+  signal: AbortSignal;
+}): Promise<string> {
+  input.signal.throwIfAborted();
+  if (!input.response.body) {
+    const response = input.response as Response & { json?: () => Promise<unknown> };
+    const read = typeof response.text === "function"
+      ? response.text()
+      : response.json
+        ? response.json().then((value) => JSON.stringify(value))
+        : Promise.reject(new TypeError("provider response has no readable body"));
+    let rejectAbort: ((reason: unknown) => void) | undefined;
+    const aborted = new Promise<never>((_resolve, reject) => { rejectAbort = reject; });
+    const onAbort = () => rejectAbort?.(input.signal.reason);
+    input.signal.addEventListener("abort", onAbort, { once: true });
+    try {
+      return await Promise.race([read, aborted]);
+    } finally {
+      input.signal.removeEventListener("abort", onAbort);
+    }
+  }
+  const reader = input.response.body.getReader();
+  const onAbort = () => {
+    void reader.cancel(input.signal.reason).catch(() => undefined);
+  };
+  input.signal.addEventListener("abort", onAbort, { once: true });
+  try {
+    const decoder = new TextDecoder();
+    let text = "";
+    while (true) {
+      input.signal.throwIfAborted();
+      const chunk = await reader.read();
+      input.signal.throwIfAborted();
+      if (chunk.done) return text + decoder.decode();
+      text += decoder.decode(chunk.value, { stream: true });
+    }
+  } finally {
+    input.signal.removeEventListener("abort", onAbort);
+    reader.releaseLock();
+  }
+}
+
 async function postChatCompletion(input: {
   baseUrl: string;
   apiKey: string;
@@ -281,6 +325,12 @@ async function postChatCompletion(input: {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     input.requestOptions?.signal.throwIfAborted();
     const isLastAttempt = attempt === attempts - 1;
+    const attemptSignal = input.requestOptions
+      ? AbortSignal.any([
+        input.requestOptions.signal,
+        AbortSignal.timeout(Math.min(input.timeoutMs, input.requestOptions.timeout))
+      ])
+      : AbortSignal.timeout(input.timeoutMs);
     let response: Response;
     try {
       response = await fetch(`${input.baseUrl}/chat/completions`, {
@@ -290,9 +340,7 @@ async function postChatCompletion(input: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(input.body),
-        signal: input.requestOptions
-          ? AbortSignal.any([input.requestOptions.signal, AbortSignal.timeout(Math.min(input.timeoutMs, input.requestOptions.timeout))])
-          : AbortSignal.timeout(input.timeoutMs),
+        signal: attemptSignal,
       });
     } catch (error) {
       lastError = error;
@@ -306,20 +354,30 @@ async function postChatCompletion(input: {
     let payload: OpenAiCompatResponse | undefined;
     let bodySnippet: string;
     if (response.ok) {
-      payload = await response.json() as OpenAiCompatResponse;
+      const responseText = await readResponseTextWithAbort({ response, signal: attemptSignal });
+      payload = JSON.parse(responseText) as OpenAiCompatResponse;
       if (!payload?.error) return { payload, retryCount: attempt };
       bodySnippet = JSON.stringify(payload.error);
     } else {
-      bodySnippet = await response.text().catch(() => "");
+      bodySnippet = await readResponseTextWithAbort({ response, signal: attemptSignal }).catch((error) => {
+        if (attemptSignal.aborted) throw error;
+        return "";
+      });
       try { payload = JSON.parse(bodySnippet) as OpenAiCompatResponse; } catch { /* Non-JSON provider error. */ }
     }
     const status = response.ok ? responseErrorStatus(payload?.error?.code, response.status) : response.status;
-    const error = Object.assign(new Error(`openai-compat request failed with ${status}: ${bodySnippet.split(input.apiKey).join("[redacted]").slice(0, 300)}`), {
-      responseId: payload?.id ?? response.headers.get("x-request-id") ?? undefined,
-      responseModel: payload?.model,
-      servingProvider: payload?.provider ?? payload?.error?.metadata?.provider_name,
-      estimatedCostUsd: reportedCostUsd(payload?.usage),
-      usage: usageFromOpenAiCompatResponse(payload?.usage),
+    const responseId = payload?.id ?? response.headers.get("x-request-id") ?? undefined;
+    const servingProvider = payload?.provider ?? payload?.error?.metadata?.provider_name;
+    const estimatedCostUsd = reportedCostUsd(payload?.usage);
+    const usage = usageFromOpenAiCompatResponse(payload?.usage);
+    const error = new OpenAiCompatHttpError({
+      status,
+      message: `openai-compat request failed with ${status}: ${bodySnippet.split(input.apiKey).join("[redacted]").slice(0, 300)}`,
+      ...(responseId ? { responseId } : {}),
+      ...(payload?.model ? { responseModel: payload.model } : {}),
+      ...(servingProvider ? { servingProvider } : {}),
+      ...(estimatedCostUsd !== undefined ? { estimatedCostUsd } : {}),
+      ...(usage ? { usage } : {})
     });
     if (!isRetryableStatus(status) || isLastAttempt || input.requestOptions?.signal.aborted) throw error;
     lastError = error;

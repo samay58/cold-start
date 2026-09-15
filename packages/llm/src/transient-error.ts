@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { OpenAiCompatHttpError } from "./openai-compat-error";
 
 // Classifies an error thrown from an LLM call (the Anthropic SDK path or the openai-compat
 // adapter, packages/llm/src/openai-compat.ts) as a transient transport failure worth retrying at
@@ -10,7 +11,6 @@ import Anthropic from "@anthropic-ai/sdk";
 // Over-classifying risks retrying a permanently-broken request (a bad schema, a content policy
 // rejection) forever; under-classifying only costs one avoidable permanent failure during a real
 // outage, which is the status quo this item is fixing.
-const OPENAI_COMPAT_STATUS_PATTERN = /^openai-compat request failed with (\d+):/;
 const PROVIDER_BALANCE_PATTERN =
   /\b(?:credit balance is too low|insufficient[_ ](?:balance|quota|credits?)|billing quota (?:has been )?exceeded)\b/i;
 
@@ -28,16 +28,11 @@ export function isTransientLlmError(error: unknown): boolean {
     return error.status === undefined || error.status === 429 || error.status >= 500;
   }
 
-  if (error instanceof Error) {
-    // The openai-compat adapter throws a plain Error with the HTTP status baked into a message it
-    // constructs itself, after its own in-process retry loop (3 attempts, short backoff) is
-    // already exhausted (postChatCompletion in openai-compat.ts). This Inngest-level retry is a
-    // second, longer-horizon layer for outages that outlast the in-process one.
-    const statusMatch = OPENAI_COMPAT_STATUS_PATTERN.exec(error.message);
-    if (statusMatch?.[1]) {
-      return isRetryableHttpStatus(Number(statusMatch[1]));
-    }
+  if (error instanceof OpenAiCompatHttpError) {
+    return isRetryableHttpStatus(error.status);
+  }
 
+  if (error instanceof Error) {
     // Raw network failures that escape postChatCompletion's own retry loop: Node's fetch throws
     // TypeError("fetch failed") on connection failures, and AbortSignal.timeout() rejects with a
     // DOMException named "TimeoutError" on request timeout.

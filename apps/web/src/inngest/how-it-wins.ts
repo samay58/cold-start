@@ -122,11 +122,11 @@ export function howItWinsJudgeSummary(judgment: HowItWinsJudgment): HowItWinsJud
       stage: call.stage,
       model: call.model,
       provider: call.provider,
-      inputTokens: call.inputTokens,
-      outputTokens: call.outputTokens,
+      ...(call.inputTokens === undefined ? {} : { inputTokens: call.inputTokens }),
+      ...(call.outputTokens === undefined ? {} : { outputTokens: call.outputTokens }),
       latencyMs: call.latencyMs,
-      estimatedCostUsd: call.estimatedCostUsd,
-      actualCostUsd: call.actualCostUsd,
+      estimatedCostUsd: call.estimatedCostUsd ?? null,
+      actualCostUsd: call.actualCostUsd ?? null,
       outcome: call.outcome
     }))
   };

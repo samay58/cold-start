@@ -19,6 +19,20 @@ invitation per person.
 
 Generation is private by default. Public pages at `/c/{slug}` can be shared, but production `/api/generate` should only accept extension-authenticated requests unless `PUBLIC_GENERATION_ENABLED=true` is deliberately set.
 
+## How it wins recovery rollout
+
+The version 2 worker needs migration `0019` before deployment. The migration adds durable jobs, call reservations, private candidate storage, and conditional completion. Keep the tables when rolling application code back.
+
+Set `HOW_IT_WINS_JOB_BUDGET_USD=5` explicitly. This is the maximum for one automatic job and its single manual retry together. Missing configuration or an unsupported pricing entry rejects admission. Keep `HOW_IT_WINS_RETRY_ENABLED=false` during deployment; enable it only after the bounded canary passes. The existing alpha generation switch also blocks alpha retries.
+
+Before publishing, inspect queued and running Inngest work, including legacy How it wins executions. New jobs use execution contract version 2. The legacy event name and worker steps remain supported. Confirm five synced functions after deployment, including the minute-by-minute job reconciler.
+
+Use `npm run repair:how-it-wins -- --legacy-column --budget-usd <remaining>` for a read-only check. Adding `--apply` admits the scoped operator repair against the original failed Column analysis. Set `NODE_ENV=production` and load the existing ignored production environment first. This operation does not rerun investor synthesis or consume another analysis allowance. Reserve the complete canary allowance in the investigation ledger before applying it.
+
+Read the saved job, attempt accounting, judgment, authenticated status and card, and public card after the canary. A completed Inngest execution alone is insufficient. On a repair regression, disable new retry admission and restore the recorded previous compatible deployment. Preserve historical jobs and cards.
+
+The additive status route is `/api/extension/cards/{slug}/how-it-wins`. Existing card clients remain compatible. The failure and retry interface requires extension 0.2.9 or newer; a server deployment does not update an installed extension. Package from a clean reviewed commit and verify the actual installed build separately.
+
 ## Friend-Alpha Readiness
 
 The production schema is applied through migration `0018`. Vercel Pro, Neon

@@ -86,6 +86,64 @@
   color: var(--color-muted);
 }
 
+.cs-how-it-wins-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 13px 9px;
+  border-bottom: 1px solid var(--color-rule);
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.cs-how-it-wins-status > span {
+  min-width: 0;
+}
+
+.cs-how-it-wins-status strong,
+.cs-how-it-wins-status small {
+  display: block;
+}
+
+.cs-how-it-wins-status strong {
+  color: var(--color-ink);
+  font-weight: 560;
+}
+
+.cs-how-it-wins-status small {
+  margin-top: 2px;
+  color: var(--color-muted);
+  font-size: 11.75px;
+  font-weight: 480;
+}
+
+.cs-how-it-wins-status button {
+  flex: 0 0 auto;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  padding: 1px 0;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cs-how-it-wins-status button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.cs-how-it-wins-status button:disabled {
+  border-bottom-color: transparent;
+  color: var(--color-muted);
+  cursor: default;
+}
+
 .cs-how-it-wins-targets {
   margin: 0;
   padding: 0;

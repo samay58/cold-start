@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { ExtensionResearchRunEvent } from "../src/shared/extension-config";
 import type {
   Citation,
   ColdStartCard,
@@ -10,7 +9,6 @@ import type {
 } from "@cold-start/core";
 import {
   howItWinsDisplayForCard,
-  howItWinsPendingForCard,
   investorLensCategories,
   investorReadForCard,
   sourcePostureForCitation
@@ -817,62 +815,5 @@ describe("investor lens display", () => {
     });
     expect(twelve.inQuestion.map((entry) => entry.id)).toEqual(twelveIds);
     expect(twelve.inQuestion.every((entry) => entry.name.length > 0)).toBe(true);
-  });
-});
-
-describe("howItWinsPendingForCard", () => {
-  const synthesis = {
-    whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
-    bullCase: [],
-    bearCase: [],
-    openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" as const }]
-  };
-  const now = Date.parse("2026-08-25T12:00:00.000Z");
-  const minutesAgo = (minutes: number) => new Date(now - minutes * 60_000).toISOString();
-
-  function event(type: string): ExtensionResearchRunEvent {
-    return {
-      id: `e-${type}`,
-      runId: "run-1",
-      slug: "warp-dev",
-      domain: "warp.dev",
-      sectionId: null,
-      type,
-      message: "",
-      metadata: {},
-      createdAt: minutesAgo(1)
-    };
-  }
-
-  const waiting = (generatedAt: string) => card({ generatedAt, synthesis });
-
-  it("waits while the run's trail says the read started and has not landed", () => {
-    expect(howItWinsPendingForCard(waiting(minutesAgo(1)), [event("how-it-wins.started")], now)).toBe(true);
-    // An hour on, the trail still decides: freshness is only the fallback.
-    expect(howItWinsPendingForCard(waiting(minutesAgo(60)), [event("how-it-wins.started")], now)).toBe(true);
-  });
-
-  it("stops on a completion in the trail even when no read reached the card", () => {
-    const trail = [event("how-it-wins.started"), event("how-it-wins.complete")];
-    expect(howItWinsPendingForCard(waiting(minutesAgo(1)), trail, now)).toBe(false);
-  });
-
-  it("does not wait when a trail exists and never mentions the read", () => {
-    expect(howItWinsPendingForCard(waiting(minutesAgo(1)), [event("verify.complete")], now)).toBe(false);
-  });
-
-  it("falls back to the card's age when the panel holds no trail", () => {
-    expect(howItWinsPendingForCard(waiting(minutesAgo(2)), [], now)).toBe(true);
-    expect(howItWinsPendingForCard(waiting(minutesAgo(30)), [], now)).toBe(false);
-    expect(howItWinsPendingForCard(waiting("not a date"), [], now)).toBe(false);
-  });
-
-  it("never waits on a card with no synthesis or with the read already filed", () => {
-    expect(howItWinsPendingForCard(card({ generatedAt: minutesAgo(1) }), [event("how-it-wins.started")], now)).toBe(false);
-    const filed = card({
-      generatedAt: minutesAgo(1),
-      synthesis: { ...synthesis, howItWins: { status: "thin_file" } }
-    });
-    expect(howItWinsPendingForCard(filed, [event("how-it-wins.started")], now)).toBe(false);
   });
 });

@@ -1,11 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { HOW_IT_WINS_STRATEGIES, adjudicationPatchSchema } from "@cold-start/core";
 
 import {
   benchmarkToolSchemaForRequest,
   createHowItWinsJudgeModelAdapter,
+  howItWinsRequestTimeoutMs,
+  howItWinsJudgeRequestSize,
   loadHowItWinsJudgeRules,
   normalizeBenchmarkToolOutput,
   type HowItWinsJudgeCallRequest
@@ -177,6 +179,92 @@ function requestBody(requests: Array<{ init: RequestInit }>, index = 0) {
 }
 
 describe("the how it wins judge transport", () => {
+  it("caps every provider request at 240 seconds and obeys an earlier job deadline", () => {
+    expect(howItWinsRequestTimeoutMs({ stage: "global_judge", now: 1_000 })).toBe(240_000);
+    expect(howItWinsRequestTimeoutMs({ stage: "critic", now: 1_000 })).toBe(180_000);
+    expect(howItWinsRequestTimeoutMs({ stage: "global_judge", now: 1_000, deadlineAt: 31_000 })).toBe(30_000);
+  });
+
+  it("measures the actual request framing, including the tool schema and stage contract", () => {
+    const request = globalRequest();
+    const rawBytes = Buffer.byteLength(JSON.stringify({ prompt: request.prompt, payload: request.payload }), "utf8");
+
+    expect(howItWinsJudgeRequestSize(request, "claude-opus-5")).toBeGreaterThan(rawBytes + 10_000);
+  });
+
+  it("aborts the underlying Anthropic request when the caller cancels", async () => {
+    let wireSignal: AbortSignal | undefined;
+    const client = new Anthropic({
+      apiKey: "test",
+      maxRetries: 7,
+      fetch: (async (_url: string | URL | Request, init: RequestInit) => {
+        wireSignal = init.signal as AbortSignal;
+        return new Promise<Response>((_resolve, reject) => {
+          wireSignal?.addEventListener("abort", () => reject(wireSignal?.reason), { once: true });
+        });
+      }) as unknown as typeof fetch
+    });
+    const controller = new AbortController();
+    const request = { ...globalRequest(), signal: controller.signal };
+    const pending = createHowItWinsJudgeModelAdapter({ client, model: "claude-opus-5" })(request);
+    await vi.waitFor(() => expect(wireSignal).toBeDefined());
+
+    controller.abort(new DOMException("caller cancelled", "AbortError"));
+    const result = await pending;
+
+    expect(wireSignal?.aborted).toBe(true);
+    expect(result).toMatchObject({
+      ok: false,
+      retryable: false,
+      failureKind: "cancellation_deadline",
+      trace: { providerOutcome: "failed", validationOutcome: "not_run" }
+    });
+  });
+
+  it("uses zero SDK retries and returns one transient provider failure", async () => {
+    let fetchCalls = 0;
+    const client = new Anthropic({
+      apiKey: "test",
+      maxRetries: 7,
+      fetch: (async () => {
+        fetchCalls += 1;
+        return new Response(JSON.stringify({ type: "error", error: { type: "api_error", message: "busy" } }), {
+          status: 500,
+          headers: { "content-type": "application/json" }
+        });
+      }) as unknown as typeof fetch
+    });
+
+    const result = await createHowItWinsJudgeModelAdapter({ client, model: "claude-opus-5" })(globalRequest());
+
+    expect(fetchCalls).toBe(1);
+    expect(result).toMatchObject({ ok: false, retryable: true, failureKind: "transient_provider" });
+  });
+
+  it("does not retry authentication failures", async () => {
+    let fetchCalls = 0;
+    const client = new Anthropic({
+      apiKey: "test",
+      maxRetries: 7,
+      fetch: (async () => {
+        fetchCalls += 1;
+        return new Response(JSON.stringify({ type: "error", error: { type: "authentication_error", message: "bad key" } }), {
+          status: 401,
+          headers: { "content-type": "application/json" }
+        });
+      }) as unknown as typeof fetch
+    });
+
+    const result = await createHowItWinsJudgeModelAdapter({ client, model: "claude-opus-5" })(globalRequest());
+
+    expect(fetchCalls).toBe(1);
+    expect(result).toMatchObject({
+      ok: false,
+      retryable: false,
+      failureKind: "authentication_configuration"
+    });
+  });
+
   it("streams a 50000-token global judge call through a real Anthropic client", async () => {
     const { client, requests } = stubbedClient(toolUseStream(minimalToolOutput));
     const adapter = createHowItWinsJudgeModelAdapter({ client, model: "claude-opus-5" });
@@ -188,7 +276,15 @@ describe("the how it wins judge transport", () => {
     expect(body.stream).toBe(true);
     expect(body.max_tokens).toBe(50_000);
     expect(result.ok).toBe(true);
-    expect(result.trace).toMatchObject({ provider: "anthropic", outcome: "ok", outputTokens: 24_000 });
+    expect(result.trace).toMatchObject({
+      provider: "anthropic",
+      responseId: "msg_fixture",
+      responseModel: "claude-opus-5",
+      outcome: "ok",
+      providerOutcome: "ok",
+      validationOutcome: "ok",
+      outputTokens: 24_000
+    });
     expect(result.trace.latencyMs).toBeGreaterThan(0);
   });
 
@@ -269,6 +365,41 @@ describe("the how it wins judge transport", () => {
       // 1000 at $5/M, 20000 read at $0.5/M, 20000 written for an hour at $10/M, 24000 out at $25/M.
       estimatedCostUsd: 0.815
     });
+  });
+
+  it("retains provider success when structured-output validation fails", async () => {
+    const { client } = stubbedClient(toolUseStream({ wrong: "shape" }));
+
+    const result = await createHowItWinsJudgeModelAdapter({ client, model: "claude-opus-5" })(globalRequest());
+
+    expect(result).toMatchObject({
+      ok: false,
+      retryable: true,
+      failureKind: "structured_output",
+      candidate: { wrong: "shape" },
+      diagnostics: expect.any(Array),
+      trace: {
+        providerOutcome: "ok",
+        validationOutcome: "failed",
+        responseId: "msg_fixture",
+        inputTokens: 1_200,
+        outputTokens: 24_000
+      }
+    });
+  });
+
+  it("omits unknown usage and cost instead of writing zero", async () => {
+    const body = toolUseStream(minimalToolOutput)
+      .replace('"input_tokens":1200,"output_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0', '"output_tokens":1')
+      .replace('"usage":{"output_tokens":24000}', '"usage":{}');
+    const { client } = stubbedClient(body);
+
+    const result = await createHowItWinsJudgeModelAdapter({ client, model: "unknown-model" })(globalRequest());
+
+    expect(result.trace).not.toHaveProperty("inputTokens");
+    expect(result.trace).not.toHaveProperty("outputTokens");
+    expect(result.trace).not.toHaveProperty("estimatedCostUsd");
+    expect(result.trace).not.toHaveProperty("actualCostUsd");
   });
 
   it("sends two companies the same cacheable prefix and different messages", async () => {

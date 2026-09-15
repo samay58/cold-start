@@ -14,6 +14,95 @@ async function openSidePanel(page: Page) {
   await expect(page.locator("#root > *")).toHaveCount(1);
 }
 
+type HowItWinsJob = {
+  id: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "superseded";
+  stage: "queued" | "judge_initial" | "judge_recovery" | "critic" | "adjudication" | "writer" | "verifier" | "storage" | "complete";
+  reasonCode: string | null;
+  canRetry: boolean;
+  updatedAt: string;
+  outcome?: "read" | "thin_file" | "nothing_stands_out";
+};
+
+async function installHowItWinsRecovery(
+  page: Page,
+  input: {
+    card?: ColdStartCard;
+    status: (domain: string, read: number) => HowItWinsJob | null | Promise<HowItWinsJob | null>;
+    retry?: (route: Route, body: { jobId: string; requestId: string }) => Promise<void>;
+    onGeneratePost?: () => void;
+  }
+) {
+  const card = input.card ?? readFullCard();
+  const statusReads = new Map<string, number>();
+  await installChromeShim(page, { activeDomain: card.domain });
+  await page.route("**/api/extension/bootstrap?**", async (route) => {
+    const domain = new URL(route.request().url()).searchParams.get("domain") ?? card.domain;
+    const slug = domain.split(".")[0] ?? card.slug;
+    const currentCard = domain === card.domain
+      ? card
+      : {
+          ...card,
+          slug,
+          domain,
+          identity: {
+            ...card.identity,
+            name: { ...card.identity.name, value: slug === "exa" ? "Exa" : slug }
+          }
+        };
+    await fulfillJson(route, {
+      domain,
+      slug,
+      card: currentCard,
+      runs: {
+        basics: { slug, domain, mode: "basics", status: "complete" },
+        analysis: { slug, domain, mode: "analysis", status: "complete" }
+      }
+    });
+  });
+  await page.route("**/api/extension/cards/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const parts = url.pathname.split("/").filter(Boolean);
+    const howItWins = parts.at(-1) === "how-it-wins";
+    const slug = howItWins ? parts.at(-2) ?? card.slug : parts.at(-1) ?? card.slug;
+    const domain = slug === card.slug ? card.domain : `${slug}.ai`;
+    if (howItWins) {
+      if (request.method() === "POST" && input.retry) {
+        await input.retry(route, request.postDataJSON() as { jobId: string; requestId: string });
+        return;
+      }
+      const read = (statusReads.get(domain) ?? 0) + 1;
+      statusReads.set(domain, read);
+      await fulfillJson(route, { job: await input.status(domain, read) });
+      return;
+    }
+    const currentCard = domain === card.domain
+      ? card
+      : {
+          ...card,
+          slug,
+          domain,
+          identity: {
+            ...card.identity,
+            name: { ...card.identity.name, value: slug === "exa" ? "Exa" : slug }
+          }
+        };
+    await fulfillJson(route, currentCard);
+  });
+  await page.route("**/api/generate**", async (route) => {
+    if (route.request().method() === "POST") input.onGeneratePost?.();
+    const url = new URL(route.request().url());
+    const domain = url.searchParams.get("domain") ?? card.domain;
+    await fulfillJson(route, {
+      slug: domain.split(".")[0] ?? card.slug,
+      domain,
+      mode: url.searchParams.get("mode") ?? "analysis",
+      status: "complete"
+    });
+  });
+}
+
 async function installReadyAnalysis(
   page: Page,
   input: {
@@ -317,6 +406,144 @@ for (const reducedMotion of [false, true]) {
     }
   });
 }
+
+test("a failed How it wins job remains visible after a panel reload", async ({ page }) => {
+  let generatePosts = 0;
+  await installHowItWinsRecovery(page, {
+    status: () => ({
+      id: "11111111-1111-4111-8111-111111111111",
+      status: "failed",
+      stage: "writer",
+      reasonCode: "structured_output",
+      canRetry: true,
+      updatedAt: "2026-09-14T18:00:00.000Z"
+    }),
+    onGeneratePost: () => {
+      generatePosts += 1;
+    }
+  });
+  await openSidePanel(page);
+
+  await expect(page.getByText("The update couldn't finish.")).toBeVisible();
+  await expect(page.getByText("The returned read was incomplete.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+  await expect(page.locator(".cs-how-it-wins-sentence")).toContainText("It wins on cost per token");
+
+  await page.reload();
+  await expect(page.getByText("The update couldn't finish.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+  await expect(page.locator(".cs-how-it-wins-sentence")).toContainText("It wins on cost per token");
+  expect(generatePosts).toBe(0);
+});
+
+test("retry is one pending request and stays usable in a narrow reduced-motion panel", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 320, height: 640 });
+  let retryPosts = 0;
+  let releaseRetry: (() => void) | undefined;
+  let retried = false;
+  const retryReleased = new Promise<void>((resolve) => {
+    releaseRetry = resolve;
+  });
+  await installHowItWinsRecovery(page, {
+    status: () => retried
+      ? {
+          id: "22222222-2222-4222-8222-222222222222",
+          status: "queued",
+          stage: "queued",
+          reasonCode: null,
+          canRetry: false,
+          updatedAt: "2026-09-14T18:01:00.000Z"
+        }
+      : {
+          id: "11111111-1111-4111-8111-111111111111",
+          status: "failed",
+          stage: "writer",
+          reasonCode: "structured_output",
+          canRetry: true,
+          updatedAt: "2026-09-14T18:00:00.000Z"
+        },
+    retry: async (route, body) => {
+      retryPosts += 1;
+      expect(body.jobId).toBe("11111111-1111-4111-8111-111111111111");
+      expect(body.requestId).toMatch(/^[0-9a-f-]{36}$/);
+      await retryReleased;
+      retried = true;
+      await fulfillJson(route, {
+        job: {
+          id: "22222222-2222-4222-8222-222222222222",
+          status: "queued",
+          stage: "queued",
+          reasonCode: null,
+          canRetry: false,
+          updatedAt: "2026-09-14T18:01:00.000Z"
+        }
+      }, 202);
+    }
+  });
+  await openSidePanel(page);
+
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll("button")].find((candidate) => candidate.textContent === "Try again");
+    button?.click();
+    button?.click();
+  });
+  await expect(page.getByRole("button", { name: "Starting..." })).toBeDisabled();
+  await expect.poll(() => retryPosts).toBe(1);
+  const statusBox = page.locator(".cs-how-it-wins-status");
+  await statusBox.scrollIntoViewIfNeeded();
+  await expect(statusBox).toBeInViewport();
+  expect(await statusBox.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+
+  releaseRetry?.();
+  await expect(page.getByText("Reading how it wins...")).toBeVisible();
+  expect(retryPosts).toBe(1);
+});
+
+test("a late How it wins response cannot replace the company reached by navigation", async ({ page }) => {
+  let releaseBrowserbase: (() => void) | undefined;
+  const browserbaseReleased = new Promise<void>((resolve) => {
+    releaseBrowserbase = resolve;
+  });
+  await installHowItWinsRecovery(page, {
+    status: async (domain) => {
+      if (domain === "browserbase.com") {
+        await browserbaseReleased;
+        return {
+          id: "11111111-1111-4111-8111-111111111111",
+          status: "failed",
+          stage: "writer",
+          reasonCode: "structured_output",
+          canRetry: true,
+          updatedAt: "2026-09-14T18:00:00.000Z"
+        };
+      }
+      return {
+        id: "22222222-2222-4222-8222-222222222222",
+        status: "failed",
+        stage: "verifier",
+        reasonCode: "semantic_contract",
+        canRetry: false,
+        updatedAt: "2026-09-14T18:02:00.000Z"
+      };
+    }
+  });
+  await openSidePanel(page);
+
+  await page.evaluate(() => {
+    (window as typeof window & { __coldStartSetActiveDomain: (domain: string) => void })
+      .__coldStartSetActiveDomain("exa.ai");
+  });
+  await expect(page.getByRole("heading", { name: "Exa" })).toBeVisible();
+  await expect(page.getByText("The update couldn't finish.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try again" })).toHaveCount(0);
+
+  releaseBrowserbase?.();
+  await page.waitForTimeout(100);
+  await expect(page.getByRole("heading", { name: "Exa" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try again" })).toHaveCount(0);
+});
 
 test("a contract mismatch becomes a retryable card error", async ({ page }) => {
   const card = readyCard();

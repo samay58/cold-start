@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ColdStartCard, HowItWinsJudgment, HowItWinsRead } from "@cold-start/core";
 import { buildSkeletonCard } from "@cold-start/pipeline";
+import { OpenAiCompatHttpError } from "@cold-start/llm";
 
 import {
   howItWinsJudgeInputs,
@@ -244,7 +245,7 @@ describe("howItWinsJudgeStepBody", () => {
     expect(mocks.storeHowItWinsJudgment).not.toHaveBeenCalled();
 
     mocks.judgeHowItWinsForAnalysis.mockRejectedValueOnce(
-      new Error("openai-compat request failed with 529: overloaded")
+      new OpenAiCompatHttpError({ status: 529, message: "openai-compat request failed with 529: overloaded" })
     );
     await expect(howItWinsJudgeStepBody({ db, card, slug: "cognition", client, models })).rejects.toThrow(
       "openai-compat request failed with 529: overloaded"
@@ -290,7 +291,7 @@ describe("howItWinsWriteStepBody", () => {
       error: "how-it-wins draft did not parse"
     });
 
-    mocks.synthesizeHowItWins.mockRejectedValueOnce(new Error("openai-compat request failed with 529: overloaded"));
+    mocks.synthesizeHowItWins.mockRejectedValueOnce(new OpenAiCompatHttpError({ status: 529, message: "openai-compat request failed with 529: overloaded" }));
     await expect(howItWinsWriteStepBody(writeInput)).rejects.toThrow("openai-compat request failed with 529: overloaded");
   });
 });
@@ -377,7 +378,7 @@ describe("howItWinsVerifyStepBody", () => {
       error: "verifier response did not parse"
     });
 
-    mocks.verifySynthesis.mockRejectedValueOnce(new Error("openai-compat request failed with 529: overloaded"));
+    mocks.verifySynthesis.mockRejectedValueOnce(new OpenAiCompatHttpError({ status: 529, message: "openai-compat request failed with 529: overloaded" }));
     await expect(howItWinsVerifyStepBody(verifyInput)).rejects.toThrow("openai-compat request failed with 529: overloaded");
   });
 });

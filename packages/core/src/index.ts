@@ -33,3 +33,5 @@ export * from "./source-target";
 export * from "./synthesis-evidence";
 export * from "./trust";
 export * from "./exact-integer";
+
+export * from "./how-it-wins-job";

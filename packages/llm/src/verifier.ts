@@ -3,6 +3,7 @@ import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import type { SourcedText } from "@cold-start/core";
 import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
+import type { HowItWinsMessageExecutor } from "./how-it-wins-message";
 import { withProviderFallback, withSchemaRetry } from "./llm-provider";
 
 export type VerificationStatus = "supported" | "contradicted" | "unsupported";
@@ -115,13 +116,14 @@ export async function verifySynthesis(input: {
   sources: Array<{ id: string; url: string; title: string; snippet?: string }>;
   evidenceFacts?: VerificationFact[];
   telemetry?: AnthropicTelemetrySink;
+  executeMessage?: HowItWinsMessageExecutor;
 }): Promise<VerificationResult[]> {
-  return withProviderFallback("verify", input.model, (model) => withSchemaRetry(model, async () => {
-    const response: Message = await createTracedAnthropicMessage({
+  const run = async (model: string) => {
+    const args = {
       client: input.client,
       label: "verify-synthesis",
       model,
-      stage: "verify",
+      stage: "verify" as const,
       telemetry: input.telemetry,
       params: {
         model,
@@ -130,7 +132,7 @@ export async function verifySynthesis(input: {
         temperature: 0,
         system: [
           {
-            type: "text",
+            type: "text" as const,
             text: [
               "Verify each claim against evidence carrying the claim's cited IDs.",
               "Both source snippets and structured card facts are valid evidence. Structured card facts were extracted and validated upstream; do not require their wording to appear verbatim in a short source snippet.",
@@ -145,7 +147,7 @@ export async function verifySynthesis(input: {
         ],
         messages: [
           {
-            role: "user",
+            role: "user" as const,
             content: JSON.stringify({
               claims: input.claims.map((claim, claimIndex) => ({ claimIndex, ...claim })),
               sources: input.sources,
@@ -154,7 +156,11 @@ export async function verifySynthesis(input: {
           }
         ]
       },
-    });
+    };
+    const response: Message = input.executeMessage
+      ? await input.executeMessage({ callId: "verifier:1", model, params: args.params },
+          (requestOptions) => createTracedAnthropicMessage({ ...args, requestOptions }))
+      : await createTracedAnthropicMessage(args);
 
     const text = response.content.find((block) => block.type === "text");
     if (!text || text.type !== "text") {
@@ -162,5 +168,6 @@ export async function verifySynthesis(input: {
     }
 
     return parseVerifierResults(text.text);
-  }));
+  };
+  return input.executeMessage ? run(input.model) : withProviderFallback("verify", input.model, (model) => withSchemaRetry(model, () => run(model)));
 }

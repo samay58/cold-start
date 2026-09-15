@@ -307,8 +307,8 @@ export type GenerationTrace = {
         stage: string;
         model: string;
         provider: string;
-        inputTokens: number;
-        outputTokens: number;
+        inputTokens?: number;
+        outputTokens?: number;
         latencyMs: number;
         estimatedCostUsd: number | null;
         actualCostUsd: number | null;

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { withExtractionRecovery } from "../src/extraction-recovery";
 import { isTransientLlmError } from "../src/transient-error";
 import { withSchemaRetry, type LlmRequestOptions } from "../src/llm-provider";
+import { OpenAiCompatHttpError } from "../src/openai-compat-error";
 
 function waitForAbort(_model: string, options: LlmRequestOptions): Promise<never> {
   return new Promise((_, reject) => {
@@ -87,7 +88,7 @@ describe("extraction recovery budget", () => {
   });
 
   it.each(["429", "503"])("switches providers on HTTP %s without retrying the primary", async (status) => {
-    const run = vi.fn().mockRejectedValueOnce(new Error(`openai-compat request failed with ${status}: unavailable`))
+    const run = vi.fn().mockRejectedValueOnce(new OpenAiCompatHttpError({ status: Number(status), message: "unavailable" }))
       .mockResolvedValueOnce("saved");
     await expect(withExtractionRecovery(primary, run)).resolves.toBe("saved");
     expect(run).toHaveBeenCalledTimes(2);
@@ -106,7 +107,7 @@ describe("extraction recovery budget", () => {
     vi.stubEnv("LLM_EXTRACT_FALLBACK_MODEL", "openrouter/google/gemini-2.5-flash");
     vi.stubEnv("DEEPSEEK_BASE_URL", "HTTPS://Gateway.Example.com:443/deepseek/v1/");
     vi.stubEnv("OPENROUTER_BASE_URL", "https://gateway.example.com/openrouter/v1");
-    const run = vi.fn().mockRejectedValue(new Error("openai-compat request failed with 503: unavailable"));
+    const run = vi.fn().mockRejectedValue(new OpenAiCompatHttpError({ status: 503, message: "unavailable" }));
 
     await expect(withExtractionRecovery(primary, run)).rejects.toThrow(
       'fallback provider "openrouter" resolves to the primary endpoint host gateway.example.com',
@@ -118,7 +119,7 @@ describe("extraction recovery budget", () => {
     vi.stubEnv("LLM_EXTRACT_FALLBACK_MODEL", "openrouter/deepseek/deepseek-v4.1-flash");
     const fireworksPrimary = "fireworks/accounts/fireworks/models/deepseek-v4";
     const run = vi.fn()
-      .mockRejectedValueOnce(new Error("openai-compat request failed with 503: unavailable"))
+      .mockRejectedValueOnce(new OpenAiCompatHttpError({ status: 503, message: "unavailable" }))
       .mockResolvedValueOnce("saved");
 
     await expect(withExtractionRecovery(fireworksPrimary, run)).resolves.toBe("saved");

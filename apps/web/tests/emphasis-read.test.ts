@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildSkeletonCard } from "@cold-start/pipeline";
 import type { Citation } from "@cold-start/core";
 import type { FounderVoiceItem } from "@cold-start/providers";
+import { OpenAiCompatHttpError } from "@cold-start/llm";
 
 import {
   citationIdsReferencedIn,
@@ -270,10 +271,9 @@ describe("emphasisReadStepBody", () => {
   });
 
   it("rethrows a transient transport error instead of memoizing it", async () => {
-    // Shaped like the error packages/llm/src/openai-compat.ts throws after its own retry loop is
-    // exhausted on a sustained 529; isTransientLlmError parses the status back out of this exact
-    // message format (packages/llm/src/transient-error.ts).
-    mocks.synthesizeEmphasisRead.mockRejectedValue(new Error("openai-compat request failed with 529: overloaded"));
+    // The compatibility transport preserves the HTTP status structurally after its own retry
+    // loop is exhausted, so the worker can classify the failure without parsing error text.
+    mocks.synthesizeEmphasisRead.mockRejectedValue(new OpenAiCompatHttpError({ status: 529, message: "openai-compat request failed with 529: overloaded" }));
 
     await expect(emphasisReadStepBody(input)).rejects.toThrow("openai-compat request failed with 529: overloaded");
   });

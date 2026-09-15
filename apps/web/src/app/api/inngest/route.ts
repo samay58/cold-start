@@ -5,9 +5,11 @@ import { cardEnrichmentFunction } from "../../../inngest/card-enrichment";
 import { contactEnrichmentFunction } from "../../../inngest/contact-enrichment";
 import { howItWinsFunction } from "../../../inngest/how-it-wins-function";
 
+import { howItWinsReconcileFunction } from "../../../inngest/how-it-wins-reconcile";
+
 export const maxDuration = 300;
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [generateCardFunction, cardEnrichmentFunction, contactEnrichmentFunction, howItWinsFunction],
+  functions: [generateCardFunction, cardEnrichmentFunction, contactEnrichmentFunction, howItWinsFunction, howItWinsReconcileFunction],
 });

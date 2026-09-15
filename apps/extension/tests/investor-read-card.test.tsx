@@ -5,6 +5,7 @@ import { act, type ComponentProps } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InvestorReadCard, LensSlot, type LensSlotState } from "../src/research/InvestorReadCard";
+import { HowItWinsJobProvider, type HowItWinsJobView } from "../src/research/how-it-wins-reading";
 import {
   EMPHASIS_EMPTY_COPY,
   EMPHASIS_LABELS,
@@ -14,7 +15,7 @@ import {
 import { investorReadForCard } from "../src/research/investor-lens";
 import type { TooltipDossier, TooltipMemo } from "../src/shared/SharedTooltip";
 import { AlphaAnalyticsProvider } from "../src/shared/alpha-event-context";
-import { minimalWarpCard as baseCard } from "./lens-card-fixtures";
+import { filedHowItWins, minimalWarpCard as baseCard } from "./lens-card-fixtures";
 import { stubReducedMotion } from "./sidepanel-harness";
 
 const analytics = vi.hoisted(() => ({
@@ -129,7 +130,7 @@ function tooltipStub() {
   return { calls, tooltipProps };
 }
 
-async function renderCard(card: ColdStartCard, trackAnalytics = false) {
+async function renderCard(card: ColdStartCard, trackAnalytics = false, howItWinsJob?: HowItWinsJobView) {
   const read = investorReadForCard(card);
   if (!read) {
     throw new Error("card fixture must carry synthesis");
@@ -141,11 +142,20 @@ async function renderCard(card: ColdStartCard, trackAnalytics = false) {
   await act(async () => {
     root.render(
       <AlphaAnalyticsProvider settings={trackAnalytics ? analyticsSettings : undefined}>
-        <InvestorReadCard
-          card={card}
-          read={read}
-          tooltipProps={tooltipProps}
-        />
+        <HowItWinsJobProvider value={howItWinsJob ?? {
+          phase: "idle",
+          job: null,
+          detail: null,
+          actionPending: false,
+          checkAgain: () => undefined,
+          retry: () => undefined
+        }}>
+          <InvestorReadCard
+            card={card}
+            read={read}
+            tooltipProps={tooltipProps}
+          />
+        </HowItWinsJobProvider>
       </AlphaAnalyticsProvider>
     );
   });
@@ -198,6 +208,79 @@ describe("InvestorReadCard", () => {
       "source.opened",
       expect.objectContaining({ domain: "warp.dev", ordinal: 1 })
     );
+    await unmount();
+  });
+
+  it("keeps the saved How it wins read visible when its refresh fails", async () => {
+    const card = richCard();
+    if (!card.synthesis) throw new Error("fixture must carry synthesis");
+    card.synthesis.howItWins = filedHowItWins();
+    const retry = vi.fn();
+    const { container, unmount } = await renderCard(card, false, {
+      phase: "failed",
+      job: {
+        id: "10000000-0000-4000-8000-000000000001",
+        status: "failed",
+        stage: "writer",
+        reasonCode: "transient_provider",
+        canRetry: true,
+        updatedAt: "2026-09-14T20:00:00.000Z"
+      },
+      detail: null,
+      actionPending: false,
+      checkAgain: () => undefined,
+      retry
+    });
+
+    expect(container.querySelector(".cs-how-it-wins-sentence")?.textContent)
+      .toBe("It wins by combining two rare skills, and by sitting where two labs must pass through it.");
+    expect(container.textContent).toContain("The update couldn't finish.");
+    const button = container.querySelector<HTMLButtonElement>(".cs-how-it-wins-status button");
+    expect(button?.textContent).toBe("Try again");
+    await act(async () => button?.click());
+    expect(retry).toHaveBeenCalledTimes(1);
+    await unmount();
+  });
+
+  it("shows terminal failure without replacing the Investor Lens", async () => {
+    const { container, unmount } = await renderCard(richCard(), false, {
+      phase: "failed",
+      job: {
+        id: "10000000-0000-4000-8000-000000000001",
+        status: "failed",
+        stage: "judge_initial",
+        reasonCode: "authentication_configuration",
+        canRetry: false,
+        updatedAt: "2026-09-14T20:00:00.000Z"
+      },
+      detail: "The reading service needs attention before this can run again.",
+      actionPending: false,
+      checkAgain: () => undefined,
+      retry: () => undefined
+    });
+
+    expect(container.textContent).toContain("How it wins couldn't finish.");
+    expect(container.textContent).toContain("The reading service needs attention before this can run again.");
+    expect(container.querySelector(".cs-how-it-wins-status button")).toBeNull();
+    expect(container.querySelector(".cs-investor-read-categories")).not.toBeNull();
+    await unmount();
+  });
+
+  it("offers a read-only check after progress becomes unknown", async () => {
+    const checkAgain = vi.fn();
+    const { container, unmount } = await renderCard(richCard(), false, {
+      phase: "unknown",
+      job: null,
+      detail: null,
+      actionPending: false,
+      checkAgain,
+      retry: () => undefined
+    });
+    const button = container.querySelector<HTMLButtonElement>(".cs-how-it-wins-status button");
+    expect(container.textContent).toContain("Couldn't check progress.");
+    expect(button?.textContent).toBe("Check again");
+    await act(async () => button?.click());
+    expect(checkAgain).toHaveBeenCalledTimes(1);
     await unmount();
   });
 

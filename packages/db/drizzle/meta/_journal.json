@@ -134,6 +134,13 @@
       "when": 1787692727923,
       "tag": "0018_minor_joshua_kane",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789438498198,
+      "tag": "0019_how_it_wins_jobs",
+      "breakpoints": true
     }
   ]
 }

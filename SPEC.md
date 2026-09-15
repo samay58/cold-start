@@ -404,3 +404,11 @@ These do not block the implementation plan but should be resolved before public 
 Treat this file as the live product contract. Code changes that affect card shape, trust boundaries, generation modes, public/private visibility, provider cost, or research-layer labels should update this file in the same branch.
 
 The current data path is direct Exa plus StableEnrich through AgentCash, with SEC EDGAR and Firecrawl where useful. If a StableEnrich endpoint becomes unreliable, add or restore a direct fallback for that endpoint only and document the new budget in `packages/providers/src/provider-budget.ts`.
+
+## How it wins job recovery
+
+How it wins has a separate durable job record. Optional failures preserve the saved profile, investor synthesis, and any still-valid read. The authenticated extension retrieves queued, running, failed, cancelled, superseded, or succeeded status after reopening. Analytical outcomes remain separate: a read, thin evidence, or no distinct advantage.
+
+The judge allows at most two provider requests per job, shared between transport recovery and output correction. Every paid call has a persisted reservation, deadline, and attempt record. Valid stages can be reused when their inputs still match. One manual retry targets How it wins alone, shares the root dollar cap, and consumes no additional analysis allowance.
+
+The implementation and release requirements are recorded in [How it wins recovery](docs/superpowers/specs/2026-09-14-how-it-wins-recovery.md). Public card responses continue to exclude synthesis and job details.

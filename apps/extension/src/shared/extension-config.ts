@@ -4,8 +4,10 @@ import {
   COLD_START_CLIENT_CONTRACT_HEADER,
   companySlugFromDomain,
   generationFailureMessage,
+  howItWinsJobStatusEnvelopeSchema,
   INVITE_TOKEN_PATTERN,
   type ColdStartCard,
+  type HowItWinsJobStatusEnvelope,
   type ResearchSection
 } from "@cold-start/core";
 
@@ -471,6 +473,39 @@ export function buildGenerationStatusRequest(
   };
 }
 
+export function buildHowItWinsStatusRequest(
+  domain: string,
+  settings: Settings,
+  signal?: AbortSignal,
+  extensionId?: string
+): { url: string; init: BaseRequestInit } {
+  const slug = companySlugFromDomain(domain);
+  return {
+    url: `${settings.apiOrigin}/api/extension/cards/${encodeURIComponent(slug)}/how-it-wins`,
+    init: baseRequestInit(settings, signal, extensionId)
+  };
+}
+
+export function buildHowItWinsRetryRequest(
+  domain: string,
+  settings: Settings,
+  jobId: string,
+  requestId: string,
+  signal?: AbortSignal,
+  extensionId?: string
+): { url: string; init: BaseRequestInit & { body: string } } {
+  const request = buildHowItWinsStatusRequest(domain, settings, signal, extensionId);
+  request.init.method = "POST";
+  request.init.headers["Content-Type"] = "application/json";
+  return {
+    url: request.url,
+    init: {
+      ...request.init,
+      body: JSON.stringify({ jobId, requestId })
+    }
+  };
+}
+
 async function parseApiResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
@@ -486,6 +521,10 @@ export const parseCardResponse = (response: Response) => parseApiResponse<ColdSt
 export const parseBootstrapResponse = (response: Response) => parseApiResponse<ExtensionBootstrapResponse>(response);
 export const parseGenerateResponse = (response: Response) => parseApiResponse<GenerationStatus>(response);
 export const parseGenerationStatusResponse = (response: Response) => parseApiResponse<GenerationRunStatus>(response);
+export async function parseHowItWinsJobResponse(response: Response): Promise<HowItWinsJobStatusEnvelope> {
+  const body = await parseApiResponse<unknown>(response);
+  return howItWinsJobStatusEnvelopeSchema.parse(body);
+}
 
 export function readableCardError(message: string, apiOrigin: string): string {
   message = generationFailureMessage(message);

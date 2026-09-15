@@ -52,6 +52,19 @@ export const alphaRunOutcomeEnum = pgEnum("alpha_run_outcome", [
   "watchdog_retired"
 ]);
 export const alphaThemeEnum = pgEnum("alpha_theme", ["light", "dark"]);
+export const howItWinsJobStatusEnum = pgEnum("how_it_wins_job_status", [
+  "queued",
+  "running",
+  "succeeded",
+  "failed",
+  "cancelled",
+  "superseded"
+]);
+export const howItWinsJobOutcomeEnum = pgEnum("how_it_wins_job_outcome", [
+  "read",
+  "thin_file",
+  "nothing_stands_out"
+]);
 
 export const cards = pgTable(
   "cards",
@@ -531,5 +544,108 @@ export const howItWinsJudgments = pgTable(
       table.vocabularyHash
     ),
     index("how_it_wins_judgments_slug_idx").on(table.slug)
+  ]
+);
+
+export const howItWinsJobs = pgTable(
+  "how_it_wins_jobs",
+  {
+    id: uuid("id").primaryKey(),
+    rootJobId: uuid("root_job_id")
+      .references((): AnyPgColumn => howItWinsJobs.id, { onDelete: "cascade" })
+      .notNull(),
+    retryOfJobId: uuid("retry_of_job_id").references(
+      (): AnyPgColumn => howItWinsJobs.id,
+      { onDelete: "cascade" }
+    ),
+    sourceAnalysisRunId: uuid("source_analysis_run_id")
+      .references(() => generationRuns.id, { onDelete: "cascade" })
+      .notNull(),
+    slug: text("slug").notNull(),
+    evidenceHash: text("evidence_hash").notNull(),
+    evaluatorSignature: text("evaluator_signature").notNull(),
+    executionContractVersion: integer("execution_contract_version").notNull(),
+    inngestEventId: text("inngest_event_id").notNull(),
+    inngestRunId: text("inngest_run_id"),
+    dispatchAttempts: integer("dispatch_attempts").default(0).notNull(),
+    dispatchLastAttemptAt: timestamp("dispatch_last_attempt_at", { withTimezone: true }),
+    dispatchConfirmedAt: timestamp("dispatch_confirmed_at", { withTimezone: true }),
+    status: howItWinsJobStatusEnum("status").default("queued").notNull(),
+    currentStage: text("current_stage").default("queued").notNull(),
+    terminalReasonCode: text("terminal_reason_code"),
+    outcome: howItWinsJobOutcomeEnum("outcome"),
+    judgmentId: uuid("judgment_id").references(() => howItWinsJudgments.id, { onDelete: "set null" }),
+    retryEligible: boolean("retry_eligible").default(false).notNull(),
+    manualRetryUsed: boolean("manual_retry_used").default(false).notNull(),
+    configuredCapMicrodollars: bigint("configured_cap_microdollars", { mode: "number" }).notNull(),
+    reservedMicrodollars: bigint("reserved_microdollars", { mode: "number" }).default(0).notNull(),
+    settledMicrodollars: bigint("settled_microdollars", { mode: "number" }).default(0).notNull(),
+    attemptsJson: jsonb("attempts_json").default(sql`'[]'::jsonb`).notNull(),
+    checkpointsJson: jsonb("checkpoints_json").default(sql`'{}'::jsonb`).notNull(),
+    recoveryPayloadJson: jsonb("recovery_payload_json").default(sql`'{}'::jsonb`).notNull(),
+    recoveryPayloadExpiresAt: timestamp("recovery_payload_expires_at", { withTimezone: true }),
+    leaseOwner: text("lease_owner"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    version: bigint("version", { mode: "number" }).default(0).notNull(),
+    deadlineAt: timestamp("deadline_at", { withTimezone: true }).notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => [
+    uniqueIndex("how_it_wins_jobs_active_inputs_idx")
+      .on(table.slug, table.evidenceHash, table.evaluatorSignature)
+      .where(sql`${table.status} in ('queued', 'running')`),
+    uniqueIndex("how_it_wins_jobs_source_inputs_idx")
+      .on(table.sourceAnalysisRunId, table.evidenceHash, table.evaluatorSignature)
+      .where(sql`${table.retryOfJobId} is null`),
+    uniqueIndex("how_it_wins_jobs_retry_of_idx")
+      .on(table.retryOfJobId)
+      .where(sql`${table.retryOfJobId} is not null`),
+    index("how_it_wins_jobs_slug_created_idx").on(table.slug, table.createdAt),
+    index("how_it_wins_jobs_root_idx").on(table.rootJobId),
+    index("how_it_wins_jobs_deadline_idx")
+      .on(table.deadlineAt)
+      .where(sql`${table.status} in ('queued', 'running')`),
+    check("how_it_wins_jobs_slug_length_check", sql`char_length(${table.slug}) between 1 and 120`),
+    check("how_it_wins_jobs_evidence_hash_check", sql`${table.evidenceHash} ~ '^[0-9a-f]{64}$'`),
+    check("how_it_wins_jobs_evaluator_length_check", sql`char_length(${table.evaluatorSignature}) between 1 and 512`),
+    check("how_it_wins_jobs_contract_version_check", sql`${table.executionContractVersion} > 0`),
+    check("how_it_wins_jobs_dispatch_attempts_check", sql`${table.dispatchAttempts} between 0 and 3`),
+    check(
+      "how_it_wins_jobs_budget_check",
+      sql`${table.configuredCapMicrodollars} > 0
+        and ${table.reservedMicrodollars} >= 0
+        and ${table.settledMicrodollars} >= 0
+        and ${table.reservedMicrodollars} + ${table.settledMicrodollars} <= ${table.configuredCapMicrodollars}`
+    ),
+    check("how_it_wins_jobs_attempts_array_check", sql`jsonb_typeof(${table.attemptsJson}) = 'array'`),
+    check("how_it_wins_jobs_attempts_size_check", sql`octet_length(${table.attemptsJson}::text) <= 131072`),
+    check("how_it_wins_jobs_checkpoints_object_check", sql`jsonb_typeof(${table.checkpointsJson}) = 'object'`),
+    check("how_it_wins_jobs_checkpoints_size_check", sql`octet_length(${table.checkpointsJson}::text) <= 524288`),
+    check("how_it_wins_jobs_recovery_object_check", sql`jsonb_typeof(${table.recoveryPayloadJson}) = 'object'`),
+    check("how_it_wins_jobs_recovery_size_check", sql`octet_length(${table.recoveryPayloadJson}::text) <= 524288`),
+    check(
+      "how_it_wins_jobs_recovery_expiry_check",
+      sql`(${table.recoveryPayloadJson} = '{}'::jsonb and ${table.recoveryPayloadExpiresAt} is null)
+        or (${table.recoveryPayloadJson} <> '{}'::jsonb and ${table.recoveryPayloadExpiresAt} is not null)`
+    ),
+    check(
+      "how_it_wins_jobs_lease_check",
+      sql`(${table.leaseOwner} is null and ${table.leaseExpiresAt} is null)
+        or (${table.leaseOwner} is not null and ${table.leaseExpiresAt} is not null)`
+    ),
+    check(
+      "how_it_wins_jobs_terminal_check",
+      sql`(${table.status} in ('queued', 'running') and ${table.completedAt} is null and ${table.terminalReasonCode} is null and ${table.outcome} is null)
+        or (${table.status} = 'succeeded' and ${table.completedAt} is not null and ${table.terminalReasonCode} is null and ${table.outcome} is not null)
+        or (${table.status} in ('failed', 'cancelled', 'superseded') and ${table.completedAt} is not null and ${table.terminalReasonCode} is not null and ${table.outcome} is null)`
+    ),
+    check(
+      "how_it_wins_jobs_root_retry_check",
+      sql`(${table.retryOfJobId} is null and ${table.rootJobId} = ${table.id})
+        or (${table.retryOfJobId} is not null and ${table.rootJobId} <> ${table.id})`
+    )
   ]
 );

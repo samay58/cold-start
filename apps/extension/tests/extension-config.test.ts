@@ -5,6 +5,8 @@ import {
   ALPHA_INSTALLATION_SUFFIX_STORAGE_KEY,
   alphaInviteOrigin,
   buildGenerateRequest,
+  buildHowItWinsRetryRequest,
+  buildHowItWinsStatusRequest,
   buildCardRequest,
   defaultApiOrigin,
   isTrustedAlphaInviteSender,
@@ -12,6 +14,7 @@ import {
   parseAlphaInviteExternalMessage,
   redactedAlphaDiagnosticsFromStorage,
   parseGenerateResponse,
+  parseHowItWinsJobResponse,
   parseCardResponse,
   readableCompanyNameFromDomain,
   readableCardError,
@@ -435,6 +438,64 @@ describe("buildGenerateRequest", () => {
       confirmStart: true,
       forceRefresh: true
     }));
+  });
+});
+
+describe("How it wins job requests", () => {
+  const settings = {
+    apiOrigin: "https://cold-start-samay58s-projects.vercel.app",
+    apiToken: "token-123"
+  };
+
+  it("builds an authenticated read-only status request", () => {
+    const request = buildHowItWinsStatusRequest("www.Linear.app", settings, undefined, "extension-123");
+    expect(request.url).toBe(
+      "https://cold-start-samay58s-projects.vercel.app/api/extension/cards/linear/how-it-wins"
+    );
+    expect(request.init.method).toBeUndefined();
+    expect(request.init.headers).toEqual({
+      Authorization: "Bearer token-123",
+      [COLD_START_CLIENT_CONTRACT_HEADER]: COLD_START_API_CONTRACT_VERSION,
+      "X-Cold-Start-Extension-Id": "extension-123"
+    });
+  });
+
+  it("targets only the failed How it wins job when retrying", () => {
+    const request = buildHowItWinsRetryRequest(
+      "linear.app",
+      settings,
+      "10000000-0000-4000-8000-000000000001",
+      "20000000-0000-4000-8000-000000000002",
+      undefined,
+      "extension-123"
+    );
+    expect(request.url.endsWith("/api/extension/cards/linear/how-it-wins")).toBe(true);
+    expect(request.init.method).toBe("POST");
+    expect(request.init.body).toBe(JSON.stringify({
+      jobId: "10000000-0000-4000-8000-000000000001",
+      requestId: "20000000-0000-4000-8000-000000000002"
+    }));
+  });
+
+  it("validates the public-safe status envelope", async () => {
+    const valid = new Response(JSON.stringify({
+      job: {
+        id: "10000000-0000-4000-8000-000000000001",
+        status: "failed",
+        stage: "judge_initial",
+        reasonCode: "structured_output",
+        canRetry: true,
+        updatedAt: "2026-09-14T20:00:00.000Z"
+      }
+    }));
+    valid.headers.set(COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION);
+    await expect(parseHowItWinsJobResponse(valid)).resolves.toMatchObject({
+      job: { status: "failed", canRetry: true }
+    });
+
+    const invalid = new Response(JSON.stringify({ job: { status: "failed" } }));
+    invalid.headers.set(COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION);
+    await expect(parseHowItWinsJobResponse(invalid)).rejects.toThrow();
   });
 });
 

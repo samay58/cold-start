@@ -7,6 +7,7 @@ import {
 } from "@cold-start/core";
 import { createDb, findCardBySlug, recordResearchRunEvent, updateGenerationRunTrace } from "@cold-start/db";
 import { anthropicModel, createAnthropicClient, modelForStage } from "@cold-start/llm";
+import { howItWinsV2Handler } from "./how-it-wins-v2";
 import { canonicalCompanyDomain } from "../lib/domain";
 import { boundedErrorMessage } from "../lib/errors";
 import { webEnv } from "../lib/web-env";
@@ -48,29 +49,6 @@ const HOW_IT_WINS_STEP_ID = "how-it-wins";
 type HowItWinsTraceBlock = NonNullable<GenerationTrace["howItWins"]>;
 type HowItWinsTraceStatus = NonNullable<HowItWinsTraceBlock["status"]>;
 
-// The read runs after the analysis card is stored, in its own function, because the judge is
-// five model calls and 24k-33k output tokens: holding the analysis run open for it delays the
-// Lens the tester is already looking at, and a judge retry would otherwise replay the whole
-// analysis run's step chain.
-export function buildHowItWinsRequestedEvent(input: {
-  slug: string;
-  domain: string;
-  requestedAtMs: number;
-  parentGenerationRunId?: string | null;
-  parentInngestRunId?: string | null;
-}) {
-  return {
-    name: HOW_IT_WINS_EVENT_NAME,
-    data: {
-      slug: input.slug,
-      domain: input.domain,
-      requestedAtMs: input.requestedAtMs,
-      ...(input.parentGenerationRunId ? { parentGenerationRunId: input.parentGenerationRunId } : {}),
-      ...(input.parentInngestRunId ? { parentInngestRunId: input.parentInngestRunId } : {})
-    }
-  };
-}
-
 const howItWinsConcurrency = backgroundConcurrencyLimit("INNGEST_HOW_IT_WINS_CONCURRENCY");
 
 // Thrown out of the store mutation when the card underneath moved since the judge read it. It
@@ -84,6 +62,7 @@ class HowItWinsStaleCardError extends Error {
 }
 
 export const howItWinsHandler = async ({ event, runId, step }: WorkerEventContext) => {
+  if (event.data.executionContractVersion === 2) return howItWinsV2Handler({ event, runId, step });
   const runtimeEnv = webEnv();
   const db = createDb(runtimeEnv.DATABASE_URL);
   const parentGenerationRunId = stringValue(event.data.parentGenerationRunId);
