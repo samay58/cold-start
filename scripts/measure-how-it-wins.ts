@@ -207,8 +207,7 @@ export type HowItWinsRunClassification = {
   judgeOpenQuestionCount: number | null;
   filedInQuestionCount: number | null;
   judgeCalls: HowItWinsJudgeCallSummary[];
-  judgeCostUsd: number | null;
-  writerCostUsd: number | null;
+  howItWinsCostUsd: number | null;
 };
 
 // The single source of truth for what happened to how-it-wins on one run. Reads trace.steps
@@ -265,12 +264,12 @@ export function classifyHowItWinsRun(trace: GenerationTrace | null | undefined, 
 
   const callsSource = judgment?.calls ?? judgeSummary?.calls;
   const judgeCalls = Array.isArray(callsSource) ? callsSource.map(toJudgeCallSummary) : [];
-  const judgeCostUsd = judgeCalls.length > 0 ? sumOrNull(judgeCalls.map((call) => call.costUsd)) : null;
-
-  const writerCostUsd = sumOrNull(
+  // trace.llm.calls is the ledger of what THIS run actually paid for. judgeSummary.calls is the
+  // judge's own record of a verdict, which a cached judgment reuses without this run paying for it.
+  const howItWinsCostUsd = sumOrNull(
     (trace?.llm?.calls ?? [])
       .filter((call): call is GenerationLlmCallTrace => call?.stage === "how_it_wins")
-      .map((call) => numberOrNull(call.estimatedCostUsd))
+      .map((call) => numberOrNull(call.actualCostUsd) ?? numberOrNull(call.estimatedCostUsd))
   );
 
   return {
@@ -285,8 +284,7 @@ export function classifyHowItWinsRun(trace: GenerationTrace | null | undefined, 
     judgeOpenQuestionCount,
     filedInQuestionCount,
     judgeCalls,
-    judgeCostUsd,
-    writerCostUsd
+    howItWinsCostUsd
   };
 }
 
@@ -322,7 +320,6 @@ export function cardsBySlugQuery(slugs: string[]) {
 type ReportRow = { slug: string; startedAt: Date } & HowItWinsRunClassification & {
     traceBytes: number | null;
     totalCostUsd: number | null;
-    howItWinsCostUsd: number | null;
   };
 
 function buildReportRows(runs: RunRow[], cardBySlug: Map<string, CardLike>): ReportRow[] {
@@ -330,11 +327,7 @@ function buildReportRows(runs: RunRow[], cardBySlug: Map<string, CardLike>): Rep
     const classification = classifyHowItWinsRun(run.trace_json, cardBySlug.get(run.slug) ?? null);
     const traceBytes = traceJsonByteSize(run.trace_json);
     const totalCostUsd = numberOrNull(run.trace_json?.costUsdAnthropic);
-    const howItWinsCostUsd =
-      classification.judgeCostUsd === null && classification.writerCostUsd === null
-        ? null
-        : (classification.judgeCostUsd ?? 0) + (classification.writerCostUsd ?? 0);
-    return { slug: run.slug, startedAt: run.started_at, ...classification, traceBytes, totalCostUsd, howItWinsCostUsd };
+    return { slug: run.slug, startedAt: run.started_at, ...classification, traceBytes, totalCostUsd };
   });
 }
 

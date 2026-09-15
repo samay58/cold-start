@@ -1,4 +1,4 @@
-import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION } from "@cold-start/core";
+import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, EXTRACTION_UNAVAILABLE_PREFIX } from "@cold-start/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -156,7 +156,7 @@ describe("GET /api/extension/bootstrap", () => {
   });
 
   it("hides extraction details in bootstrap errors and events without changing stored records", async () => {
-    const detail = "Profile extraction is temporarily unavailable: upstream.example timed out";
+    const detail = `${EXTRACTION_UNAVAILABLE_PREFIX} upstream.example timed out`;
     const run = {
       id: "run-analysis", slug: "cartesia", domain: "cartesia.ai", mode: "analysis",
       jobKind: "analysis", status: "failed", error: detail,

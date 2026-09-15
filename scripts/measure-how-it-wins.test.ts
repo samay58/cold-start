@@ -34,7 +34,38 @@ describe("classifyHowItWinsRun", () => {
     assert.equal(result.filedInQuestionCount, 1);
     assert.equal(result.judgeCalls.length, 1);
     assert.equal(result.judgeCalls[0]?.costUsd, 0.42);
-    assert.equal(result.judgeCostUsd, 0.42);
+    // No trace.llm.calls rows on this legacy fixture, so the run's actual spend is unknown.
+    assert.equal(result.howItWinsCostUsd, null);
+  });
+
+  it("sums how-it-wins cost from trace.llm.calls, not from judgeSummary.calls", () => {
+    const trace = {
+      jobKind: "analysis",
+      mode: "analysis",
+      steps: { "how-it-wins": { status: "complete", durationMs: 4200 } },
+      howItWins: {
+        enabled: true,
+        status: "read",
+        judgeSummary: {
+          currentCount: 3,
+          openQuestionCount: 1,
+          calls: [{ stage: "global_judge", model: "claude", outputTokens: 12000, latencyMs: 9000, estimatedCostUsd: 0.42 }]
+        }
+      },
+      llm: {
+        calls: [
+          { stage: "how_it_wins", label: "how-it-wins:judge", model: "claude", status: "ok", durationMs: 9000, estimatedCostUsd: 0.42 },
+          { stage: "how_it_wins", label: "how-it-wins:writer", model: "claude", status: "ok", durationMs: 2000, estimatedCostUsd: 0.05 },
+          { stage: "synthesis", label: "synthesis", model: "claude", status: "ok", durationMs: 1500, estimatedCostUsd: 1 }
+        ]
+      }
+    } as unknown as GenerationTrace;
+
+    const result = classifyHowItWinsRun(trace, null);
+
+    assert.ok(result.howItWinsCostUsd !== null);
+    assert.ok(Math.abs((result.howItWinsCostUsd ?? 0) - 0.47) < 1e-9);
+    assert.equal(result.judgeCalls.length, 1);
   });
 
   it("reads a lighter judgeSummary the same way as an inline judgment", () => {

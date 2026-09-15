@@ -1,4 +1,4 @@
-import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, COLD_START_CLIENT_CONTRACT_HEADER } from "@cold-start/core";
+import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, COLD_START_CLIENT_CONTRACT_HEADER, EXTRACTION_UNAVAILABLE_PREFIX } from "@cold-start/core";
 import { describe, expect, it } from "vitest";
 import {
   ApiError,
@@ -447,10 +447,10 @@ describe("How it wins job requests", () => {
     apiToken: "token-123"
   };
 
-  it("builds an authenticated read-only status request", () => {
+  it("builds an authenticated read-only status request that asks for the deadline", () => {
     const request = buildHowItWinsStatusRequest("www.Linear.app", settings, undefined, "extension-123");
     expect(request.url).toBe(
-      "https://cold-start-samay58s-projects.vercel.app/api/extension/cards/linear/how-it-wins"
+      "https://cold-start-samay58s-projects.vercel.app/api/extension/cards/linear/how-it-wins?deadline=1"
     );
     expect(request.init.method).toBeUndefined();
     expect(request.init.headers).toEqual({
@@ -460,7 +460,7 @@ describe("How it wins job requests", () => {
     });
   });
 
-  it("targets only the failed How it wins job when retrying", () => {
+  it("targets only the failed How it wins job when retrying, without the deadline query param", () => {
     const request = buildHowItWinsRetryRequest(
       "linear.app",
       settings,
@@ -469,7 +469,9 @@ describe("How it wins job requests", () => {
       undefined,
       "extension-123"
     );
-    expect(request.url.endsWith("/api/extension/cards/linear/how-it-wins")).toBe(true);
+    expect(request.url).toBe(
+      "https://cold-start-samay58s-projects.vercel.app/api/extension/cards/linear/how-it-wins"
+    );
     expect(request.init.method).toBe("POST");
     expect(request.init.body).toBe(JSON.stringify({
       jobId: "10000000-0000-4000-8000-000000000001",
@@ -553,7 +555,7 @@ describe("parseGenerateResponse", () => {
 describe("readableCardError", () => {
   it("hides extraction provider details", () => {
     expect(readableCardError(
-      "Profile extraction is temporarily unavailable: upstream.example timed out",
+      `${EXTRACTION_UNAVAILABLE_PREFIX} upstream.example timed out`,
       "https://cold-start.semitechie.vc"
     )).toBe("Cold Start could not finish this profile. Please try again later.");
   });

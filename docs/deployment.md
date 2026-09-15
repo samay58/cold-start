@@ -25,9 +25,9 @@ The version 2 worker needs migration `0019` before deployment. The migration add
 
 Set `HOW_IT_WINS_JOB_BUDGET_USD=5` explicitly. This is the maximum for one automatic job and its single manual retry together. Missing configuration or an unsupported pricing entry rejects admission. Keep `HOW_IT_WINS_RETRY_ENABLED=false` during deployment; enable it only after the bounded canary passes. The existing alpha generation switch also blocks alpha retries.
 
-Before publishing, inspect queued and running Inngest work, including legacy How it wins executions. New jobs use execution contract version 2. The legacy event name and worker steps remain supported. Confirm five synced functions after deployment, including the minute-by-minute job reconciler.
+Before publishing, inspect queued and running Inngest work. New jobs use execution contract version 2; an event carrying any other version is rejected without a database write. Confirm five synced functions after deployment, including the job reconciler, which runs every ten minutes.
 
-Use `npm run repair:how-it-wins -- --legacy-column --budget-usd <remaining>` for a read-only check. Adding `--apply` admits the scoped operator repair against the original failed Column analysis. Set `NODE_ENV=production` and load the existing ignored production environment first. This operation does not rerun investor synthesis or consume another analysis allowance. Reserve the complete canary allowance in the investigation ledger before applying it.
+Use `npm run repair:how-it-wins -- --slug <slug> --run-id <analysis-run-id> --budget-usd <remaining>` for a read-only check. Adding `--apply` admits a scoped operator repair against that failed analysis run. Set `NODE_ENV=production` and load the existing ignored production environment first. This operation does not rerun investor synthesis or consume another analysis allowance. Reserve the complete canary allowance in the investigation ledger before applying it.
 
 Read the saved job, attempt accounting, judgment, authenticated status and card, and public card after the canary. A completed Inngest execution alone is insufficient. On a repair regression, disable new retry admission and restore the recorded previous compatible deployment. Preserve historical jobs and cards.
 

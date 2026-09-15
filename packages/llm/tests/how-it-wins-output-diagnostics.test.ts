@@ -1,7 +1,7 @@
 import { globalJudgmentTransportSchema } from "@cold-start/core";
 import { describe, expect, it } from "vitest";
 
-import { howItWinsOutputDiagnostics, isSupportedZodError } from "../src";
+import { howItWinsOutputDiagnostics, isSupportedZodError } from "../src/how-it-wins-output-diagnostics";
 
 function malformedCompactJudgment() {
   return {

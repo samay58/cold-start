@@ -1,5 +1,6 @@
 export * from "./api-contract";
 export * from "./alpha-analytics";
+export * from "./canonical-json";
 export * from "./card";
 export * from "./card-age";
 export * from "./card-quality";

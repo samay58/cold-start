@@ -1,3 +1,4 @@
+import { EXTRACTION_UNAVAILABLE_PREFIX } from "@cold-start/core";
 import { describe, expect, it } from "vitest";
 import {
   buildResearchProgressPlan,
@@ -37,7 +38,7 @@ describe("artifact-led research progress", () => {
     const failure = event({
       id: "failure",
       type: "generation.failed",
-      message: "Profile extraction is temporarily unavailable: upstream.example timed out"
+      message: `${EXTRACTION_UNAVAILABLE_PREFIX} upstream.example timed out`
     });
     const plan = buildResearchProgressPlan({ activeIndex: 2, events: [failure], stageNote: "" });
 

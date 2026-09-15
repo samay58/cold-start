@@ -11,7 +11,7 @@ export * from "./how-it-wins-analysis";
 export * from "./how-it-wins-frozen-writer";
 export * from "./how-it-wins-judge";
 export * from "./how-it-wins-judge-adapter";
-export * from "./how-it-wins-output-diagnostics";
+export { isSupportedZodError, type HowItWinsOutputDiagnostic } from "./how-it-wins-output-diagnostics";
 export * from "./how-it-wins-message";
 export * from "./how-it-wins-judge-prompts";
 export * from "./how-it-wins-judge-rules";

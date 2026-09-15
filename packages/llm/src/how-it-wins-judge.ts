@@ -5,6 +5,7 @@ import {
   HowItWinsJudgmentClosedError,
   adjudicationPatchSchema,
   assignMaterialBetIds,
+  canonicalJsonString,
   globalJudgmentTransportSchema,
   howItWinsEvidenceItemSchema,
   howItWinsJudgeCallTraceSchema,
@@ -45,29 +46,8 @@ import {
 export type { HowItWinsJudgeCallTrace } from "@cold-start/core";
 export { HowItWinsJudgmentClosedError as HowItWinsJudgeClosedError };
 
-type JsonPrimitive = string | number | boolean | null;
-type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
-
-function canonicalJson(value: unknown): JsonValue {
-  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) throw new Error("judge hash input contains a non-finite number");
-    return value;
-  }
-  if (Array.isArray(value)) return value.map(canonicalJson);
-  if (typeof value === "object") {
-    const out: Record<string, JsonValue> = {};
-    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
-      const item = (value as Record<string, unknown>)[key];
-      if (item !== undefined) out[key] = canonicalJson(item);
-    }
-    return out;
-  }
-  throw new Error(`judge hash input contains unsupported type: ${typeof value}`);
-}
-
 export function hashHowItWinsJudgeValue(value: unknown) {
-  return createHash("sha256").update(JSON.stringify(canonicalJson(value))).digest("hex");
+  return createHash("sha256").update(canonicalJsonString(value)).digest("hex");
 }
 
 export const HOW_IT_WINS_JUDGE_PROMPT_HASH = hashHowItWinsJudgeValue(HOW_IT_WINS_JUDGE_PROMPTS);
