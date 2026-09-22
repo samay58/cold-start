@@ -34,8 +34,15 @@ import {
   HOW_IT_WINS_ADJUDICATION_PROMPT,
   HOW_IT_WINS_CRITIC_PROMPT,
   HOW_IT_WINS_MONOLITH_PROMPT,
-  HOW_IT_WINS_JUDGE_PROMPTS
+  HOW_IT_WINS_JUDGE_PROMPTS,
+  HOW_IT_WINS_SCOPED_JUDGE_ADDENDUM
 } from "./how-it-wins-judge-prompts";
+import {
+  completeScopedJudgment,
+  runHowItWinsCitationCheck,
+  type HowItWinsCitationCheck,
+  type HowItWinsJudgeScope
+} from "./how-it-wins-judge-scope";
 import { isTransientLlmError } from "./transient-error";
 import {
   howItWinsCorrectionFeedback,
@@ -72,9 +79,18 @@ export type HowItWinsJudgeRules = {
 // Refinement changes what the judge does with the same rules, so a verdict judged under one
 // setting must never replay for a run under the other. Folded into the prompt hash, not a
 // separate cache column: default true when the caller omits the option, matching
-// createHowItWinsJudge's own default.
-export function howItWinsJudgePromptHash(rules: HowItWinsJudgeRules, options?: { refinement: boolean | undefined }) {
-  return hashHowItWinsJudgeValue({ prompts: HOW_IT_WINS_JUDGE_PROMPTS, rules, refinement: options?.refinement ?? true });
+// createHowItWinsJudge's own default. A scope is folded in only when present, so every unscoped
+// hash, and every verdict already filed under one, is unchanged.
+export function howItWinsJudgePromptHash(
+  rules: HowItWinsJudgeRules,
+  options?: { refinement: boolean | undefined; scope?: HowItWinsJudgeScope | undefined }
+) {
+  return hashHowItWinsJudgeValue({
+    prompts: HOW_IT_WINS_JUDGE_PROMPTS,
+    rules,
+    refinement: options?.refinement ?? true,
+    ...(options?.scope ? { scope: { addendum: HOW_IT_WINS_SCOPED_JUDGE_ADDENDUM, ...options.scope } } : {})
+  });
 }
 
 const evidencePacketSchema = z.object({
@@ -93,18 +109,23 @@ const criticFindingSchema = z.object({
 
 const criticOutputSchema = z.object({ findings: z.array(criticFindingSchema) }).strict();
 
-function modelFacingJudgmentSchema() {
+// A scoped call's row count is the company's Round 1 count. The schema stays one fixed range
+// rather than that count, because the tool schema leads Anthropic's cache prefix; code checks
+// the exact rows on the way back.
+function modelFacingJudgmentSchema(scoped: boolean) {
   return semanticJudgmentSchema.extend({
-    strategyEvaluations: semanticJudgmentSchema.shape.strategyEvaluations.min(80).max(80)
+    strategyEvaluations: scoped
+      ? semanticJudgmentSchema.shape.strategyEvaluations.min(1).max(80)
+      : semanticJudgmentSchema.shape.strategyEvaluations.min(80).max(80)
   });
 }
 
-function howItWinsJudgeStageSchema(stage: HowItWinsJudgeCallTrace["stage"]) {
+function howItWinsJudgeStageSchema(stage: HowItWinsJudgeCallTrace["stage"], scoped: boolean) {
   switch (stage) {
     case "critic":
       return criticOutputSchema;
     case "global_judge":
-      return modelFacingJudgmentSchema().required({ materialBets: true });
+      return modelFacingJudgmentSchema(scoped).required({ materialBets: true });
     case "adjudication":
       return adjudicationPatchSchema;
   }
@@ -123,8 +144,8 @@ function jsonSchema202012(value: unknown): unknown {
   return converted;
 }
 
-export function howItWinsJudgeToolJsonSchema(stage: HowItWinsJudgeCallTrace["stage"]) {
-  const { $schema: _schema, ...json } = zodToJsonSchema(howItWinsJudgeStageSchema(stage), {
+export function howItWinsJudgeToolJsonSchema(stage: HowItWinsJudgeCallTrace["stage"], options?: { scoped?: boolean }) {
+  const { $schema: _schema, ...json } = zodToJsonSchema(howItWinsJudgeStageSchema(stage, options?.scoped === true), {
     $refStrategy: "none",
     target: "jsonSchema7"
   });
@@ -143,6 +164,8 @@ export type HowItWinsJudgeCallRequest = {
   prompt: string;
   payload: unknown;
   model?: string;
+  // Set only on a global judgment limited to the screen's scope.
+  scoped?: boolean;
   signal?: AbortSignal;
   deadlineAt?: number;
 };
@@ -333,13 +356,15 @@ function parseGlobalJudgment(
   output: unknown,
   packet: z.infer<typeof evidencePacketSchema>,
   decidingQuestionFor: DecidingQuestionLookup,
-  requiredSiblingIds: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>>
+  requiredSiblingIds: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>>,
+  scope?: HowItWinsJudgeScope
 ) {
   // The stage contract still names betRevision, which adjudication owns. A judgment that returns
   // one anyway is read and its revision dropped, rather than costing the one paid re-ask.
-  const { betRevision: _betRevision, ...parsed } = globalJudgmentTransportSchema.parse(
+  const { betRevision: _betRevision, ...transport } = globalJudgmentTransportSchema.parse(
     stripUnknownNullTransportFields(output)
   );
+  const parsed = scope ? completeScopedJudgment(transport, scope) : transport;
   const { semantic, repairs } = repairSemanticJudgment(parsed, { requiredSiblingIds });
   if (!semantic.materialBets) {
     throw new HowItWinsJudgmentClosedError("monolith judgment requires material bets");
@@ -373,6 +398,9 @@ export type HowItWinsJudgeConfig = {
   // match what the read should say) is Samay's blind read to make, so this needs a switch that
   // costs no deploy.
   refinement?: boolean;
+  // Both off unless the caller passes them; see HowItWinsJudgeScope and HowItWinsCitationCheck.
+  scope?: HowItWinsJudgeScope;
+  citationCheck?: HowItWinsCitationCheck;
   executeCall?: HowItWinsJudgeExecuteCall;
   onValidation?: HowItWinsJudgeValidationSink;
   onPrimaryJudgment?: HowItWinsPrimaryJudgmentSink;
@@ -474,7 +502,7 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
     if (hashHowItWinsJudgeValue(input.vocabulary) !== input.vocabularyHash) {
       throw new HowItWinsJudgmentClosedError("vocabulary hash mismatch");
     }
-    if (input.promptHash !== howItWinsJudgePromptHash(config.rules, { refinement: config.refinement })) {
+    if (input.promptHash !== howItWinsJudgePromptHash(config.rules, { refinement: config.refinement, scope: config.scope })) {
       throw new HowItWinsJudgmentClosedError("prompt hash mismatch");
     }
 
@@ -577,11 +605,14 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
     // betMap, scouts, and missingStrategyIds are what the retired multi-stage topology fed this
     // call. The one call left always saw them at these three values, so they stay as written
     // rather than change what a production judge reads.
+    // A scoped call reuses missingStrategyIds, the field that always named what this call judges,
+    // and adds the screen's leads. An unscoped request is byte-identical to before the screen.
+    const scope = config.scope;
     const globalRequest: HowItWinsJudgeCallRequest = {
       callId: "how-it-wins:monolith",
       stage: "global_judge",
       attempt: 1,
-      prompt: HOW_IT_WINS_MONOLITH_PROMPT,
+      prompt: scope ? `${HOW_IT_WINS_MONOLITH_PROMPT}\n\n${HOW_IT_WINS_SCOPED_JUDGE_ADDENDUM}` : HOW_IT_WINS_MONOLITH_PROMPT,
       payload: {
         evidencePacket: packet,
         betMap: null,
@@ -589,8 +620,10 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
         rules: config.rules,
         requiredSiblingIdsByStrategy: siblingMap,
         scouts: [],
-        missingStrategyIds: HOW_IT_WINS_STRATEGIES.map((strategy) => strategy.id)
+        missingStrategyIds: scope ? scope.strategyIds : HOW_IT_WINS_STRATEGIES.map((strategy) => strategy.id),
+        ...(scope ? { screenLeads: scope.leads } : {})
       },
+      ...(scope ? { scoped: true } : {}),
       ...(config.models ? { model: config.models.strong } : {}),
       ...(config.signal ? { signal: config.signal } : {}),
       ...(config.deadlineAt !== undefined ? { deadlineAt: config.deadlineAt } : {})
@@ -598,7 +631,7 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
     // The deterministic repair pass runs first, inside parseGlobalJudgment. Whatever survives it
     // is a contradiction that needs evidence to settle, which only the model can supply.
     const acceptGlobalJudgment = (output: unknown) => {
-      const accepted = parseGlobalJudgment(output, packet, decidingQuestionFor, siblingMap);
+      const accepted = parseGlobalJudgment(output, packet, decidingQuestionFor, siblingMap, scope);
       assertFrozenEvidence(accepted.body, packet);
       assertRequiredSiblingResolutions(accepted.body, siblingMap);
       return accepted;
@@ -744,6 +777,9 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
       });
     }
 
+    const citation = await runHowItWinsCitationCheck(config.citationCheck, globalJudgment);
+    refinement.notes.push(...citation.notes);
+
     // No critic call, no adjudication call: the global judgment is the answer. Whatever the
     // deterministic repair pass already fixed above stays recorded in refinement.repairs.
     if (config.refinement === false) {
@@ -820,6 +856,11 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
       }
     }
 
+    // Citation flags join the critic's findings, so the one adjudication pass settles both.
+    critic.findings.push(...citation.findings.map((finding, index) => ({
+      findingId: `cite${index + 1}`,
+      ...finding
+    })));
     const materialFindings = critic.findings.filter((finding) => finding.material);
     let finalBody = globalJudgment;
     if (materialFindings.length > 0) {
@@ -929,7 +970,7 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
         ...finalBody.disagreements,
         ...critic.findings.flatMap((finding) => existingDisagreements.has(finding.findingId) ? [] : [{
           disagreementId: finding.findingId,
-          stage: "critic",
+          stage: finding.findingId.startsWith("cite") ? "citation_check" : "critic",
           summary: finding.summary,
           material: finding.material,
           strategyIds: finding.strategyIds,

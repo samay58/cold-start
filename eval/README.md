@@ -45,3 +45,9 @@ npm run eval:hiw-screen:calibrate -- --run eval/runs/how-it-wins-screen/{timesta
 ```
 
 Scoring reads verdicts cached by `scripts/how-it-wins-batch.ts` in `eval/curation/how-it-wins-batch/_judgments/`. Results land in `eval/runs/how-it-wins-screen/{timestamp}/`.
+
+To produce scoped reads for the blind review, run the batch with `--scoped`. It screens each card, judges only Round 1's survivors with the citation check, and caches each verdict under a scope-bound hash beside the full ones. A failed screen fails the card; it never falls back to a full verdict.
+
+```bash
+npm run eval:how-it-wins:batch -- --slugs august,bland,cognition,deepinfra,doppel,hebbia,nekohealth,notion --scoped --budget-usd 8
+```

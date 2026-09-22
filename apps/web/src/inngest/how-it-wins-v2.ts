@@ -12,8 +12,9 @@ import {
   type StoredHowItWinsJudgment
 } from "@cold-start/db";
 import {
-  createAnthropicClient, hashHowItWinsJudgeValue, judgeHowItWinsForAnalysis,
-  synthesizeHowItWins, verifySynthesis, HowItWinsJudgeClosedError, type HowItWinsPrimaryJudgment
+  createAnthropicClient, createHowItWinsCitationCheck, createJevAsk, hashHowItWinsJudgeValue,
+  howItWinsJudgeScopeFromScreen, judgeHowItWinsForAnalysis, synthesizeHowItWins, verifySynthesis,
+  HowItWinsJudgeClosedError, type HowItWinsJudgeScope, type HowItWinsPrimaryJudgment, type HowItWinsScreenResult
 } from "@cold-start/llm";
 import { verifyHowItWinsRead } from "@cold-start/pipeline";
 import { webEnv } from "../lib/web-env";
@@ -21,7 +22,9 @@ import type { GenerationStepTools, WorkerEventContext } from "./client";
 import { howItWinsJudgeInputs, howItWinsJudgeSummary, type HowItWinsJudgeSummary } from "./how-it-wins";
 import { howItWinsExecutionConfig, howItWinsJobIdentity, recordHowItWinsJobOutcome } from "./how-it-wins-jobs";
 import { createHowItWinsExecution, howItWinsFailureReason, HowItWinsExecutionError } from "./how-it-wins-execution";
-import { howItWinsScreenShadow } from "./how-it-wins-screen-shadow";
+import {
+  HOW_IT_WINS_SCREEN_TIMEOUT_MS, howItWinsScreenShadow, howItWinsScreenTrace, runHowItWinsScreen
+} from "./how-it-wins-screen-shadow";
 import { howItWinsEnabled, howItWinsScreenMode } from "./worker-env";
 
 type HowItWinsTraceBlock = NonNullable<GenerationTrace["howItWins"]>;
@@ -121,8 +124,13 @@ function createHowItWinsOutcome(input: { db: ColdStartDb; job: StoredHowItWinsJo
 // The all-80 verdict for this evidence, replayed from the judgment table when it is already
 // filed and paid for once when it is not. A primary judgment stored by an earlier attempt of the
 // same job resumes from its own checkpoint, so a retried run never re-pays for the global pass.
-async function resolveJudgment(input: StageInput & { step: GenerationStepTools; hashes: HowItWinsJudgmentInputHashes }) {
-  const { db, job, config, execution, card, client, step, hashes } = input;
+// A scoped run's scope is part of its prompt hash, so it never replays an unscoped verdict.
+async function resolveJudgment(input: StageInput & {
+  step: GenerationStepTools;
+  hashes: HowItWinsJudgmentInputHashes;
+  scoped?: { scope: HowItWinsJudgeScope; apiKey: string };
+}) {
+  const { db, job, config, execution, card, client, step, hashes, scoped } = input;
   const filed = await findHowItWinsJudgment(db, hashes);
   if (filed) return { judgmentId: filed.id, judgment: filed, cached: true };
 
@@ -143,6 +151,8 @@ async function resolveJudgment(input: StageInput & { step: GenerationStepTools; 
   const judgment = await judgeHowItWinsForAnalysis({ card, client, models: config.models,
     refinement: config.refinement, executeCall: execution.executeCall, onValidation: execution.onValidation,
     telemetry: execution.telemetry,
+    ...(scoped ? { scope: scoped.scope, citationCheck: createHowItWinsCitationCheck(
+      createJevAsk({ apiKey: scoped.apiKey, timeoutMs: HOW_IT_WINS_SCREEN_TIMEOUT_MS })) } : {}),
     ...(resumePrimaryJudgment ? { resumePrimaryJudgment } : {}),
     onPrimaryJudgment: async candidate => {
       await execution.lease("judge_initial");
@@ -231,20 +241,33 @@ export async function howItWinsV2Handler({ event, runId, step }: WorkerEventCont
     if (identity.evidenceHash !== job.evidenceHash) return outcome.finish("stale_evidence");
     if (identity.evaluatorSignature !== job.evaluatorSignature || card.synthesis.howItWinsEvaluator?.signature !== job.evaluatorSignature) return outcome.finish("stale_evaluator");
     const client = createAnthropicClient();
-    const { hashes } = howItWinsJudgeInputs(card, config.refinement, config.models);
+    const thin = howItWinsThinFileReason(card);
+    const screenMode = howItWinsScreenMode();
+    const typesafeApiKey = process.env.TYPESAFE_API_KEY;
+    // Scoped mode screens before the judge, as its own memoized step, so a retried run judges
+    // the same scope. A failed screen falls back to the full judge; the run never waits on Jev.
+    let screened: HowItWinsScreenResult | undefined;
+    if (!thin && screenMode === "scoped" && typesafeApiKey) {
+      const result = await step.run("hiw-v2-screen", () => runHowItWinsScreen({ card, apiKey: typesafeApiKey }));
+      if (result.ok) screened = result.screen as HowItWinsScreenResult;
+      else outcome.judgment.screen = { ...result.trace, mode: "scoped" };
+    }
+    const scope = screened ? howItWinsJudgeScopeFromScreen(screened) : undefined;
+    const { hashes } = howItWinsJudgeInputs(card, config.refinement, config.models, scope);
     outcome.judgment.hashes = hashes;
     const stage: StageInput = { db, job, config, execution, card, client };
     let judgmentId: string | undefined;
     let read: HowItWins = { status: "thin_file" };
-    if (!howItWinsThinFileReason(card)) {
-      const judgment = await resolveJudgment({ ...stage, step, hashes });
+    if (!thin) {
+      const judgment = await resolveJudgment({ ...stage, step, hashes,
+        ...(scope && typesafeApiKey ? { scoped: { scope, apiKey: typesafeApiKey } } : {}) });
       judgmentId = judgment.judgmentId;
       outcome.judgment.cached = judgment.cached;
+      if (screened) outcome.judgment.screen = howItWinsScreenTrace(screened, judgment.judgment.judgment, "scoped");
       // Shadow only: the screen runs after the judge, as its own memoized step, and its result
       // goes to the run trace. It never changes the judgment or the read, and it cannot throw.
       // It is skipped when the writer and verifier might need the remaining time.
-      const typesafeApiKey = process.env.TYPESAFE_API_KEY;
-      if (howItWinsScreenMode() === "shadow" && typesafeApiKey && job.deadlineAt.getTime() - Date.now() > SCREEN_SHADOW_MIN_REMAINING_MS) {
+      if (screenMode === "shadow" && typesafeApiKey && job.deadlineAt.getTime() - Date.now() > SCREEN_SHADOW_MIN_REMAINING_MS) {
         outcome.judgment.screen = await step.run("hiw-v2-screen-shadow", () =>
           howItWinsScreenShadow({ card, judgment: judgment.judgment.judgment, apiKey: typesafeApiKey }));
       }

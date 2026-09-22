@@ -81,6 +81,26 @@ const stageContracts: Record<HowItWinsJudgeCallRequest["stage"], string> = {
   adjudication: adjudicationContract
 };
 
+// The scoped global contract differs from the full one only in its row count. Each replacement
+// is asserted, so an edit to the full contract cannot silently leave the scoped one saying 80.
+function scopedContract(contract: string) {
+  const replacements: Array<[string, string]> = [
+    ["exactly 80 records in canonical vocabulary order", "one record for each id in missingStrategyIds, in canonical vocabulary order, plus any row the scope note allows"],
+    ["Most of the 80 are this shape.", "Many rows are this shape."],
+    ["after validating that all 80 rows are present.", "after validating that every id in missingStrategyIds has a row."]
+  ];
+  return replacements.reduce((text, [from, to]) => {
+    if (!text.includes(from)) throw new Error(`scoped judge contract lost its anchor: ${from}`);
+    return text.replace(from, to);
+  }, contract);
+}
+
+const scopedGlobalJudgeContract = scopedContract(stageContracts.global_judge);
+
+function stageContractFor(request: HowItWinsJudgeCallRequest) {
+  return request.scoped && request.stage === "global_judge" ? scopedGlobalJudgeContract : stageContracts[request.stage];
+}
+
 function requestEvidenceIds(request: HowItWinsJudgeCallRequest) {
   const payload = record(request.payload);
   const packet = record(payload?.evidencePacket);
@@ -264,7 +284,7 @@ function hintProseLengths(value: unknown) {
 }
 
 export function benchmarkToolSchemaForRequest(request: HowItWinsJudgeCallRequest) {
-  const schema = structuredClone(howItWinsJudgeToolJsonSchema(request.stage)) as Record<string, unknown>;
+  const schema = structuredClone(howItWinsJudgeToolJsonSchema(request.stage, { scoped: request.scoped === true })) as Record<string, unknown>;
   // The schema no longer depends on the packet, but the packet still has to be a legal registry
   // that fits the handle universe before a request built from it goes to the wire.
   evidenceHandlesForRequest(request);
@@ -293,7 +313,7 @@ export function howItWinsJudgeProviderRequest(
     max_tokens: maxTokens,
     ...(quirksForModel(model).omitSamplingParams ? {} : { temperature: 0 }),
     system: [
-      { type: "text" as const, text: `${request.prompt}\n\n${stageContracts[request.stage]}` },
+      { type: "text" as const, text: `${request.prompt}\n\n${stageContractFor(request)}` },
       ...(cachedSystemText
         ? [{
           type: "text" as const,

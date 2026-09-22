@@ -40,3 +40,9 @@ export const HOW_IT_WINS_JUDGE_PROMPTS = {
   adjudication: HOW_IT_WINS_ADJUDICATION_PROMPT,
   frozenWriter: HOW_IT_WINS_FROZEN_WRITER_PROMPT
 } as const;
+
+// Appended to the monolith prompt only when the Jev screen scoped the call. It is not part of
+// HOW_IT_WINS_JUDGE_PROMPTS, so adding it left every unscoped prompt hash unchanged.
+export const HOW_IT_WINS_SCOPED_JUDGE_ADDENDUM = `This request is scoped. A fast screen read the evidence for all 80 strategies and found no specific supporting fact for the ones missing from missingStrategyIds. Code files each of those as insufficient_evidence. Evaluate every strategy in missingStrategyIds and return one row for each. Return a row for a strategy outside that list only when the evidence clearly supports it as current or not_yet; that row replaces the screen's.
+
+screenLeads come from the same screen. unusuallyStrong lists strategies whose support is high for this company compared with other companies. lookalikeRisk lists strategies whose apparent support may be one of the rubric's false positives. vague lists strategies where two wordings of the deciding question disagreed. Use them to decide where to look hardest. They are not evidence: never cite them, and never let one decide a disposition.`;

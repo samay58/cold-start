@@ -8,6 +8,7 @@ import {
   hashHowItWinsJudgeValue,
   howItWinsJudgePromptHash
 } from "./how-it-wins-judge";
+import type { HowItWinsCitationCheck, HowItWinsJudgeScope } from "./how-it-wins-judge-scope";
 import type {
   HowItWinsJudgeExecuteCall,
   HowItWinsJudgeValidationSink,
@@ -26,6 +27,8 @@ export async function judgeHowItWinsForAnalysis(input: {
   // Default true (undefined means on). False skips the critic and adjudication passes; see
   // createHowItWinsJudge.
   refinement?: boolean;
+  scope?: HowItWinsJudgeScope;
+  citationCheck?: HowItWinsCitationCheck;
   executeCall?: HowItWinsJudgeExecuteCall;
   onValidation?: HowItWinsJudgeValidationSink;
   onPrimaryJudgment?: HowItWinsPrimaryJudgmentSink;
@@ -52,6 +55,8 @@ export async function judgeHowItWinsForAnalysis(input: {
       critic: adapterFor(input.models.editor)
     },
     ...(input.refinement === undefined ? {} : { refinement: input.refinement }),
+    ...(input.scope ? { scope: input.scope } : {}),
+    ...(input.citationCheck ? { citationCheck: input.citationCheck } : {}),
     ...(input.executeCall ? { executeCall: input.executeCall } : {}),
     ...(input.onValidation ? { onValidation: input.onValidation } : {}),
     ...(input.onPrimaryJudgment ? { onPrimaryJudgment: input.onPrimaryJudgment } : {}),
@@ -64,6 +69,6 @@ export async function judgeHowItWinsForAnalysis(input: {
     evidencePacketHash: hashHowItWinsJudgeValue(packet),
     vocabulary: HOW_IT_WINS_STRATEGIES,
     vocabularyHash: hashHowItWinsJudgeValue(HOW_IT_WINS_STRATEGIES),
-    promptHash: howItWinsJudgePromptHash(rules, { refinement: input.refinement })
+    promptHash: howItWinsJudgePromptHash(rules, { refinement: input.refinement, scope: input.scope })
   });
 }

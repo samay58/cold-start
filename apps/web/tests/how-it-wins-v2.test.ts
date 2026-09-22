@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   HOW_IT_WINS_STRATEGIES,
@@ -31,6 +31,8 @@ const mocks = vi.hoisted(() => ({
   howItWinsJobIdentity: vi.fn(),
   howItWinsJudgeInputs: vi.fn(),
   howItWinsEnabled: vi.fn(() => true),
+  howItWinsScreenMode: vi.fn(() => "off"),
+  runHowItWinsScreen: vi.fn(),
   createHowItWinsExecution: vi.fn()
 }));
 
@@ -92,7 +94,12 @@ vi.mock("../src/inngest/how-it-wins-execution", async (importOriginal) => ({
 
 vi.mock("../src/inngest/worker-env", () => ({
   howItWinsEnabled: mocks.howItWinsEnabled,
-  howItWinsScreenMode: () => "off"
+  howItWinsScreenMode: mocks.howItWinsScreenMode
+}));
+
+vi.mock("../src/inngest/how-it-wins-screen-shadow", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../src/inngest/how-it-wins-screen-shadow")>(),
+  runHowItWinsScreen: mocks.runHowItWinsScreen
 }));
 
 import { howItWinsV2Handler } from "../src/inngest/how-it-wins-v2";
@@ -289,6 +296,7 @@ beforeEach(() => {
   job.leaseExpiresAt = new Date(Date.now() + 300_000);
   currentJob = job;
   mocks.howItWinsEnabled.mockReturnValue(true);
+  mocks.howItWinsScreenMode.mockReturnValue("off");
   mocks.findHowItWinsJobById.mockImplementation(async () => currentJob);
   mocks.findCardBySlug.mockResolvedValue(card);
   mocks.howItWinsExecutionConfig.mockReturnValue(config);
@@ -462,7 +470,7 @@ describe("How it wins v2 judgment reuse", () => {
 
     await howItWinsV2Handler(eventContext().context as never);
 
-    expect(mocks.howItWinsJudgeInputs).toHaveBeenCalledWith(card, false, config.models);
+    expect(mocks.howItWinsJudgeInputs).toHaveBeenCalledWith(card, false, config.models, undefined);
     expect(mocks.judgeHowItWinsForAnalysis.mock.calls[0]?.[0]).toMatchObject({ refinement: false });
   });
 });
@@ -633,5 +641,73 @@ describe("How it wins v2 terminal event trail", () => {
 
     expect(recordedEvents()).toEqual([]);
     expect(parentTrace().howItWins).toEqual({ enabled: true, status: "stale", reasonCode: "stale_evidence" });
+  });
+});
+
+describe("How it wins v2 scoped screen", () => {
+  // Round 1 kept two strategies; everything else is screened out.
+  const kept = ["specialization", "alliance"] as const;
+  const screen = {
+    version: "screen-v1",
+    model: "jev-1.13.0",
+    strategies: Object.fromEntries(HOW_IT_WINS_STRATEGIES.map((strategy) => [strategy.id, {
+      roundOne: kept.includes(strategy.id as never) ? 0.6 : 0.05,
+      ...(kept.includes(strategy.id as never) ? { roundTwo: { deciding: 0.6, positive: 0.6, lookalike: 0.1, disqualifier: 0 } } : {}),
+      support: kept.includes(strategy.id as never) ? 0.6 : 0,
+      percentile: 0.5,
+      blocked: false
+    }])),
+    keptIds: [...kept],
+    shortlistIds: [...kept],
+    inputTokens: 1_000,
+    costUsd: 0.00004,
+    latencyMs: 700
+  };
+
+  beforeEach(() => {
+    vi.stubEnv("TYPESAFE_API_KEY", "test-key");
+    mocks.howItWinsScreenMode.mockReturnValue("scoped");
+    mocks.findHowItWinsJudgment.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    mocks.judgeHowItWinsForAnalysis.mockResolvedValue(judgment);
+    mocks.storeHowItWinsJudgment.mockResolvedValue({ id: "judgment-id", judgment });
+    mocks.readHowItWinsStageCheckpoint.mockImplementation(async (_db: unknown, input: { checkpointId: string }) => {
+      if (input.checkpointId === "writer") return { result: read };
+      if (input.checkpointId === "verifier") return { result: verifiedRead };
+      return null;
+    });
+    mocks.completeHowItWinsJobWithCard.mockImplementation(async () => {
+      currentJob = terminalJob({ status: "succeeded", outcome: "read", judgmentId: "judgment-id" });
+      return "succeeded";
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("screens before the judge and judges only the survivors, under a scope-bound hash", async () => {
+    mocks.runHowItWinsScreen.mockResolvedValue({ ok: true, screen });
+    const { names, context } = eventContext();
+    await expect(howItWinsV2Handler(context as never)).resolves.toMatchObject({ status: "succeeded" });
+
+    expect(names.indexOf("hiw-v2-screen")).toBeLessThan(names.indexOf("hiw-v2-judgment"));
+    const scope = mocks.howItWinsJudgeInputs.mock.calls[0]?.[3];
+    expect(scope).toMatchObject({ strategyIds: ["specialization", "alliance"].sort((a, b) =>
+      HOW_IT_WINS_STRATEGIES.findIndex((s) => s.id === a) - HOW_IT_WINS_STRATEGIES.findIndex((s) => s.id === b)) });
+    const judged = mocks.judgeHowItWinsForAnalysis.mock.calls[0]?.[0];
+    expect(judged.scope).toEqual(scope);
+    expect(typeof judged.citationCheck).toBe("function");
+    expect(parentTrace().howItWins?.screen).toMatchObject({ status: "ok", mode: "scoped", keptCount: 2 });
+  });
+
+  it("falls back to the full judge when the screen fails", async () => {
+    mocks.runHowItWinsScreen.mockResolvedValue({ ok: false, trace: { status: "failed", reason: "jev 503" } });
+    await expect(howItWinsV2Handler(eventContext().context as never)).resolves.toMatchObject({ status: "succeeded" });
+
+    expect(mocks.howItWinsJudgeInputs.mock.calls[0]?.[3]).toBeUndefined();
+    const judged = mocks.judgeHowItWinsForAnalysis.mock.calls[0]?.[0];
+    expect(judged.scope).toBeUndefined();
+    expect(judged.citationCheck).toBeUndefined();
+    expect(parentTrace().howItWins?.screen).toEqual({ status: "failed", reason: "jev 503", mode: "scoped" });
   });
 });

@@ -27,8 +27,12 @@ import {
 import {
   HOW_IT_WINS_DEFAULT_EDITOR_MODEL,
   createAnthropicClient,
+  createHowItWinsCitationCheck,
+  createJevAsk,
+  howItWinsJudgeScopeFromScreen,
   loadHowItWinsJudgeRules,
   modelForStage,
+  screenHowItWins,
   synthesizeHowItWins,
   verifySynthesis,
   type HowItWinsModels,
@@ -93,6 +97,7 @@ export type Flags = {
   budgetUsd: number;
   parallel: number;
   refinement: boolean;
+  scoped: boolean;
 };
 
 export function parseFlags(argv: string[]): Flags {
@@ -104,7 +109,8 @@ export function parseFlags(argv: string[]): Flags {
     writerModel: null,
     budgetUsd: DEFAULT_BUDGET_USD,
     parallel: 1,
-    refinement: true
+    refinement: true,
+    scoped: false
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i] ?? "";
@@ -117,6 +123,7 @@ export function parseFlags(argv: string[]): Flags {
     else if (arg === "--budget-usd") flags.budgetUsd = Number.parseFloat(value());
     else if (arg === "--parallel") flags.parallel = Number.parseInt(value(), 10);
     else if (arg === "--no-refinement") flags.refinement = false;
+    else if (arg === "--scoped") flags.scoped = true;
     else if (arg.startsWith("--")) throw new Error(`unknown flag: ${arg}`);
   }
   if (!Number.isFinite(flags.limit) || flags.limit < 1) throw new Error("--limit must be a positive integer");
@@ -345,6 +352,8 @@ export type HowItWinsBatchCardRecord = {
   losses: HowItWinsBatchLosses;
   costUsd: number;
   latencyMs: number;
+  // Only on --scoped runs: the Jev screen that set the judge's scope.
+  screen?: { keptCount: number; latencyMs: number; costUsd: number };
   failure?: string;
 };
 
@@ -400,6 +409,9 @@ async function runCard(input: {
   writerModelLabel: string;
   verifyModel: string;
   refinement: boolean;
+  // A Jev key turns on the scoped judge. A screen failure fails the card rather than falling back,
+  // so a scoped batch never mixes in unscoped verdicts.
+  typesafeApiKey?: string;
 }): Promise<HowItWinsBatchCardRecord> {
   const startedAt = Date.now();
   const judgeTelemetry: GenerationLlmCallTrace[] = [];
@@ -408,13 +420,18 @@ async function runCard(input: {
 
   let judgment: HowItWinsJudgment;
   let cached = false;
+  let screenRecord: HowItWinsBatchCardRecord["screen"];
   try {
+    const ask = input.typesafeApiKey ? createJevAsk({ apiKey: input.typesafeApiKey }) : undefined;
+    const screen = ask ? await screenHowItWins({ card: input.card, rules: loadHowItWinsJudgeRules(), ask }) : undefined;
+    if (screen) screenRecord = { keptCount: screen.keptIds.length, latencyMs: screen.latencyMs, costUsd: screen.costUsd };
     const loaded = await loadOrRunJudgment({
       card: input.card,
       client: input.client,
       models: input.models,
       telemetry: (call) => judgeTelemetry.push(call),
-      refinement: input.refinement
+      refinement: input.refinement,
+      ...(screen && ask ? { scope: howItWinsJudgeScopeFromScreen(screen), citationCheck: createHowItWinsCitationCheck(ask) } : {})
     });
     judgment = loaded.judgment;
     cached = loaded.cached;
@@ -437,8 +454,9 @@ async function runCard(input: {
       preVerify: EMPTY_HOW_IT_WINS,
       filed: EMPTY_HOW_IT_WINS,
       losses: ZERO_LOSSES,
-      costUsd: usageFromCalls(judgeTelemetry).estimatedCostUsd,
+      costUsd: usageFromCalls(judgeTelemetry).estimatedCostUsd + (screenRecord?.costUsd ?? 0),
       latencyMs: Date.now() - startedAt,
+      ...(screenRecord ? { screen: screenRecord } : {}),
       failure: message.slice(0, 300)
     };
   }
@@ -517,8 +535,9 @@ async function runCard(input: {
     filed,
     ...(dropReason ? { dropReason } : {}),
     losses,
-    costUsd: totalCost,
-    latencyMs: Date.now() - startedAt
+    costUsd: totalCost + (screenRecord?.costUsd ?? 0),
+    latencyMs: Date.now() - startedAt,
+    ...(screenRecord ? { screen: screenRecord } : {})
   };
 }
 
@@ -698,6 +717,10 @@ async function main() {
     `${runSlugs.length} cards; judge ${judgeModel}; writer ${writerModel}; editor ${editorModel}; verifier ${verifyModel}; budget $${flags.budgetUsd.toFixed(2)}; refinement ${flags.refinement ? "on" : "off"}`
   );
 
+  const typesafeApiKey = flags.scoped ? process.env.TYPESAFE_API_KEY?.trim() : undefined;
+  if (flags.scoped && !typesafeApiKey) throw new Error("--scoped needs TYPESAFE_API_KEY");
+  if (flags.scoped) console.log("scoped: the judge rules only on Jev round 1 survivors, with the citation check");
+
   const runDir = path.join(OUT_ROOT, runStamp());
   await mkdir(runDir, { recursive: true });
 
@@ -722,7 +745,8 @@ async function main() {
           models,
           writerModelLabel: writerModel,
           verifyModel,
-          refinement: flags.refinement
+          refinement: flags.refinement,
+          ...(typesafeApiKey ? { typesafeApiKey } : {})
         })
       )
     );

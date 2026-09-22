@@ -2,10 +2,17 @@
 // (docs/superpowers/specs/2026-09-22-how-it-wins-layered-screen.md). Every question is built from
 // the approved strategy rubric the judge already reads, so the screen applies Cold Start's own
 // tests. Jev returns probabilities, never reasons: the screen narrows and profiles, the judge rules.
-import { HOW_IT_WINS_STRATEGIES, type ColdStartCard, type HowItWinsStrategyId } from "@cold-start/core";
+import {
+  HOW_IT_WINS_STRATEGIES,
+  howItWinsStrategyById,
+  type ColdStartCard,
+  type HowItWinsJudgmentBody,
+  type HowItWinsStrategyId
+} from "@cold-start/core";
 
 import { cardForHowItWinsPrompt } from "./how-it-wins";
 import type { HowItWinsJudgeRules } from "./how-it-wins-judge";
+import type { HowItWinsCitationCheck, HowItWinsJudgeScope } from "./how-it-wins-judge-scope";
 import { HOW_IT_WINS_SCREEN_CALIBRATION } from "./how-it-wins-screen-calibration";
 
 export const HOW_IT_WINS_SCREEN_MODEL = "jev-1.13.0";
@@ -21,7 +28,13 @@ const ROUND_TWO_STRATEGIES_PER_REQUEST = 30;
 export const HOW_IT_WINS_SCREEN_THRESHOLDS = {
   roundOneKeepAt: 0.15,
   shortlistSize: 25,
-  blockAt: 0.85
+  blockAt: 0.85,
+  // Judge leads (Phase 5). Not yet tuned: the shadow runs and the blind sitting set them.
+  unusuallyStrongAt: 0.9,
+  unusuallyStrongMax: 10,
+  vagueGap: 0.4,
+  // A current ruling whose cited evidence scores below this goes back to adjudication once.
+  citationFlagBelow: 0.3
 } as const;
 
 type RubricRow = HowItWinsJudgeRules["strategyRubric"][number];
@@ -215,5 +228,67 @@ export async function screenHowItWins(input: {
     inputTokens,
     costUsd: Number((inputTokens * USD_PER_INPUT_TOKEN).toFixed(6)),
     latencyMs: Date.now() - started
+  };
+}
+
+// The judge's scope from one screen: Round 1's survivors, the dropped strategies with their
+// scores, and three lists of leads. Blocked strategies stay in scope; the judge rules on them.
+export function howItWinsJudgeScopeFromScreen(screen: HowItWinsScreenResult): HowItWinsJudgeScope {
+  const kept = new Set<HowItWinsStrategyId>(screen.keptIds);
+  const ids = HOW_IT_WINS_STRATEGIES.map((strategy) => strategy.id);
+  const checked = ids.filter((id) => screen.strategies[id].roundTwo);
+  const t = HOW_IT_WINS_SCREEN_THRESHOLDS;
+  return {
+    version: screen.version,
+    strategyIds: ids.filter((id) => kept.has(id)),
+    screenedOut: ids.filter((id) => !kept.has(id)).map((id) => ({
+      strategyId: id,
+      roundOne: Number(screen.strategies[id].roundOne.toFixed(3))
+    })),
+    leads: {
+      unusuallyStrong: screen.shortlistIds
+        .filter((id) => screen.strategies[id].percentile >= t.unusuallyStrongAt)
+        .slice(0, t.unusuallyStrongMax),
+      lookalikeRisk: checked.filter((id) => screen.strategies[id].blocked),
+      vague: checked.filter((id) => {
+        const checks = screen.strategies[id].roundTwo!;
+        return Math.abs(checks.deciding - checks.positive) >= t.vagueGap;
+      })
+    }
+  };
+}
+
+export function howItWinsCitationQuestion(): NoulQuestion {
+  return {
+    type: "noul",
+    instructions: "The cited evidence in `citedEvidence` directly shows the mechanism stated in `ruling.mechanism` at work for this company.",
+    criteria: {
+      true: "At least one cited item states a specific fact that shows the mechanism itself: a named customer, a number, a product behavior or an outcome",
+      false: "The cited items only describe the company, its market or its plans, or show something other than the stated mechanism"
+    }
+  };
+}
+
+// One Jev request per current ruling, in parallel: each ruling has its own cited evidence, and
+// a question sees only its request's state.
+export function createHowItWinsCitationCheck(ask: JevAsk): HowItWinsCitationCheck {
+  return async (body: HowItWinsJudgmentBody) => {
+    const evidence = new Map(body.evidenceRegistry.map((item) => [item.evidenceId, item]));
+    const rulings = body.strategyEvaluations.filter((row) => row.disposition === "current" && row.mechanism);
+    const scored = await Promise.all(rulings.map(async (row) => {
+      const cited = Array.from(new Set([...row.evidenceIds, ...row.presentEvidenceIds]))
+        .flatMap((id) => {
+          const item = evidence.get(id);
+          return item ? [{ text: item.text, source: item.source, date: item.sourceDate }] : [];
+        });
+      const state = {
+        strategy: { name: howItWinsStrategyById(row.strategyId).name, meaning: howItWinsStrategyById(row.strategyId).meaning },
+        ruling: { mechanism: row.mechanism, reason: row.dispositionReason },
+        citedEvidence: cited
+      };
+      const reply = await ask(state, { cited: howItWinsCitationQuestion() });
+      return { strategyId: row.strategyId, support: reply.answers.cited! };
+    }));
+    return scored.filter((entry) => entry.support < HOW_IT_WINS_SCREEN_THRESHOLDS.citationFlagBelow);
   };
 }

@@ -29,6 +29,8 @@ import {
   judgeHowItWinsForAnalysis,
   loadHowItWinsJudgeRules,
   verifySynthesis,
+  type HowItWinsCitationCheck,
+  type HowItWinsJudgeScope,
   type HowItWinsModels
 } from "@cold-start/llm";
 import { verifyHowItWinsRead } from "@cold-start/pipeline";
@@ -171,11 +173,12 @@ export function judgmentCacheFileName(evidencePacketHash: string, promptHash: st
 export function judgmentCacheKeyForCard(
   card: ColdStartCard,
   rules: ReturnType<typeof loadHowItWinsJudgeRules>,
-  refinement: boolean
+  refinement: boolean,
+  scope?: HowItWinsJudgeScope
 ): string {
   const packet = howItWinsEvidencePacketFromCard(card);
   const evidencePacketHash = hashBenchmarkValue(packet);
-  const promptHash = howItWinsJudgePromptHash(rules, { refinement });
+  const promptHash = howItWinsJudgePromptHash(rules, { refinement, scope });
   const vocabularyHash = hashBenchmarkValue(HOW_IT_WINS_STRATEGIES);
   return judgmentCacheFileName(evidencePacketHash, promptHash, vocabularyHash);
 }
@@ -186,9 +189,12 @@ export async function loadOrRunJudgment(input: {
   models: HowItWinsModels;
   telemetry: (call: GenerationLlmCallTrace) => void;
   refinement: boolean;
+  // Phase 5 of the layered-screen spec: a scoped verdict caches under its own scope-bound hash.
+  scope?: HowItWinsJudgeScope;
+  citationCheck?: HowItWinsCitationCheck;
 }): Promise<{ judgment: HowItWinsJudgment; cached: boolean }> {
   const rules = loadHowItWinsJudgeRules();
-  const fileName = judgmentCacheKeyForCard(input.card, rules, input.refinement);
+  const fileName = judgmentCacheKeyForCard(input.card, rules, input.refinement, input.scope);
   const filePath = path.join(HOW_IT_WINS_JUDGMENT_CACHE_DIR, fileName);
   if (existsSync(filePath)) {
     const stored = JSON.parse(await readFile(filePath, "utf8"));
@@ -199,7 +205,9 @@ export async function loadOrRunJudgment(input: {
     client: input.client,
     models: input.models,
     telemetry: input.telemetry,
-    refinement: input.refinement
+    refinement: input.refinement,
+    ...(input.scope ? { scope: input.scope } : {}),
+    ...(input.citationCheck ? { citationCheck: input.citationCheck } : {})
   });
   await mkdir(HOW_IT_WINS_JUDGMENT_CACHE_DIR, { recursive: true });
   await writeFile(filePath, `${JSON.stringify(judgment, null, 2)}\n`);

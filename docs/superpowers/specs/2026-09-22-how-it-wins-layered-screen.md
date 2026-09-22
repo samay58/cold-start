@@ -2,7 +2,7 @@
 
 ## Status
 
-September 22, 2026. Phases 0 to 4 are done: the screen is built, tuned on eight fresh judge verdicts, calibrated over 358 corpus cards and wired into production in shadow mode (`HOW_IT_WINS_SCREEN=shadow`). Shadow mode runs the screen after the judge and records what it would have kept on the run trace. It changes no judgment, read, or paid ledger. Samay approved the standard change, the Vercel key, and the rollout on September 22. Switching the judge to the screened scope (Phase 5) waits on his blind sitting.
+September 22, 2026. Phases 0 to 4 are done: the screen is built, tuned on eight fresh judge verdicts, calibrated over 358 corpus cards and wired into production in shadow mode (`HOW_IT_WINS_SCREEN=shadow`). Shadow mode runs the screen after the judge and records what it would have kept on the run trace. It changes no judgment, read, or paid ledger. Samay approved the standard change, the Vercel key, and the rollout on September 22. Phase 5, the scoped judge with the citation check, is built behind `HOW_IT_WINS_SCREEN=scoped` and is off in production. Switching it on waits on his blind sitting. As of the Inngest query at 4:27 PM on September 22, production had run no How it wins read since the shadow deploy, so no shadow trace exists yet.
 
 The goal is a How it wins read that is faster, cheaper, less prone to label habits and better written. Today the Opus judge rules on all 80 strategies in one call. On the eight-card batch of September 22 it took a median of about 196 s and $0.66 per card end to end ($7.11 total), with a single card as high as 344 s. Most of its output is compact rulings on strategies that never reach the read.
 
@@ -102,11 +102,24 @@ Decision: do not swap on the claim. Measure it on Cold Start's own work in Phase
 | 2 | Tune thresholds | Done: Round 1 at 0.15 |
 | 3 | Corpus calibration table | Done: 358 cards, $0.65 |
 | 4 | Shadow mode in production | Shipped behind `HOW_IT_WINS_SCREEN=shadow`. Each run's trace gains `howItWins.screen`, with the shortlist, the judge's live ids and `missedByRoundOne` |
-| 5 | Judge on the Round 1 scope, plus the citation check | Build next. Switch on after Samay's blind sitting of screened against current reads, with no current strategy in `missedByRoundOne` across at least 30 shadow runs |
+| 5 | Judge on the Round 1 scope, plus the citation check | Built, off (`HOW_IT_WINS_SCREEN=scoped`). Switch on after Samay's blind sitting of scoped against current reads, with no current strategy in `missedByRoundOne` across at least 30 shadow runs |
 | 6 | Writer tournament | Waits on five reads Samay marks sloppy, then his blind verdicts |
 | 7 | Opus 5.5 trial | After the forced tool choice is removed: matched-effort A/B of judge and writer on the eight cached cards, measuring agreement, output tokens, cost and latency |
 
 Rollback: unset `HOW_IT_WINS_SCREEN` and redeploy. The judge never depends on the screen in shadow mode.
+
+## Phase 5 as built
+
+- The screen runs first, as the memoized step `hiw-v2-screen`, so a retried run judges the same scope. If Jev fails, the run uses the full 80-strategy judge and the trace says `status: "failed"`.
+- The judge's request reuses `missingStrategyIds`, the field that always named what the call judges. The prompt gains `HOW_IT_WINS_SCOPED_JUDGE_ADDENDUM` and the contract drops "exactly 80". The tool schema allows 1 to 80 rows rather than the company's own count, because the tool schema leads Anthropic's cache prefix.
+- Code fills every strategy with no row as `insufficient_evidence`, with the reason "Screened out before judging: no specific supporting fact (screen-v1, 0.04)." The judge may add a row outside its scope, and that row wins. A scoped strategy with no row is a contract violation, which earns the existing single re-ask.
+- The judge also receives three leads: strategies unusually strong for this company (percentile of at least 0.9, at most 10), look-alike risks (blocked in Round 2) and vague ones (a gap of 0.4 or more between the two wordings). The addendum tells it they are not evidence.
+- The critic still sees all 80 rows, so it can name a screened-out strategy as missed, and adjudication can restore it. That is the recall net for Round 1's misses.
+- The scope, including each dropped strategy's score, is folded into the prompt hash only when present. Every unscoped hash is byte-identical to before, which a test pins, so no filed verdict was invalidated. Scoped and full verdicts never replay for each other.
+- The citation check asks Jev, once per current ruling and in parallel, whether the cited evidence shows the stated mechanism. A score below 0.3 becomes a material critic finding of kind `evidence`, and the existing adjudication settles it once. With refinement off it is only a note. A failed check is a note, never a failed run.
+- Offline check on September 22, over the 8 current rulings in the cached verdicts: real citations scored 0.31 to 0.79, so none was flagged. The same rulings against two unrelated evidence items scored 0.03 to 0.25 in 7 of 8 cases and 0.66 in one. Cost $0.0007. The margin between 0.31 and 0.25 is thin and the sample is small, so the threshold is provisional.
+- The mode is not part of the evaluator signature, so turning it on does not re-read existing cards. A card gets a scoped read the next time its evidence changes or a read is requested.
+- `npm run eval:how-it-wins:batch -- --scoped` produces scoped reads for the blind sitting. Its commands are in `eval/README.md`.
 
 ## Kill conditions
 
@@ -118,6 +131,7 @@ Rollback: unset `HOW_IT_WINS_SCREEN` and redeploy. The judge never depends on th
 
 - `packages/llm/src/how-it-wins-screen.ts`: questions, the Jev client, the screen and the shortlist. Questions come from the parsed rubric the judge uses.
 - `packages/llm/src/how-it-wins-screen-calibration.ts`: generated quantiles. Rebuild with `npm run eval:hiw-screen:calibrate` after any change to the screen version, the Jev model or the rubric.
-- `apps/web/src/inngest/how-it-wins-screen-shadow.ts` and the `hiw-v2-screen-shadow` step in `how-it-wins-v2.ts`: the shadow run. It never throws.
+- `apps/web/src/inngest/how-it-wins-screen-shadow.ts` and the `hiw-v2-screen-shadow` and `hiw-v2-screen` steps in `how-it-wins-v2.ts`: the shadow and scoped runs. Neither throws.
+- `packages/llm/src/how-it-wins-judge.ts` (`HowItWinsJudgeScope`, `HowItWinsCitationCheck`), `how-it-wins-judge-adapter.ts` (scoped contract and schema) and `how-it-wins-judge-prompts.ts` (`HOW_IT_WINS_SCOPED_JUDGE_ADDENDUM`): the scoped judge. Tests: `packages/llm/tests/how-it-wins-judge-scope.test.ts`.
 - `eval/how-it-wins-screen/`: replay, scoring and calibration scripts, documented in `eval/README.md`.
 - Keys: `TYPESAFE_API_KEY` in the root `.env.local` and in Vercel production. It stays server-side.

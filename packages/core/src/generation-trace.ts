@@ -323,6 +323,8 @@ export type GenerationTrace = {
     // of the judge's live strategies (current, not yet, open question) it would have missed.
     screen?: {
       status: "ok" | "failed";
+      // Absent on shadow runs recorded before scoped mode existed.
+      mode?: "shadow" | "scoped";
       reason?: string;
       version?: string;
       model?: string;

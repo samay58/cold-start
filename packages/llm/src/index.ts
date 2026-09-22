@@ -10,6 +10,7 @@ export * from "./how-it-wins";
 export * from "./how-it-wins-analysis";
 export * from "./how-it-wins-frozen-writer";
 export * from "./how-it-wins-judge";
+export * from "./how-it-wins-judge-scope";
 export * from "./how-it-wins-judge-adapter";
 export { isSupportedZodError, type HowItWinsOutputDiagnostic } from "./how-it-wins-output-diagnostics";
 export * from "./how-it-wins-message";
