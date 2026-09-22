@@ -141,7 +141,7 @@ On September 22, `--scoped` ran on the same 8 cards as the full judge, for $6.78
 
 ## Writer: Opus 5.5 against Opus 5
 
-Same 8 cached verdicts and prompt; only the writer model changed. Opus 5.5 cost $1.16 against $1.33 (13% less), wrote 27.5k output tokens against 25.9k, and took 275 s of writer time against 327 s. slopcheck found no kill-list hits in either. The reads side by side are in `eval/curation/how-it-wins-batch/2026-09-22-1734/writer-side-by-side.md`, which is gitignored and local. Quality is Samay's call. The cost table priced Opus 5.5 at the Opus 5 rate until this run; it now uses $4 and $20.
+Same 8 cached verdicts and prompt; only the writer model changed. Opus 5.5 cost $1.16 against $1.33 (13% less), wrote 27.5k output tokens against 25.9k, and took 275 s of writer time against 327 s. slopcheck found no kill-list hits in either. The reads side by side are in `eval/curation/how-it-wins-batch/2026-09-22-1734/writer-side-by-side.md`, which is gitignored and local. Samay chose Opus 5.5 on September 22. Production now sets `LLM_HOW_IT_WINS_JUDGE_MODEL=claude-opus-5`, pinned first because the judge falls back to the writer's model and a forced tool choice fails on Opus 5.5, and `LLM_HOW_IT_WINS_MODEL=claude-opus-5-5`. The writer model is part of each card's evaluator signature, so existing cards are re-written on their next refresh, reusing their filed verdicts. Both writers still end most notes with the prompt's fixed "what would settle it" slot; that is a prompt change, not a model one. The cost table priced Opus 5.5 at the Opus 5 rate until this run; it now uses $4 and $20.
 
 ## Kill conditions
 

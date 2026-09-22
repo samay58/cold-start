@@ -211,7 +211,7 @@ HOW_IT_WINS_SCREEN
 TYPESAFE_API_KEY
 ```
 
-`HOW_IT_WINS_SCREEN=shadow` runs the Jev screen beside the judge and records its result on the run trace; `TYPESAFE_API_KEY` is its key, sensitive and server-side. Both were added to production on September 22, 2026. `HOW_IT_WINS_SCREEN=scoped` limits the judge to the screen's survivors and changes reads; do not set it before the blind review in the layered-screen spec. Rollback from either: unset `HOW_IT_WINS_SCREEN` and redeploy.
+`HOW_IT_WINS_SCREEN=shadow` runs the Jev screen beside the judge and records its result on the run trace; `TYPESAFE_API_KEY` is its key, sensitive and server-side. Both were added to production on September 22, 2026. `HOW_IT_WINS_SCREEN=scoped` limits the judge to the screen's survivors and changes reads; do not set it before the blind review in the layered-screen spec. Rollback from either: unset `HOW_IT_WINS_SCREEN` and redeploy. Since September 22 the How it wins writer runs on `LLM_HOW_IT_WINS_MODEL=claude-opus-5-5` with the judge pinned by `LLM_HOW_IT_WINS_JUDGE_MODEL=claude-opus-5`. Keep the judge pin until the judge adapter stops forcing a tool choice. Rollback: set the writer back to `claude-opus-5` and redeploy.
 
 `HOW_IT_WINS_ENABLED` is the How it wins rollback: set it to `false` and
 redeploy. Vercel environment changes apply to the next deployment only. The
