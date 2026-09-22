@@ -60,6 +60,10 @@ function perMillionTokenPricing(model: string) {
   if (normalized.includes("sonnet")) {
     return { input: 3, output: 15 };
   }
+  // Opus 5.5 list price, checked September 22, 2026. It must precede the "opus-5" match below.
+  if (normalized.includes("opus-5-5")) {
+    return { input: 4, output: 20 };
+  }
   if (
     normalized.includes("opus-5") ||
     normalized.includes("opus-4-7") ||

@@ -102,7 +102,7 @@ Decision: do not swap on the claim. Measure it on Cold Start's own work in Phase
 | 2 | Tune thresholds | Done: Round 1 at 0.15 |
 | 3 | Corpus calibration table | Done: 358 cards, $0.65 |
 | 4 | Shadow mode in production | Shipped behind `HOW_IT_WINS_SCREEN=shadow`. Each run's trace gains `howItWins.screen`, with the shortlist, the judge's live ids and `missedByRoundOne` |
-| 5 | Judge on the Round 1 scope, plus the citation check | Built, off (`HOW_IT_WINS_SCREEN=scoped`). Switch on after Samay's blind sitting of scoped against current reads, with no current strategy in `missedByRoundOne` across at least 30 shadow runs |
+| 5 | Judge on the Round 1 scope, plus the citation check | Built, off (`HOW_IT_WINS_SCREEN=scoped`). First run below: 32% faster global call, half the current strategies. Switch on after Samay's blind sitting of scoped against current reads, with no current strategy in `missedByRoundOne` across at least 30 shadow runs |
 | 6 | Writer tournament | Waits on five reads Samay marks sloppy, then his blind verdicts |
 | 7 | Opus 5.5 trial | After the forced tool choice is removed: matched-effort A/B of judge and writer on the eight cached cards, measuring agreement, output tokens, cost and latency |
 
@@ -120,6 +120,28 @@ Rollback: unset `HOW_IT_WINS_SCREEN` and redeploy. The judge never depends on th
 - Offline check on September 22, over the 8 current rulings in the cached verdicts: real citations scored 0.31 to 0.79, so none was flagged. The same rulings against two unrelated evidence items scored 0.03 to 0.25 in 7 of 8 cases and 0.66 in one. Cost $0.0007. The margin between 0.31 and 0.25 is thin and the sample is small, so the threshold is provisional.
 - The mode is not part of the evaluator signature, so turning it on does not re-read existing cards. A card gets a scoped read the next time its evidence changes or a read is requested.
 - `npm run eval:how-it-wins:batch -- --scoped` produces scoped reads for the blind sitting. Its commands are in `eval/README.md`.
+
+## Phase 5 first run
+
+On September 22, `--scoped` ran on the same 8 cards as the full judge, for $6.78. The writer was Opus 5 in both runs.
+
+| Measure | Full judge (3:40 PM) | Scoped judge (5:33 PM) |
+| --- | --- | --- |
+| First global judge call, mean | 109 s, 7.5k to 12.9k output tokens | 74 s, 4.9k to 8.7k output tokens |
+| Global re-asks | 2 (august, deepinfra) | 0 |
+| Critic calls that hit the 12,000-token cap | 0 | 3 (bland, hebbia, notion) |
+| Current strategies across the 8 cards | 8 | 4 |
+| Cards with a read | 5 | 3 |
+
+- The global call was 32% faster, which clears the speed condition on that call. Critic calls that ran out of tokens took 63 to 80 s each and ate much of the gain.
+- Most of the lost current strategies were demoted by the critic and adjudication, not dropped by the screen: malleability (august) and specialization (cognition). The scoped global judge itself ruled low-friction (deepinfra) insufficient evidence.
+- The citation check flagged 2 rulings. Adjudication demoted composability (notion, 0.25) and restated affordability (nekohealth, 0.12) without demoting it.
+- The unusually-strong leads were noise. They pointed the judge at rarity and luxury for Neko Health, and at predictability, security and privacy for DeepInfra. The judge spent output rejecting them.
+- Decision: keep `scoped` off. Before another run, drop the unusually-strong lead and find out why the critic runs out of tokens on scoped judgments. Whether the stricter reads are better is Samay's call at the blind sitting; 8 cards cannot separate that from critic variance.
+
+## Writer: Opus 5.5 against Opus 5
+
+Same 8 cached verdicts and prompt; only the writer model changed. Opus 5.5 cost $1.16 against $1.33 (13% less), wrote 27.5k output tokens against 25.9k, and took 275 s of writer time against 327 s. slopcheck found no kill-list hits in either. The reads side by side are in `eval/curation/how-it-wins-batch/2026-09-22-1734/writer-side-by-side.md`, which is gitignored and local. Quality is Samay's call. The cost table priced Opus 5.5 at the Opus 5 rate until this run; it now uses $4 and $20.
 
 ## Kill conditions
 

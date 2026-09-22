@@ -33,4 +33,13 @@ describe("estimateAnthropicCostUsd", () => {
       })
     ).toBe(30);
   });
+
+  it("prices Opus 5.5 below Opus 5 rather than matching it as an Opus 5 model", () => {
+    expect(
+      estimateAnthropicCostUsd("claude-opus-5-5", {
+        input_tokens: 1_000_000,
+        output_tokens: 1_000_000
+      })
+    ).toBe(24);
+  });
 });
