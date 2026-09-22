@@ -31,3 +31,13 @@ npm run eval:golden -- --limit 10
 The live harness writes JSON and Markdown summaries under `eval/runs/`. Treat the mechanical score as a triage table, then manually review factual correctness for identity, funding, and leadership.
 
 The live harness uses the same API contract file as the extension. If it reports `api deployment out of date`, deploy the web app before scoring the run.
+
+## How it wins screen (Jev)
+
+`eval/how-it-wins-screen/` replays the layered Jev screen from `docs/superpowers/specs/2026-09-22-how-it-wins-layered-screen.md` over frozen corpus cards. It needs `TYPESAFE_API_KEY` in the root `.env.local`, skips the holdout, and stops at `--cap-usd` (at most 5):
+
+```bash
+npx tsx eval/how-it-wins-screen/run.ts --labeled --bias 40 --seed hiw-screen-bias-1 --cap-usd 1
+```
+
+Results land in `eval/runs/how-it-wins-screen/{timestamp}/`, one file per company plus `summary.json`.
