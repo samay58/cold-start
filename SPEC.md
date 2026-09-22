@@ -412,3 +412,5 @@ How it wins has a separate durable job record. Optional failures preserve the sa
 The judge allows at most two provider requests per job, shared between transport recovery and output correction. Every paid call has a persisted reservation, deadline, and attempt record. Valid stages can be reused when their inputs still match. One manual retry targets How it wins alone, shares the root dollar cap, and consumes no additional analysis allowance.
 
 The implementation and release requirements are recorded in [How it wins recovery](docs/superpowers/specs/2026-09-14-how-it-wins-recovery.md). Public card responses continue to exclude synthesis and job details.
+
+A Jev screen can run beside the judge in shadow mode (`HOW_IT_WINS_SCREEN=shadow`). It is not a judge provider request and sits outside the paid ledger, at about $0.002 a run. It records what it would have kept on the run trace and never changes a judgment or read. See [the layered screen](docs/superpowers/specs/2026-09-22-how-it-wins-layered-screen.md).

@@ -78,6 +78,7 @@ export async function recordHowItWinsJobOutcome(db: ColdStartDb, input: {
   job: StoredHowItWinsJob;
   judgmentRef?: HowItWinsTraceBlock["judgmentRef"] | undefined;
   judgeSummary?: HowItWinsTraceBlock["judgeSummary"] | undefined;
+  screen?: HowItWinsTraceBlock["screen"] | undefined;
 }) {
   const { job } = input;
   if (job.status === "queued" || job.status === "running") return;
@@ -113,7 +114,8 @@ export async function recordHowItWinsJobOutcome(db: ColdStartDb, input: {
             enabled: true, status,
             ...(job.status === "succeeded" || !job.reasonCode ? {} : { reasonCode: job.reasonCode }),
             ...(input.judgmentRef ? { judgmentRef: input.judgmentRef } : {}),
-            ...(input.judgeSummary ? { judgeSummary: input.judgeSummary } : {})
+            ...(input.judgeSummary ? { judgeSummary: input.judgeSummary } : {}),
+            ...(input.screen ? { screen: input.screen } : {})
           } satisfies HowItWinsTraceBlock
         });
         mergeTracePatch(next, llmTracePatchFromCalls(calls.filter(call => !known.has(call.label))));

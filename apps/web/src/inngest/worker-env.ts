@@ -98,6 +98,12 @@ export function howItWinsEnabled() {
   return process.env.HOW_IT_WINS_ENABLED !== "false";
 }
 
+// The Jev screen in front of the How it wins judge. Only "shadow" runs it, beside the judge, and
+// it never changes a read; anything else, including unset, leaves it off.
+export function howItWinsScreenMode(): "off" | "shadow" {
+  return process.env.HOW_IT_WINS_SCREEN === "shadow" && process.env.TYPESAFE_API_KEY ? "shadow" : "off";
+}
+
 // Manual How it wins retry admission. Off unless the flag is exactly "true": a retry spends real
 // money, so an unset or misspelled value must not open it.
 export function howItWinsRetryEnabled() {

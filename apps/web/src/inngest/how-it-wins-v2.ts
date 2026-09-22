@@ -21,7 +21,8 @@ import type { GenerationStepTools, WorkerEventContext } from "./client";
 import { howItWinsJudgeInputs, howItWinsJudgeSummary, type HowItWinsJudgeSummary } from "./how-it-wins";
 import { howItWinsExecutionConfig, howItWinsJobIdentity, recordHowItWinsJobOutcome } from "./how-it-wins-jobs";
 import { createHowItWinsExecution, howItWinsFailureReason, HowItWinsExecutionError } from "./how-it-wins-execution";
-import { howItWinsEnabled } from "./worker-env";
+import { howItWinsScreenShadow } from "./how-it-wins-screen-shadow";
+import { howItWinsEnabled, howItWinsScreenMode } from "./worker-env";
 
 type HowItWinsTraceBlock = NonNullable<GenerationTrace["howItWins"]>;
 type HowItWinsConfig = ReturnType<typeof howItWinsExecutionConfig>;
@@ -50,6 +51,9 @@ const TERMINAL_STATUS_BY_REASON: Partial<Record<HowItWinsJobReasonCode, "superse
   cancelled: "cancelled"
 };
 
+// The shadow screen's worst case is two 8 s Jev requests plus one rate-limit retry.
+const SCREEN_SHADOW_MIN_REMAINING_MS = 90_000;
+
 const RETRY_ELIGIBLE_REASONS: readonly HowItWinsJobReasonCode[] = [
   "structured_output", "semantic_contract", "transient_provider", "deadline_expired", "internal_storage"
 ];
@@ -67,7 +71,7 @@ const STORE_FAILURE_REASON: Partial<Record<HowItWinsStoreOutcome, HowItWinsJobRe
 // the hashes this run computed, and whether it paid for that verdict or replayed a stored one.
 function createHowItWinsOutcome(input: { db: ColdStartDb; job: StoredHowItWinsJob; runId: string; step: GenerationStepTools }) {
   const { db, job, runId, step } = input;
-  const judgment: { hashes?: HowItWinsJudgmentInputHashes; cached: boolean } = { cached: true };
+  const judgment: { hashes?: HowItWinsJudgmentInputHashes; cached: boolean; screen?: HowItWinsTraceBlock["screen"] } = { cached: true };
   let notified = false;
 
   // Best-effort and idempotent: one memoized step, and call rows are keyed by label so a replay
@@ -86,7 +90,7 @@ function createHowItWinsOutcome(input: { db: ColdStartDb; job: StoredHowItWinsJo
       : undefined;
     const judgeSummary: HowItWinsJudgeSummary | undefined = filed ? howItWinsJudgeSummary(filed.stored.judgment) : undefined;
     await step.run("hiw-v2-notify", async () => {
-      await recordHowItWinsJobOutcome(db, { job: current, judgmentRef, judgeSummary });
+      await recordHowItWinsJobOutcome(db, { job: current, judgmentRef, judgeSummary, screen: judgment.screen });
       return null;
     });
   };
@@ -236,6 +240,14 @@ export async function howItWinsV2Handler({ event, runId, step }: WorkerEventCont
       const judgment = await resolveJudgment({ ...stage, step, hashes });
       judgmentId = judgment.judgmentId;
       outcome.judgment.cached = judgment.cached;
+      // Shadow only: the screen runs after the judge, as its own memoized step, and its result
+      // goes to the run trace. It never changes the judgment or the read, and it cannot throw.
+      // It is skipped when the writer and verifier might need the remaining time.
+      const typesafeApiKey = process.env.TYPESAFE_API_KEY;
+      if (howItWinsScreenMode() === "shadow" && typesafeApiKey && job.deadlineAt.getTime() - Date.now() > SCREEN_SHADOW_MIN_REMAINING_MS) {
+        outcome.judgment.screen = await step.run("hiw-v2-screen-shadow", () =>
+          howItWinsScreenShadow({ card, judgment: judgment.judgment.judgment, apiKey: typesafeApiKey }));
+      }
       const written = await runWriter({ ...stage, judgmentId: judgment.judgmentId, judgment: judgment.judgment });
       read = written.read.status === "read"
         ? await runVerifier({ ...stage, read: written.read, writerHash: written.writerHash })

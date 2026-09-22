@@ -2,9 +2,9 @@
 
 ## Status
 
-Draft for Samay, September 22, 2026. Phase 0 (offline replay) ran. No production code, judge prompt, schema, env var or stored card changed.
+September 22, 2026. Phases 0 to 4 are done: the screen is built, tuned on eight fresh judge verdicts, calibrated over 358 corpus cards and wired into production in shadow mode (`HOW_IT_WINS_SCREEN=shadow`). Shadow mode runs the screen after the judge and records what it would have kept on the run trace. It changes no judgment, read, or paid ledger. Samay approved the standard change, the Vercel key, and the rollout on September 22. Switching the judge to the screened scope (Phase 5) waits on his blind sitting.
 
-The goal is a How it wins read that is faster, cheaper, less prone to label habits and better written. Today the Opus judge rules on all 80 strategies in one call: median 197 s and $1.01 per card on the new rubric, with a 12.4k-token output (`docs/qa/how-it-wins-repair-2026-08-25.md`, `docs/qa/how-it-wins-latency-2026-09-11.md`). Most of that output is compact rulings on strategies that never reach the read.
+The goal is a How it wins read that is faster, cheaper, less prone to label habits and better written. Today the Opus judge rules on all 80 strategies in one call. On the eight-card batch of September 22 it took a median of about 196 s and $0.66 per card end to end ($7.11 total), with a single card as high as 344 s. Most of its output is compact rulings on strategies that never reach the read.
 
 ## The idea, corrected
 
@@ -13,24 +13,29 @@ Samay's proposal: one round of Jev calls rules out strategies that obviously do 
 1. **Round 1 holds.** Jev can rule strategies out cheaply, and the questions come from the approved rubric (`2026-08-21-how-it-wins-strategy-rubric.md`), so the screen applies Cold Start's own tests.
 2. **Round 2 changes.** Jev cannot confirm that a strategy is current. It returns a probability with no reason and no evidence ID, and the standard requires a cited, gated positive case. Round 2 instead splits each strategy into four narrow checks and gives the judge an evidence profile. The judge still makes the call.
 3. **Asking Jev the same question again does not remove bias.** Repeat calls are highly correlated; TypeSafe's own consistency cookbook reports 90.8% plurality agreement. Independence comes from different wordings of the same test, which Round 2 already uses.
-4. **Jev has habits of its own.** In Phase 0, Hybrid reached the shortlist on 98% of 40 companies, and Divergence, Transparency and Low-friction on about 95%. A layered screen alone would swap the judge's habits for Jev's. The fix is calibration: compare each strategy's score for a company against that strategy's scores across the 373-card corpus, and shortlist what is unusually strong for this company.
-5. **The final round holds.** The Opus judge rules only on the shortlist, and Jev then checks that each current claim's cited evidence says what the reason says.
+4. **Jev has habits of its own.** In Phase 0, Hybrid reached the shortlist on 98% of 40 companies, and Divergence, Transparency and Low-friction on about 95%. A layered screen alone would swap the judge's habits for Jev's. The fix is calibration: compare each strategy's score for a company against that strategy's scores across the corpus, and rank what is unusually strong for this company first.
+5. **The final round holds.** The Opus judge rules only on Round 1's survivors, and Jev then checks that each current claim's cited evidence says what the reason says.
 
-## Phase 0 results
+## Results
 
-Run with `eval/how-it-wins-screen/run.ts`, `jev-1.13.0`, frozen corpus cards, holdout excluded. Output is in `eval/runs/how-it-wins-screen/` (gitignored).
+All numbers come from `eval/how-it-wins-screen/` runs on September 22 with `jev-1.13.0` on frozen corpus cards, holdout excluded. The ground truth is the current production judge (`claude-opus-5`, refinement on), run fresh by `scripts/how-it-wins-batch.ts` on eight non-holdout cards: august, bland, cognition, deepinfra, doppel, hebbia, nekohealth and notion. Across them it marked 8 strategies current, 5 not yet and 54 open questions, 67 live in all.
+
+| Round 1 keep threshold | Current kept | Live kept | Judge scope, mean of 80 |
+| --- | --- | --- | --- |
+| 0.10 | 8 of 8 | 67 of 67 | 55 |
+| 0.15 (chosen) | 8 of 8 | 63 of 67 | 38 |
+| 0.20 | 8 of 8 | 59 of 67 | 27 |
 
 | Measure | Result |
 | --- | --- |
-| Cost | $0.0017 per company for both rounds, at list price (40 companies: $0.067) |
-| Latency | Both rounds, wall clock: median 0.88 s, p95 1.66 s |
-| Round 1, "candidate" wording, keep at p ≥ 0.2 | Median 28 of 80 kept |
-| Round 2 | Median 24.5 contested, 0.5 strong per company |
-| Label recall, round 1 | 56 of 83 labels from the older sitting reads kept at p ≥ 0.2; 77 of 83 at p ≥ 0.1 |
+| Cost, both rounds | about $0.0018 per card at list price; the whole 358-card calibration run cost $0.65 |
+| Latency, both rounds | median 0.76 s over 358 cards, 1.4 s over the labeled ten |
+| Live strategies dropped at 0.15 | 4 open questions: iteration (doppel), first mover and efficiency (hebbia), affordability (cognition) |
+| Calibrated shortlist of 25 | kept 49 of 67 live and 6 of 8 current; it missed low-friction (deepinfra) and specialization (nekohealth) |
 
-The recall number needs care. The 83 labels are the older writers' picks from sittings 1 and 2, made before the judge-writer split, and the sitting notes name some of them as habits. The labels Round 1 drops most are the habits named in the notes: Usership, Aggregation and Symbiosis 6 times each, Prestige 4 times ("Prestige from Sonnet 5 is a habit"), Alliance 3 times and First mover twice ("the same four maybes"). That suggests the screen resists the old habits. It is not proof. The ground truth needed is the current judge's full 80-strategy verdicts (Phase 1).
+Two conclusions follow. Round 1 is safe as the judge's scope: it kept every current strategy and cut the scope roughly in half. The open questions it dropped include first mover, efficiency and iteration, three of the maybes the sitting notes called habits. The calibrated shortlist is not safe as a filter, because it dropped two current strategies, so it serves as a priority hint and a bias monitor. Eight cards is a small sample, and shadow mode exists to grow it.
 
-The first wording ("any hint") kept a median 66 of 80 and filtered almost nothing. The "candidate" wording asks whether an analyst should examine the strategy and includes the rubric's deciding question.
+The first Round 1 wording ("any hint") kept a median of 66 of 80 and filtered almost nothing. The shipped wording asks whether an analyst should examine the strategy, and it includes the rubric's deciding question.
 
 ## Design
 
@@ -38,21 +43,21 @@ For one company, after the existing thin-file gate:
 
 | Step | Who | What | Budget |
 | --- | --- | --- | --- |
-| 1. Screen out | Jev, 1 request | 80 Noul questions built from each rubric row's deciding question, positive evidence and look-alikes. Keep p ≥ threshold. | about 0.5 s, $0.0007 |
-| 2. Evidence profile | Jev, 1 to 2 parallel requests | Four Nouls per survivor: deciding question, concrete positive evidence, "only look-alikes", affirmative disqualifier. | about 0.6 s, $0.001 |
-| 3. Calibrate | Code | Convert each strategy's support to its percentile among corpus companies. Shortlist: percentile ≥ p80 or raw support ≥ 0.75, then drop anything blocked by the look-alike or disqualifier checks, capped at 20. | none |
-| 4. Judge | Opus, as today | Full rulings only for the shortlist. It receives the evidence profile as a lead, not a verdict, and must still cite evidence. The critic and adjudication loop is unchanged. | target ≤ 90 s |
-| 5. Check citations | Jev, 1 request | For each current ruling: "The cited evidence directly shows the mechanism stated in this reason." Below threshold, the ruling returns to adjudication once. | about 0.4 s |
+| 1. Scope | Jev, 1 request | 80 Noul questions, one per rubric row, built from its deciding question, positive evidence and look-alikes. Keep p ≥ 0.15. | about 0.5 s |
+| 2. Evidence profile | Jev, 1 to 2 parallel requests | Four Nouls per survivor: deciding question, concrete positive evidence, "only look-alikes", affirmative disqualifier. | about 0.6 s |
+| 3. Calibrate | Code | Each strategy's support becomes its percentile among 358 corpus cards (`how-it-wins-screen-calibration.ts`). The ranked shortlist is a hint to the judge and a bias monitor. | none |
+| 4. Judge | Opus, as today | In shadow mode the judge still rules on all 80. In Phase 5 it rules only on the Round 1 scope, receives the evidence profile as a lead, not a verdict, and must still cite evidence. The critic and adjudication loop is unchanged. | target ≤ 120 s |
+| 5. Check citations | Jev, 1 request | Phase 5: for each current ruling, "The cited evidence directly shows the mechanism stated in this reason." Below threshold, the ruling returns to adjudication once. | about 0.4 s |
 | 6. Write | Writer model | Renders the frozen verdict, as today. | unchanged |
 
-Every strategy the screen drops is stored with disposition `insufficient_evidence`, the reason "Screened out: no specific supporting fact", its Jev probabilities, the rubric hash and the model version. The judgment standard allows a compact disposition for strategies that fail the evidence gate. Letting the screen assign it is a change to the standard and needs Samay's approval.
+In Phase 5, every strategy outside the Round 1 scope is stored with disposition `insufficient_evidence`, the reason "Screened out: no specific supporting fact", its Jev probability, the screen version and the model. The judgment standard allows a compact disposition for strategies that fail the evidence gate. Samay approved letting the screen assign it on September 22.
 
 ### Why this is more intelligent, beyond cheaper
 
 - Each strategy is judged independently, so order, position in an 80-item list and the most vivid fact cannot tilt it. The standard's own perturbation tests ask for exactly this.
 - The look-alike question applies the rubric's false-positive column directly. Today that column lives inside a 16k-token prompt.
 - Calibration makes "Specialization" mean "more specialized than most companies we have read", which is the standard's category-baseline test put into numbers.
-- The judge spends its output on the 15 to 20 strategies that matter, so the reasons can go deeper without hitting the timeout.
+- The judge spends its output on about 38 strategies instead of 80, so the reasons can go deeper without hitting the timeout.
 
 ### Bias controls
 
@@ -73,27 +78,46 @@ Plan:
 2. Run the tournament on the existing blind rig (`/eval/how-it-wins`) over frozen verdicts, 10 non-holdout cards. Arms: the current writer, Sonnet 4.6, DeepSeek v4-pro, GPT-5.6 Sol and Fable 5 on the current prompt, plus the best model on a looser prompt that keeps the bans and drops the fixed note order.
 3. Run `slopcheck` on every arm first as a floor. Then pick by Samay's Ship/Weak/Slop verdicts, then by cost and latency.
 
+## Opus 5.5 for the judge and writer
+
+Samay asked whether Opus 5.5 is 40% cheaper than Opus 5 and more intelligent, and whether to swap it in. Checked September 22 against Anthropic's model pages and independent sources.
+
+| Claim | Finding | Status |
+| --- | --- | --- |
+| 40% cheaper | List prices are 20% lower: $4 and $20 per million input and output tokens against $5 and $25, and cache reads are 60% lower. The 40% figure is Anthropic's blend of that cut, a lower default effort (medium against Opus 5's high) and claimed lower verbosity. | Price CONFIRMED; 40% REPORTED by Anthropic only |
+| Less verbose | CodeRabbit's launch-day code review test found 49% to 58% more tokens, the opposite of the claim, on a task shaped like judging. | Contradicted by the one independent test |
+| More intelligent | Artificial Analysis Intelligence Index: 58 against 51. Its Terminal-Bench run measured 59.6%, below Anthropic's 66.4%. | CONFIRMED independently, smaller than claimed |
+| Drop-in swap | Opus 5.5 returns HTTP 400 on a forced `tool_choice`. The judge adapter forces one (`how-it-wins-judge-adapter.ts:305`), as do extraction, synthesis, research sections, person reads, the emphasis read and the expanded description. | Swap breaks the judge as written |
+
+Sources: [Opus 5.5 overview](https://platform.claude.com/docs/en/models/opus-5-5/overview), [what's new](https://platform.claude.com/docs/en/models/opus-5-5/whats-new-opus-5-5), [launch post](https://www.anthropic.com/claude-opus-5-5), [Artificial Analysis](https://artificialanalysis.ai/models/claude-opus-5-5), [The Decoder](https://the-decoder.com/claude-opus-5-5-matches-fable-5-1-at-40-percent-lower-cost-as-anthropic-promises-to-fix-claudish-writing/).
+
+Decision: do not swap on the claim. Measure it on Cold Start's own work in Phase 7, after the adapter moves from a forced tool choice to `tool_choice: auto` with a strict schema, and after that change is confirmed to leave Opus 5's output unchanged. At list price the saving on a 15k-in, 12k-out judge call is $0.075 (20%) before any verbosity change.
+
 ## Phases
 
-| Phase | Work | Done when | Needs |
-| --- | --- | --- | --- |
-| 0 | Offline Jev replay | Done. Numbers above. | Nothing |
-| 1 | Ground truth: current judge's all-80 verdicts on 10 non-holdout cards | Verdicts cached in `eval/curation/how-it-wins-batch/_judgments/` | Samay's approval for about $8 to $10 of Anthropic spend via `scripts/how-it-wins-batch.ts`, or a read-only export of `how_it_wins_judgments` |
-| 2 | Tune thresholds against Phase 1 | Round 1 keeps every current and not-yet strategy; shortlist ≤ 20 | Phase 1 |
-| 3 | Corpus calibration table | Percentiles for 80 strategies over 373 cards, keyed by rubric hash and Jev version | About $0.65 of Jev |
-| 4 | Shadow mode in production | The screen runs beside the judge behind `HOW_IT_WINS_SCREEN=shadow`, logs the shortlist and changes nothing shown | Code in `packages/llm/src/how-it-wins-screen.ts`, called from `judgeHowItWinsForAnalysis`; `TYPESAFE_API_KEY` in Vercel |
-| 5 | Switch the judge to the shortlist | Blind sitting: screened reads at least match current reads; frequency gate passes; median judge time ≤ 90 s | Samay's sitting and approval of the standard change |
-| 6 | Writer tournament | Winner chosen from Samay's verdicts | Samay's sitting |
+| Phase | Work | Status |
+| --- | --- | --- |
+| 0 | Offline Jev replay | Done |
+| 1 | Ground truth from the current judge on 8 non-holdout cards | Done, $7.11, cached in `eval/curation/how-it-wins-batch/_judgments/` |
+| 2 | Tune thresholds | Done: Round 1 at 0.15 |
+| 3 | Corpus calibration table | Done: 358 cards, $0.65 |
+| 4 | Shadow mode in production | Shipped behind `HOW_IT_WINS_SCREEN=shadow`. Each run's trace gains `howItWins.screen`, with the shortlist, the judge's live ids and `missedByRoundOne` |
+| 5 | Judge on the Round 1 scope, plus the citation check | Build next. Switch on after Samay's blind sitting of screened against current reads, with no current strategy in `missedByRoundOne` across at least 30 shadow runs |
+| 6 | Writer tournament | Waits on five reads Samay marks sloppy, then his blind verdicts |
+| 7 | Opus 5.5 trial | After the forced tool choice is removed: matched-effort A/B of judge and writer on the eight cached cards, measuring agreement, output tokens, cost and latency |
+
+Rollback: unset `HOW_IT_WINS_SCREEN` and redeploy. The judge never depends on the screen in shadow mode.
 
 ## Kill conditions
 
-- Round 1 drops any strategy the current judge marks current or not yet, at every threshold that still removes half.
-- After calibration, any strategy still reaches the shortlist on more than 60% of companies.
-- The shortlisted judge is not at least 40% faster, or the blind sitting prefers the full judge.
+- Shadow runs show Round 1 dropping a strategy the judge marks current, at a rate above 1 in 30 runs.
+- The scoped judge is not at least 30% faster, or the blind sitting prefers the full judge.
 - Jev's service fails more than 1% of screen calls in shadow mode. The fallback is always the full 80-strategy judge.
 
 ## Files
 
-- `eval/how-it-wins-screen/questions.ts`: builds all questions from the rubric and fails if a rubric meaning drifts from core.
-- `eval/how-it-wins-screen/run.ts`: the Phase 0 replay, with a hard spend cap of at most $5 and the holdout excluded.
-- Key: `TYPESAFE_API_KEY` in the root `.env.local` (gitignored). It must stay server-side.
+- `packages/llm/src/how-it-wins-screen.ts`: questions, the Jev client, the screen and the shortlist. Questions come from the parsed rubric the judge uses.
+- `packages/llm/src/how-it-wins-screen-calibration.ts`: generated quantiles. Rebuild with `npm run eval:hiw-screen:calibrate` after any change to the screen version, the Jev model or the rubric.
+- `apps/web/src/inngest/how-it-wins-screen-shadow.ts` and the `hiw-v2-screen-shadow` step in `how-it-wins-v2.ts`: the shadow run. It never throws.
+- `eval/how-it-wins-screen/`: replay, scoring and calibration scripts, documented in `eval/README.md`.
+- Keys: `TYPESAFE_API_KEY` in the root `.env.local` and in Vercel production. It stays server-side.

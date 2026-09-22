@@ -91,7 +91,8 @@ vi.mock("../src/inngest/how-it-wins-execution", async (importOriginal) => ({
 }));
 
 vi.mock("../src/inngest/worker-env", () => ({
-  howItWinsEnabled: mocks.howItWinsEnabled
+  howItWinsEnabled: mocks.howItWinsEnabled,
+  howItWinsScreenMode: () => "off"
 }));
 
 import { howItWinsV2Handler } from "../src/inngest/how-it-wins-v2";

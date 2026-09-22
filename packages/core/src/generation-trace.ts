@@ -319,6 +319,21 @@ export type GenerationTrace = {
         outcome: string;
       }>;
     };
+    // The Jev screen's shadow run beside this judgment: what it would have shortlisted, and which
+    // of the judge's live strategies (current, not yet, open question) it would have missed.
+    screen?: {
+      status: "ok" | "failed";
+      reason?: string;
+      version?: string;
+      model?: string;
+      latencyMs?: number;
+      costUsd?: number;
+      keptCount?: number;
+      shortlistIds?: string[];
+      liveIds?: string[];
+      missedByRoundOne?: string[];
+      missedByShortlist?: string[];
+    };
     // Where running strategies die between the judge and the stored card, the measurement the
     // deferred read is tuned against.
     losses?: {

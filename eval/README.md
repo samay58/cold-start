@@ -34,10 +34,14 @@ The live harness uses the same API contract file as the extension. If it reports
 
 ## How it wins screen (Jev)
 
-`eval/how-it-wins-screen/` replays the layered Jev screen from `docs/superpowers/specs/2026-09-22-how-it-wins-layered-screen.md` over frozen corpus cards. It needs `TYPESAFE_API_KEY` in the root `.env.local`, skips the holdout, and stops at `--cap-usd` (at most 5):
+`eval/how-it-wins-screen/` replays the production screen (`packages/llm/src/how-it-wins-screen.ts`) over frozen corpus cards, scores it against the judge's cached verdicts, and rebuilds its calibration table. Spec: `docs/superpowers/specs/2026-09-22-how-it-wins-layered-screen.md`. It needs `TYPESAFE_API_KEY` in the root `.env.local`, skips the holdout, and stops at `--cap-usd` (at most 5).
 
 ```bash
-npx tsx eval/how-it-wins-screen/run.ts --labeled --bias 40 --seed hiw-screen-bias-1 --cap-usd 1
+npm run eval:hiw-screen -- --labeled --bias 40 --seed hiw-screen-bias-1 --cap-usd 1
+npm run eval:hiw-screen:score -- --run eval/runs/how-it-wins-screen/{timestamp}
+# After a screen version, Jev model, or rubric change: rerun the whole corpus, then rebuild.
+npm run eval:hiw-screen -- --bias 400 --seed hiw-screen-calibration-2 --cap-usd 1.5
+npm run eval:hiw-screen:calibrate -- --run eval/runs/how-it-wins-screen/{timestamp}
 ```
 
-Results land in `eval/runs/how-it-wins-screen/{timestamp}/`, one file per company plus `summary.json`.
+Scoring reads verdicts cached by `scripts/how-it-wins-batch.ts` in `eval/curation/how-it-wins-batch/_judgments/`. Results land in `eval/runs/how-it-wins-screen/{timestamp}/`.
