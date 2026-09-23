@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ZodError } from "zod";
 import {
+  OpenAiCompatTruncatedError,
   fallbackModelForStage,
   modelForStage,
   parseModelString,
@@ -272,6 +273,13 @@ describe("withSchemaRetry", () => {
     await expect(withSchemaRetry("deepseek/deepseek-v4-flash", run)).resolves.toBe("ok");
     expect(run).toHaveBeenCalledTimes(2);
     expect(run.mock.calls).toEqual([[], [schemaError]]);
+  });
+
+  it("does not re-send a reply that was truncated at max_tokens", async () => {
+    const truncated = new OpenAiCompatTruncatedError();
+    const run = vi.fn<() => Promise<string>>().mockRejectedValueOnce(truncated).mockResolvedValueOnce("ok");
+    await expect(withSchemaRetry("deepseek/deepseek-v4-flash", run)).rejects.toBe(truncated);
+    expect(run).toHaveBeenCalledTimes(1);
   });
 
   it("retries on malformed tool-argument JSON and missing tool use", async () => {

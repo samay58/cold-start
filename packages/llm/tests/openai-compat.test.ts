@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  OpenAiCompatTruncatedError,
   createTracedOpenAiCompatMessage,
   messageFromOpenAiCompatResponse,
   openAiCompatBodyFromAnthropicParams,
@@ -195,6 +196,33 @@ describe("messageFromOpenAiCompatResponse", () => {
         "deepseek-v4-flash"
       )
     ).toThrow(SyntaxError);
+  });
+
+  it("throws a truncation error, not a SyntaxError, when a tool call is cut off at max_tokens", () => {
+    const run = () =>
+      messageFromOpenAiCompatResponse(
+        {
+          choices: [
+            {
+              finish_reason: "length",
+              message: { tool_calls: [{ function: { name: "emit_block_claims", arguments: '{"claims":[{"text":"cut' } }] },
+            },
+          ],
+        },
+        "deepseek-v4-flash"
+      );
+    expect(run).toThrow(OpenAiCompatTruncatedError);
+    expect(run).toThrow("response truncated at max_tokens");
+    expect(run).not.toThrow(SyntaxError);
+  });
+
+  it("maps finish_reason length on a text reply to stop_reason max_tokens", () => {
+    const message = messageFromOpenAiCompatResponse(
+      { choices: [{ finish_reason: "length", message: { content: "partial" } }] },
+      "deepseek-v4-flash"
+    );
+    expect(message.stop_reason).toBe("max_tokens");
+    expect(message.content).toEqual([{ type: "text", text: "partial" }]);
   });
 });
 

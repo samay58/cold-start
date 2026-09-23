@@ -179,6 +179,38 @@ function requestBody(requests: Array<{ init: RequestInit }>, index = 0) {
 }
 
 describe("the how it wins judge transport", () => {
+  it("records a DeepSeek reply cut off at max_tokens as one failed call with a clear error", async () => {
+    const savedKey = process.env.DEEPSEEK_API_KEY;
+    process.env.DEEPSEEK_API_KEY = "test-key";
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      id: "resp-1",
+      model: "deepseek-v4-flash",
+      choices: [{
+        finish_reason: "length",
+        message: { tool_calls: [{ id: "c1", function: { name: TOOL_NAME, arguments: '{"findings":[{"summary":"cut' } }] }
+      }],
+      usage: { prompt_tokens: 1000, completion_tokens: 12_000 }
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const request: HowItWinsJudgeCallRequest = { ...globalRequest(), callId: "how-it-wins:critic", stage: "critic", model: "deepseek/deepseek-v4-flash" };
+      const adapter = createHowItWinsJudgeModelAdapter({ client: new Anthropic({ apiKey: "test" }), model: "deepseek/deepseek-v4-flash" });
+      const result = await adapter(request);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("expected a failed call");
+      expect(result.error).toBe("response truncated at max_tokens");
+      expect(result.retryable).toBe(false);
+      expect(result.trace.outcome).toBe("failed");
+      expect(result.trace.error).toBe("response truncated at max_tokens");
+    } finally {
+      vi.unstubAllGlobals();
+      if (savedKey === undefined) delete process.env.DEEPSEEK_API_KEY;
+      else process.env.DEEPSEEK_API_KEY = savedKey;
+    }
+  });
+
   it("caps every provider request at 240 seconds and obeys an earlier job deadline", () => {
     expect(howItWinsRequestTimeoutMs({ stage: "global_judge", now: 1_000 })).toBe(240_000);
     expect(howItWinsRequestTimeoutMs({ stage: "critic", now: 1_000 })).toBe(180_000);

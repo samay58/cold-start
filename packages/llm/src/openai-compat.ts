@@ -211,11 +211,26 @@ function parseToolArguments(argumentsText: string | undefined): unknown {
   }
 }
 
+// A reply cut off at max_tokens. Its tool arguments are incomplete JSON, and resending the same
+// request would be cut off at the same place, so this is deliberately not a SyntaxError:
+// withSchemaRetry's isSchemaParseError must not treat it as a schema miss worth a re-ask.
+export class OpenAiCompatTruncatedError extends Error {
+  constructor() {
+    super("response truncated at max_tokens");
+    this.name = "OpenAiCompatTruncatedError";
+  }
+}
+
 // Maps the OpenAI-compat choice back to the Anthropic Message content shape the stage parsers
 // read: tool_calls become tool_use blocks, while plain content becomes a single text block.
+// finish_reason "length" maps to Anthropic's max_tokens stop reason.
 export function messageFromOpenAiCompatResponse(payload: OpenAiCompatResponse, model: string): Message {
   const choice = payload.choices?.[0];
   const toolCalls = choice?.message?.tool_calls ?? [];
+  const truncated = choice?.finish_reason === "length";
+  if (truncated && toolCalls.length > 0) {
+    throw new OpenAiCompatTruncatedError();
+  }
 
   const content =
     toolCalls.length > 0
@@ -233,7 +248,7 @@ export function messageFromOpenAiCompatResponse(payload: OpenAiCompatResponse, m
     role: "assistant",
     model: payload.model ?? model,
     content,
-    stop_reason: toolCalls.length > 0 ? "tool_use" : "end_turn",
+    stop_reason: truncated ? "max_tokens" : toolCalls.length > 0 ? "tool_use" : "end_turn",
     stop_sequence: null,
     usage: usageFromOpenAiCompatResponse(payload.usage),
   } as unknown as Message;
