@@ -1,4 +1,4 @@
-import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, EXTRACTION_UNAVAILABLE_PREFIX } from "@cold-start/core";
+import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, EXTRACTION_UNAVAILABLE_PREFIX, sourceSnippet } from "@cold-start/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -383,6 +383,32 @@ describe("GET /api/extension/bootstrap", () => {
         snippet: "Real-time multimodal intelligence."
       }
     ]);
+  });
+
+  it("cuts long citation snippets with the shared snippet builder", async () => {
+    const sentence = "Cartesia builds real-time voice models for developers and enterprises.";
+    mocks.findCardBySlug.mockResolvedValue({
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      citations: [
+        {
+          id: "c1",
+          url: "https://cartesia.ai/",
+          title: "Cartesia",
+          sourceType: "company_site",
+          fetchedAt: "2026-05-26T20:10:00.000Z",
+          snippet: Array.from({ length: 12 }, () => sentence).join(" ")
+        }
+      ]
+    });
+    mocks.findLatestGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.findSourceSummariesBySlug.mockResolvedValue([]);
+
+    const response = await GET(extensionRequest("cartesia.ai", "secret", "extension-test-id"));
+    const body = await response.json();
+
+    expect(body.sources[0].snippet).toBe(sourceSnippet(Array.from({ length: 12 }, () => sentence).join(" ")));
+    expect(body.sources[0].snippet.endsWith("enterprises.")).toBe(true);
   });
 
   it("returns idle run snapshots when no runs exist", async () => {

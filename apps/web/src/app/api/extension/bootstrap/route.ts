@@ -1,4 +1,4 @@
-import { companySlugFromDomain, generationFailureMessage, mergeStoredResearchSectionsWithLegacy } from "@cold-start/core";
+import { companySlugFromDomain, generationFailureMessage, mergeStoredResearchSectionsWithLegacy, sourceSnippet } from "@cold-start/core";
 import {
   createDb,
   findCardBySlug,
@@ -53,15 +53,6 @@ function idleRun(slug: string, domain: string, mode: GenerationMode) {
   return serializeRun({ slug, domain, mode, status: "idle" });
 }
 
-function compactSnippet(value: string | undefined, maxLength = 360) {
-  const normalized = value?.replace(/\s+/g, " ").trim() ?? "";
-  if (normalized.length <= maxLength) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, maxLength).trimEnd()}...`;
-}
-
 function sourceDomain(url: string) {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -83,7 +74,7 @@ function citationSourceSummaries(card: Awaited<ReturnType<typeof findCardBySlug>
     domain: sourceDomain(citation.url),
     sourceType: citation.sourceType,
     fetchedAt: citation.fetchedAt,
-    snippet: compactSnippet(citation.snippet)
+    snippet: sourceSnippet(citation.snippet ?? "")
   }));
 }
 

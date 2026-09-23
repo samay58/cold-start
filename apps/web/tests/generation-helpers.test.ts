@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isRefileProfileStore, mergeBaseCardForStore } from "../src/inngest/generation-helpers";
+import { isRefileProfileStore, mergeBaseCardForStore, sourceEventSummaries } from "../src/inngest/generation-helpers";
 
 describe("isRefileProfileStore", () => {
   it("is true only for an explicit re-file of the basics profile job", () => {
@@ -29,5 +29,21 @@ describe("mergeBaseCardForStore", () => {
   it("passes a null run-start card through unchanged either way", () => {
     expect(mergeBaseCardForStore(null, { jobKind: "basics", forceRefresh: true })).toBeNull();
     expect(mergeBaseCardForStore(null, { jobKind: "basics", forceRefresh: false })).toBeNull();
+  });
+});
+
+describe("sourceEventSummaries", () => {
+  it("sends progress events the page text of a stored record, never its JSON", () => {
+    const [summary] = sourceEventSummaries([
+      {
+        url: "https://notion.com/",
+        title: "Notion",
+        sourceType: "company_site",
+        fetchedAt: "2026-09-01T00:00:00.000Z",
+        rawText: JSON.stringify({ id: "https://notion.com/", title: "Notion", text: "Notion is the connected workspace for teams." })
+      }
+    ]);
+
+    expect(summary?.snippet).toBe("Notion is the connected workspace for teams.");
   });
 });
