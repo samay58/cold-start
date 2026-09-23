@@ -57,8 +57,12 @@ export function githubTokenFromProcess(): string | undefined {
   return raw?.trim() ? raw.trim() : undefined;
 }
 
+// On unless set to "false". FAST_BASICS_ENABLED is the old name, still read when the new one is
+// unset or blank so a deploy that only carries the old variable keeps its setting.
 export function directExaEnabled() {
-  return process.env.FAST_BASICS_ENABLED !== "false";
+  const current = process.env.DIRECT_EXA_ENABLED?.trim();
+  const value = current ? current : process.env.FAST_BASICS_ENABLED;
+  return value !== "false";
 }
 
 export type AnalysisSourceRefreshMode = "full" | "targeted" | "skip-fresh";

@@ -182,7 +182,7 @@ npx agentcash@latest redeem <YOUR-CODE>
 Common generation controls:
 
 ```bash
-FAST_BASICS_ENABLED=true
+DIRECT_EXA_ENABLED=true
 CONTACT_ENRICHMENT_ENABLED=true
 CONTACT_ENRICHMENT_TIER=named-only
 EMAIL_PATTERN_FALLBACK_ENABLED=true
