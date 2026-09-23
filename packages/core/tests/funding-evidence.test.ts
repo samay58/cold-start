@@ -123,6 +123,12 @@ describe("funding evidence fallback", () => {
     });
   });
 
+  it("labels a single-digit-million raise the way the shared money formatter does", () => {
+    const input = card();
+    input.citations = [{ ...input.citations[0]!, snippet: "Polymarket raised $6.25 million in a seed round." }];
+    expect(fundingEvidenceFromCitations(input)[0]).toMatchObject({ amountLabel: "$6.3M", amountUsd: 6_250_000 });
+  });
+
   it("materializes a cited financing round when structured funding is empty", () => {
     const input = card();
     input.identity.name.citationIds.push("e2");

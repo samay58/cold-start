@@ -2,6 +2,7 @@ import type { Citation, ColdStartCard, ResolvedFact } from "./card";
 import { stripCitationMarkers } from "./citation-text";
 import { splitIntoSentences } from "./sentences";
 import { normalizeExactInteger } from "./exact-integer";
+import { formatCompactUsd } from "./money-format";
 import { targetHostMatchesDomain } from "./source-target";
 import { sourceQualityRank } from "./source-quality";
 
@@ -32,18 +33,6 @@ function domainFromHref(href: string) {
   }
 }
 
-function formatCompactCurrency(value: number) {
-  if (value >= 1_000_000_000) {
-    return `$${Math.round(value / 100_000_000) / 10}B`;
-  }
-
-  if (value >= 1_000_000) {
-    return `$${Math.round(value / 1_000_000)}M`;
-  }
-
-  return `$${value.toLocaleString()}`;
-}
-
 function clampText(value: string, maxLength: number) {
   const normalized = stripCitationMarkers(value).replace(/\s+/g, " ").trim();
   if (normalized.length <= maxLength) {
@@ -63,7 +52,7 @@ function compactCurrencyMatch(amount: string, unit: string) {
 
   return {
     amountUsd,
-    label: formatCompactCurrency(amountUsd),
+    label: formatCompactUsd(amountUsd),
   };
 }
 
