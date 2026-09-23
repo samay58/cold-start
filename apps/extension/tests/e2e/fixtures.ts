@@ -341,6 +341,14 @@ export async function mockExtensionApi(page: Page, card: ColdStartCard | null) {
   });
 
   await page.route("**/api/extension/cards/**", async (route) => {
+    // The How it wins status poll shares this prefix. Answering it with the card made the panel
+    // show "Couldn't check progress", and that notice came and went mid-test, moving the cards
+    // under a drag by 26px. Production answers "no job" for a card with nothing in flight.
+    if (new URL(route.request().url()).pathname.endsWith("/how-it-wins")) {
+      await fulfillJson(route, { job: null });
+      return;
+    }
+
     if (!card) {
       await fulfillJson(route, { error: "card not found" }, 404);
       return;
