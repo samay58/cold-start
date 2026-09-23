@@ -31,7 +31,7 @@ Stage env chains, resolved by `modelForStage` (zero env changes = all-Anthropic 
 
 `anthropicSystemCacheControl()` still attaches `cache_control: { type: "ephemeral", ttl: "1h" }` at every call site (override `ANTHROPIC_CACHE_TTL=5m`); the chokepoint adds the `anthropic-beta: extended-cache-ttl-2025-04-11` header when 1h resolves, Anthropic path only.
 
-`investor-taste-kernel.ts` and `evidence-budget.ts` make no API calls. The kernel exports two shared system-prompt strings (`investorTasteKernel`, prefixed to extraction and research-section prompts, and `researchPlannerSystemPrompt` for the dormant planner). Evidence-budget trims source text to a prompt character budget (`EXTRACTION_EVIDENCE_BUDGET_CHARS`).
+`investor-taste-kernel.ts` and `evidence-budget.ts` make no API calls. The kernel exports one shared system-prompt string, `investorTasteKernel`, prefixed to extraction and research-section prompts. Evidence-budget trims source text to a prompt character budget (`EXTRACTION_EVIDENCE_BUDGET_CHARS`).
 
 ## The ten call functions in packages/llm
 

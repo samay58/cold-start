@@ -11,9 +11,3 @@ export const investorTasteKernel = [
   "Competition is not a logo list. Name the actual axis of overlap: same buyer, same workflow, same budget, substitute behavior, or wedge into the same system of record.",
   "Open questions are the few questions that would change conviction, framed as what would you need to believe: each names the belief the case depends on and the evidence that resolves it, not a generic diligence checklist.",
 ].join(" ");
-
-export const researchPlannerSystemPrompt = [
-  investorTasteKernel,
-  "Produce a compact research plan that guides retrieval and later card writing.",
-  "The plan should prioritize the questions a busy investor would ask first, plus search queries likely to surface primary sources, independent analysis, funding history, and technical/product context.",
-].join(" ");
