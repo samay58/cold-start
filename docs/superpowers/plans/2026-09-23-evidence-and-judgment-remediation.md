@@ -43,19 +43,22 @@ Samay trusts the models' underlying intelligence and does not want it hobbled. E
    - A second, likely bias: the ledger's snippet chooser (`packages/pipeline/src/evidence-ledger.ts:113-133`) prefers sentences containing funding words ("raised", "series", "valuation", "investor"). 1,740 of 3,300 working `e` snippets mention one. The judge's evidence about how a company wins may skew toward funding news. Verify in Task 1.
 2. **Evidence items are short even when they work.** The median item the judge sees is 223 characters. The maximum is 700.
 3. **The judge never sees source dates.** `how-it-wins-judge-rules.ts:89-94` sets `sourceDate: null` for every item, although the standard asks whether a mechanism is live today.
-4. **Opus 5 filled gaps from memory.** It marked Notion's composability as current by citing block primitives. The word "block" appears nowhere in Notion's 32 evidence items. That breaks the "supplied evidence only" rule. Opus 5.5 caught it.
+4. **Corrected by the audit: Opus 5 did not fill gaps from memory.** It marked Notion's composability as current by citing block primitives. No citable evidence item says "block", but the card's description in the judge's `context` does ("Block-based editor where pages, databases, and views ... are composable primitives"), written by extraction from page text. Opus 5 used the description; Opus 5.5 refused a claim with no evidence item behind it. The real fault is that the page text never reached the evidence list (audit finding 8).
 5. **Opus 5.5 skips work.** The standard lets the judge write a one-line ruling when a strategy "fails the evidence gate", and the judge decides that for itself. Opus 5.5 did so for 50 to 58 of 80 strategies per company, against 13 to 36 for Opus 5. On DeepInfra's low friction it wrote "no behaviour change or edge over peers is shown" while the packet held revenue tripling, 25x token growth and 30% of volume from agents.
 6. **Our rules keep asking for head-to-head proof.** The Specialization row demands a fit "that broader rivals demonstrably lack". The distinctiveness test calls a trait category baseline "if two comparable companies share the trait". The rubric already accepts three kinds of proof: "a measured result, a capability they do not have, or customers choosing on that fit". Opus 5.5 reads it as head-to-head results only.
 7. **Profiles keep stating what private companies never publish.** A narrow text match finds such lines in at least 130 of 373 corpus profiles (`eval/curation/corpus/cards`). The real rate is higher, because the match misses many phrasings. The main sources are research-section items (101 hits), expanded-description paragraphs (56), research-section summaries (31), napkin-math bases and bear-case claims. The prompts behind this include `packages/llm/src/expanded-description.ts:78` and the research-section rules in `packages/core/src/research-sections.ts:113-125`. The emphasis read's "Quiet" line is an absence list by design (`packages/llm/src/emphasis-read.ts:44`).
 8. **The comparison itself was not controlled.** The Opus 5 verdicts came from about 3:45 PM on September 22, under a forced tool choice. The Opus 5.5 run came after `4830c3c` (10:02 PM), which moved every stage to `tool_choice: auto`. Each model ran once. Neither accepts a temperature setting, so run-to-run variation is unmeasured.
+9. **The Task 1 audit found more of the same kind** (`docs/qa/model-input-audit-2026-09.md`): eight paid Exa searches never ask for page text, so 37% of stored sources hold only a title; person reads get JSON about someone else; the evidence leans toward funding in the queries, the ledger and the snippets; a company's own pages reach the judge labeled as outside sources; publish dates are dropped before storage; a keyword filter deletes verified claims; and four workarounds hide the JSON bug.
 
 ## Decisions reserved for Samay
 
-- The exact wording of every prompt or rubric sentence changed in Tasks 2 and 3. The judgment standard is his.
+- The exact wording of every prompt or rubric sentence changed in Tasks 3 and 4. The judgment standard is his.
 - Whether the emphasis read keeps its "Quiet" line (Task 3).
 - Which judge model to keep, after his blind reading (Task 5).
 - Whether to turn on `HOW_IT_WINS_SCREEN=scoped` (Task 5).
 - Any paid run over $10, and every production deploy.
+- Whether to backfill existing production profiles (Task 2, E7), and when the dates migration runs in production (Task 2B).
+- Already decided, September 23: every audit finding is in scope (Task 1).
 
 ## Review focus
 
@@ -66,11 +69,16 @@ The failure modes most likely to bite, each pinned to a task:
 3. Longer evidence pushes the judge past its timeout or its budget. The judge prompt is already about 19k input tokens. (Task 2 check: record judge input tokens and latency before and after.)
 4. New evidence text changes the evidence-packet hash, so memoized judgments (`how_it_wins_judgments`) miss and re-files pay again. This is expected once; confirm it settles. (Task 2 note in the commit and STATUS.)
 5. The "do not state normal absences" principle hides a gap that matters, such as a company claiming revenue with no source. (Task 3 check on one known case.)
-6. Existing production profiles keep their empty snippets after the fix ships, so testers see no change on companies already built. (Task 2, Step 14 backfill decision.)
+6. Existing production profiles keep their empty snippets after the fix ships, so testers see no change on companies already built. (Task 2, E7 backfill decision.)
+7. Old stored rows are JSON and new rows may not be, so any reader that sees both must handle both. (Task 2, B3 test d.)
+8. Page text from a person database or a list page names many people, so a person read picks up someone else. (Task 2, C1.)
+9. Asking Exa for page text makes sources much longer, so extraction's character budget now drops sources it used to keep. (Task 2, E3: compare which sources reach the extraction prompt before and after.)
 
 ---
 
-### Task 0: Fix the comparison set and freeze a baseline
+### Task 0: Fix the comparison set and freeze a baseline (done)
+
+Done September 23, 2026 in `057bde4`. The 12 slugs and the baseline are in `eval/curation/remediation-2026-09/README.md`.
 
 No product code. This set is reused by every later task, so later results are comparable.
 
@@ -131,64 +139,105 @@ if __name__ == "__main__":
 
 ---
 
-### Task 1: Audit what every model actually sees and keeps
+### Task 1: Audit what every model actually sees and keeps (done)
 
-Read-only. The empty-snippet bug lived for months because nobody read a real model input end to end. This task does that for every stage and looks for the same kind of silent quality loss elsewhere: problems that never crash, never fail a test, and quietly make the reads worse.
+Done September 23, 2026 in `030948c`. `npm run qa:model-inputs -- --slug <slug>` (`scripts/dump-model-inputs.ts`) saves the exact request each stage would send, without calling a model. The findings, their causes and their reach are in `docs/qa/model-input-audit-2026-09.md`. Read it before Task 2; the tasks below cite its finding numbers.
 
-**Files:**
-- Create: `scripts/dump-model-inputs.ts` (read-only; prints the exact payload each stage would send for one card)
-- Create: `docs/qa/model-input-audit-2026-09.md` (findings)
-
-- [ ] **Step 1: Build the dump.** For one card, print the exact evidence each stage would receive, using the production builders rather than copies of them: extraction (`evidenceForExtractionPrompt`), synthesis, the verifier's `citationSources`, the emphasis digests (`emphasisSourceDigests`), research sections, the person read, the expanded description, the Jev screen and the How it wins judge (`howItWinsEvidencePacketFromCard`). Use `docs/anthropic-llm-call-map.md` to make sure no stage is missed. No model calls.
-- [ ] **Step 2: Read the payloads in full** for 3 of the 12 companies: Notion, DeepInfra and the thin file. For each stage, record what is missing, empty, cut mid-sentence, duplicated, mislabeled, undated, or skewed toward one kind of fact.
-- [ ] **Step 3: Check the outputs too.** Find where good model output is silently thrown away. Look at the verifier's drops, the `trust.ts` caps, schema validators that drop instead of failing, and `catch` blocks that fall back to a default without a trace. Measure the verifier first. From production `generation_runs` traces (read-only), count dropped claims, and how many of them cited a citation whose snippet is empty.
-- [ ] **Step 4: Sweep for the same patterns in code**, and read each hit rather than trusting the grep:
-  - JSON used as text: `rg -n 'JSON\.stringify' packages apps -g '*.ts' -g '!**/tests/**'`, keeping hits that feed a prompt, a snippet or `rawText`.
-  - Hard cuts: `rg -n '\.slice\(0, *[0-9_]+\)' packages apps -g '*.ts' -g '!**/tests/**'`, keeping hits on model-bound text.
-  - Fields set to a constant null or empty value in builders (`sourceDate: null` is one).
-  - Downstream workarounds that suggest an upstream bug, such as comments saying "most X are Y" or "raw provider".
-  - Silent fallbacks: `catch` blocks and `?? ""` or `|| title` on model-bound text.
-  - Configuration drift: production flags that differ from code defaults, read from a current production run trace, because the Vercel CLI hides sensitive values.
-- [ ] **Step 5: Measure each finding's reach** on the 373-card corpus or production traces, the way finding 1 above was measured. A finding without a count is a guess.
-- [ ] **Step 6: Write `docs/qa/model-input-audit-2026-09.md`**: each finding with its cause (file and line), its reach, its effect on reads, and a proposed fix. Rank by effect on what a reader sees. Mark each as verified or likely.
-- [ ] **Step 7: Samay decides** which findings join this plan. Add each approved fix to Task 2 when it concerns evidence plumbing, or as a new task after Task 2 otherwise, in the same format as the other tasks.
-- [ ] **Step 8:** Commit the dump script and the audit: `Audit the evidence every model stage receives`.
-
-Read-only subagents may fan out Steps 2 to 4, one per stage or pattern. Each one reports findings with file and line; the lead verifies each finding before it goes in the audit.
-
-**Finish line:** an audit document with every model stage covered, every finding counted, and Samay's decision on which to fix.
+Samay's decisions, September 23, 2026: every finding is in scope. A: findings 1, 2, 4, 6 and 10 join Task 2. B: yes, ask for page text in every Exa search. C: dates get an optional citation field and a `sources.published_at` column (Task 2B). D: remove the keyword gate (Task 2C). E: a snippet is the page's own text, and search queries that are not about funding lose their funding words (Task 2).
 
 ---
 
 ### Task 2: Give every model the page text
 
-The biggest single gain. It is a bug, not a judgment call, and it reaches every model stage that judges. Fold in any evidence-plumbing findings Samay approved from Task 1.
+The biggest single gain. It is a bug, not a judgment call, and it reaches every model stage. It has five parts. Do them in order; each part ends with green tests and its own commits.
+
+**Files (find exact lines with the audit and `rg`; they drift):**
+- Fetch: `packages/providers/src/stableenrich/core.ts` (the Exa search and find-similar bodies), `packages/providers/src/provider-budget.ts`
+- Store: `packages/providers/src/direct-exa.ts:369,384`, `packages/providers/src/stableenrich/facts.ts`, `people.ts`, `discovery.ts`
+- Snippet builders (audit finding 10 inventory): `packages/pipeline/src/provider-facts.ts`, `packages/pipeline/src/seed-profile.ts`, `packages/pipeline/src/generate-card.ts` (the e-citation snippet), `packages/pipeline/src/evidence-ledger.ts`, `apps/web/src/inngest/source-fetching.ts`, `apps/web/src/inngest/generation-helpers.ts` (progress events), `packages/db/src/repositories/sources.ts` (`compactSnippet`), `apps/web/src/app/api/extension/bootstrap/route.ts`
+- Model evidence builders: `packages/llm/src/extraction.ts` (`evidenceForExtractionPrompt`), `apps/web/src/inngest/research-section-generation.ts` (`evidenceForSection`), `packages/pipeline/src/expanded-description-evidence.ts`, `packages/pipeline/src/person-read-evidence.ts`, `packages/core/src/emphasis-read.ts`, `packages/llm/src/how-it-wins-judge-rules.ts`
+- Workarounds to delete: `apps/extension/src/company/clipping-model.ts`, `packages/core/src/prose.ts`, `packages/core/src/first-payoff.ts` (`readableSourceText`), `packages/providers/src/founder-voice/exa-web.ts` (`textFromRawRecord`)
+- Tests: the existing test file for each module under its package's `tests/` folder
+
+**Interfaces this task produces (later tasks rely on them):**
+- One function that turns a stored source record into readable text: page text, then summary, then highlights, then title. It never returns JSON.
+- One snippet builder with one length constant (about 600 characters) that cuts at a sentence boundary with `packages/core/src/sentences.ts`.
+- Name them to match the surrounding code. Record the final names in the ledger.
+
+#### Part A: fetch the text (audit findings 1 and 5)
+
+- [ ] **A1.** Confirm the cost first. Run `mcp__agentcash__check_endpoint_schema` (free, no payment) on `https://stableenrich.dev/api/exa/search` and `https://stableenrich.dev/api/exa/find-similar`, with a sample body that includes `contents: { text: true, highlights: {...} }`. The search quoted $0.01 on September 23, the same as without text. If either quote is higher, record it and update the estimate in `provider-budget.ts`.
+- [ ] **A2.** Write failing tests: every stableenrich Exa search and find-similar body asks for page text. Use one shared `contents` constant, like the one `direct-exa.ts:69-72` already uses. Do not copy it per probe.
+- [ ] **A3.** Add `contents` to the eight searches and find-similar. Update `provider-budget.ts` in the same commit.
+- [ ] **A4.** Remove funding words from the default queries that are not about funding: company profile, recent signals, independent analysis, customer proof and product proof. Keep the funding-history query as it is. Write each query as the plain thing it looks for. Show Samay the before and after query text in the report. It is technical wording, not voice, so there is no gate, but he reads it.
+- [ ] **A5.** Commit: `Ask every Exa search for page text`, then separately `Keep funding words out of searches that are not about funding`.
+
+#### Part B: read the text (findings 2, 5 and 6)
+
+- [ ] **B1. Find every reader of `rawText` before changing it.** Run `rg -n 'rawText|raw_text' packages apps -g '*.ts' -g '!**/tests/**'`. List each reader in the ledger and say whether it parses JSON. Known parsers: `people-search-hints.ts`, `first-payoff.ts`, `exa-web.ts`, and the fact extractors in `stableenrich/facts.ts`.
+- [ ] **B2. Choose the narrowest safe fix** and record why in the commit message. If a reader needs structured fields, keep `rawText` as it is and fix every builder through the readable-text function. If nothing needs the JSON, store readable text in `rawText` and keep the metadata in fields that already exist (`title`, `url`, `publishedAt`). Either way, existing production rows stay JSON, so the readable-text function must accept both forms.
+- [ ] **B3. Write the failing tests.** (a) An Exa record with `text` gives page text, not `{`. (b) Only `highlights` gives the highlights. (c) None of the three gives the title, never JSON. (d) A stored JSON row and a stored plain-text row both come out readable. (e) One invariant test over a card built through the real pipeline helpers: no citation snippet, and no evidence text in the judge packet, the verifier's sources, the emphasis digests, the person-read evidence, the research-section evidence, the expanded-description evidence or the extraction prompt, parses as JSON or starts with `{`. Run each package's tests with `npm run test -w <package> -- <file>` and watch them fail. Never `npx vitest run -w`, which starts watch mode.
+- [ ] **B4. Implement.** Route every builder in the Files list through the readable-text function and the one snippet builder. The evidence ledger picks supporting sentences from readable text, not from the JSON string.
+- [ ] **B5. Who writes the snippet (decision E).** A citation's snippet is the page's own text, cut at a sentence. Keep a model-written snippet from extraction only when the source has no readable text. Drop the ledger's funding-keyword preference (`evidence-ledger.ts:113-133`) and the funding-intent ranking bonus (`:108`) unless a test shows funding extraction needs them. If it does, keep them only on the funding path.
+- [ ] **B6. Labels (finding 6).** In `howItWinsEvidencePacketFromCard`, compute each item's attribution with `sourceQualityForSource(citation, { targetDomain: card.domain })`, so a company's own pages are always labeled as the company speaking. Use the tier vocabulary only; never fall back to `sourceType` names. Test with a notion.com page typed `news`.
+- [ ] **B7.** Commit in small pieces: the readable-text function and snippet builder with their tests; the call sites; the labels. The first message says that memoized How it wins judgments will miss once, because the evidence hash changes.
+
+#### Part C: person reads (finding 4)
+
+- [ ] **C1.** Failing tests: evidence for a person is a window of readable text around their name, not the first 700 characters. An item that never names the person is not sent. A person listed as both founder and executive is read once. Suppression reasons (`thin_evidence`, `no_nonobvious_claim`, `truncated`) reach the trace step, not only a count.
+- [ ] **C2.** Implement in `person-read-evidence.ts` and `contact-enrichment.ts`. Commit: `Give person reads text about the person, once`.
+
+#### Part D: delete the workarounds (finding 10)
+
+- [ ] **D1.** Delete the JSON handling in `clipping-model.ts`, `prose.ts`, `first-payoff.ts` and `exa-web.ts`. Replace each with the shared readable-text function where old stored rows can still reach it. Update their tests.
+- [ ] **D2.** Route the progress-event snippets and the extension bootstrap snippets through the shared snippet builder.
+- [ ] **D3.** Commit: `Remove the JSON workarounds now that snippets are readable`.
+
+#### Part E: measure
+
+- [ ] **E1. Rebuild the 12 packets for free.** Write a read-only script in `scripts/` that rebuilds each card's citation snippets from production `sources.raw_text` with the new builders. It loads `.env.production.migrate.local`, the way `scripts/dump-model-inputs.ts` does. Save the cards under `eval/curation/remediation-2026-09/cards/`. No database writes.
+- [ ] **E2. Re-fetch the 12 with page text, capped at $3.** Rows stored without text (finding 1) stay title-only in E1. Call only the stableenrich Exa searches for the 12 companies with the new `contents` (about 9 calls × 12 × $0.01). Merge the results into the rebuilt cards by URL. Save the raw responses under the same folder so no search is paid twice. Report the actual spend.
+- [ ] **E3. Check by eye.** For Notion, DeepInfra and casaphq, rerun `npm run qa:model-inputs` against the rebuilt cards (add a `--card <path>` option if needed) and read every stage's evidence. Confirm that items are page content, that none is boilerplate such as cookie banners or menus, and that Notion's items include the text of the notion.so homepage and the developer-platform post. Record JSON stubs (target 0), title-only items, and median item length with `monitors.py`.
+- [ ] **E4. One paid judge check, capped at $3.** Run the judge once, on the production model (Opus 5), for 2 rebuilt cards with `scripts/how-it-wins-batch.ts`. Record input tokens, latency and cost against the baseline. Stop and report if latency rises more than 30% or any call times out.
+- [ ] **E5. Measure the verifier, capped at $2.** Rerun only the verifier on the production model (`deepseek-v4-flash`, not Sonnet) over the 12 cards' current synthesis, once with the old snippets and once with the rebuilt ones. Count claims kept. This is where audit finding 3 is confirmed or ruled out.
+- [ ] **E6.** Run `npm run check` from the repo root and read the full output. Do not pipe it through `tail`.
+- [ ] **E7. Samay decides** whether to backfill existing production profiles. New profiles get clean snippets after deploy; the roughly 400 existing ones keep empty ones until they are re-filed or backfilled. A backfill rebuilds snippets from `sources.raw_text` with the same builders. Rows with no stored text cannot be backfilled without paying for a re-fetch. It is a production write, so it needs approval, a dry run that prints the counts it would change, and a readback afterward.
+
+**Finish line:** every Exa search asks for page text; zero JSON across the 12 rebuilt cards at every stage; the invariant test green; person reads read about the right person, once; own-site pages labeled as the company; the four workarounds gone; the verifier comparison recorded; the 2-card judge check within the latency bound; a green `npm run check`; Samay's backfill decision recorded.
+
+**Stop if:** a reader of `rawText` depends on JSON in a way that needs a schema change, or the extension's card schema rejects a field this task adds. Report back instead of widening scope.
+
+---
+
+### Task 2B: Pass publish dates through to the models (finding 7)
+
+Samay chose an optional citation field plus a stored column. A date tells the judge whether a mechanism is live today, which the standard asks.
 
 **Files:**
-- Modify: `packages/providers/src/direct-exa.ts:384` and `:369`, and the `JSON.stringify` rawText sites in `packages/providers/src/stableenrich/` if Task 1 shows they feed snippets
-- Modify: the snippet builders: `packages/pipeline/src/provider-facts.ts:213`, `apps/web/src/inngest/source-fetching.ts:102`, `packages/pipeline/src/seed-profile.ts:140` and `:263`
-- Modify: `packages/llm/src/how-it-wins-judge-rules.ts:89-94` (source dates)
-- Modify: `apps/extension/src/company/clipping-model.ts:91` (remove the JSON workaround once snippets are clean)
-- Test: the existing test files for each module under their package's `tests/` folder
+- Modify: `packages/core/src/card.ts` (`citationSchema`: optional `publishedAt`), `packages/db/src/schema.ts` and a new migration under `packages/db/drizzle/` (nullable `sources.published_at`), `packages/db/src/repositories/sources.ts`, `apps/web/src/inngest/source-fetching.ts` (`recordSourcesForCard`), `packages/pipeline/src/provider-facts.ts` (`providerSourcesFromStoredSources`), the citation builders in `provider-facts.ts`, `seed-profile.ts` and `generate-card.ts`, `packages/llm/src/how-it-wins-judge-rules.ts` (`sourceDate`)
+- Test: each module's tests, plus `npm run test:cards-db` for the write path
 
-- [ ] **Step 1: Find every reader of `rawText` before changing it.** Run `rg -n 'rawText|raw_text' packages apps -g '*.ts' -g '!**/tests/**'`. Some readers may parse the JSON, for example `source-gate.ts:147`, the fact extractors, and the Postgres `sources.raw_text` column. Write the list into the task notes.
-- [ ] **Step 2: Choose the narrowest safe fix.** If any reader parses `rawText` as JSON, leave `rawText` alone and fix the snippet builders instead: build the snippet from `rawRecordText`-style readable text (`text`, then `summary`, then `highlights`, then title). If nothing parses it, change `direct-exa.ts:384` to store readable text and keep the metadata in fields that already exist (`title`, `url`, `publishedAt`). Record the choice and reason in the commit message.
-- [ ] **Step 3: Write the failing tests.** (a) An Exa record with `text` produces a snippet that starts with page text, not `{`. (b) A record with only `highlights` uses the highlights. (c) A record with none of the three produces the title, never JSON. (d) One invariant test, over a card fixture built through the real pipeline helpers: no citation snippet, and no evidence text in the judge packet, the verifier's sources or the emphasis digests, parses as JSON.
-- [ ] **Step 4:** Run `npm run test -w <package> -- <file>` for each package touched and confirm the new tests fail. Do not use `npx vitest run -w`; it starts watch mode and never exits.
-- [ ] **Step 5: Implement.** Write one shared snippet builder and use it at every builder site listed above. Snippet length: replace the 280- and 700-character cuts with one shared constant of about 600 characters, cut at a sentence boundary with `packages/core/src/sentences.ts`. Do not write a new splitter. If Task 1 confirmed the funding-word bias in `evidence-ledger.ts:113-133`, choose the snippet by relevance to the source, not by funding keywords, and keep the funding preference only where funding extraction needs it.
-- [ ] **Step 6: Pass source dates.** In `how-it-wins-judge-rules.ts`, set `sourceDate` from the citation's published date when the card has one. Add a test.
-- [ ] **Step 7:** Run the tests and confirm they pass. Then run `npm run check` from the repo root and read the full output. Do not pipe it through `tail`, which hides the exit code.
-- [ ] **Step 8: Rebuild the 12 evidence packets without paying for new searches.** The frozen corpus cards carry the old snippets. Write a read-only script in `scripts/` that rebuilds each card's citation snippets from production `sources.raw_text` using the new builder. It loads `.env.production.migrate.local`, the way `qa-generation-suite.ts` does. Save the rebuilt cards under `eval/curation/remediation-2026-09/cards/`. Do not write to the database.
-- [ ] **Step 9: Check the packets by eye.** For 3 of the 12, read every evidence item. Confirm that item text is page content, that no item is boilerplate, and that the Notion items now contain the text of the notion.so homepage and the developer-platform post. Record JSON stubs (target 0) and median item length.
-- [ ] **Step 10: One paid check, capped at $3.** Run the judge once, on the current production model (Opus 5), for 2 of the rebuilt cards with `scripts/how-it-wins-batch.ts`. Record judge input tokens, latency and cost against the baseline. Stop and report if latency rises more than 30% or any call times out.
-- [ ] **Step 11: Measure the verifier.** Rerun only the verifier (Sonnet 4.6, cheap) on the 12 rebuilt cards' existing synthesis, capped at $2. Compare drops before and after. If true claims were being dropped for lack of a readable source, this is where it shows.
-- [ ] **Step 12: Remove the workaround.** Delete the JSON gate in `clipping-model.ts` and update its tests, so the extension shows the real snippet.
-- [ ] **Step 13:** Commit in small pieces: the builder and its tests; the call-site changes; source dates; the workaround removal. The first message states that memoized judgments will miss once, because the evidence hash changes.
-- [ ] **Step 14: Samay decides** whether to backfill existing production profiles. New profiles get clean snippets after deploy. The roughly 400 existing ones keep empty snippets until they are re-filed or backfilled. A backfill would rebuild snippets from `sources.raw_text` with the same builder. It is a production write, so it needs approval, a dry run that prints the counts it would change, and a readback afterward.
+- [ ] **Step 1.** Check whether the extension parses citations strictly. Find its card schema in `apps/extension/src` and its tests. If an unknown citation field would break an installed extension, stop and ask before going on, because that needs a contract version bump (`packages/core/api-contract.json`).
+- [ ] **Step 2.** Failing tests: a source's `publishedAt` survives storage, the round trip back to `ProviderSource`, the citation builders, and the judge packet's `sourceDate`. A source with no date stays `null`, never a fetch time.
+- [ ] **Step 3.** Implement. Generate the migration with the repo's Drizzle flow and apply it only to local Postgres. Extraction may pass dates in its evidence, but do not add a date field to the extraction model's citation schema; the date comes from the source, never from the model.
+- [ ] **Step 4.** Run the tests, `npm run test:cards-db` and `npm run check`. Update `AGENTS.md` (the migration list in Data Layer) and `docs/code-map.md` in the same commit.
+- [ ] **Step 5.** Commit: `Keep each source's publish date and show it to the judge`.
+- [ ] **Step 6. Samay decides** when the migration runs in production. It runs only through `npm run db:migrate:production`, and before the deploy that needs it (Vercel deploys do not run migrations; see `docs/deployment.md`).
 
-**Finish line:** zero JSON snippets across the 12 rebuilt cards at every stage, the invariant test green, the verifier comparison recorded, the extension workaround gone, a green `npm run check`, the 2-card paid check within the latency bound, and Samay's backfill decision recorded.
+**Finish line:** a dated Exa source reaches the judge packet with its date; an undated one reaches it as `null`; migration applied locally; green check; production migration waiting on Samay.
 
-**Stop if:** a reader of `rawText` depends on JSON in a way that needs a schema or migration change. Report back instead of widening scope.
+---
+
+### Task 2C: Remove the keyword filter on verified claims (finding 9)
+
+- [ ] **Step 1.** Read `packages/pipeline/src/synthesis-quality.ts` and every caller of `applySynthesisUsefulnessGate`. Find out whether any test or eval relies on it.
+- [ ] **Step 2.** Remove the gate, so verifier-approved claims are kept. Keep `usefulnessDroppedClaims` readable on old traces (optional field) but stop writing it, or delete it if nothing reads it. Remove the tests that only exist to test the gate. Keep any test that checks something else.
+- [ ] **Step 3.** Run the tests and `npm run check`. Update any doc that names the gate (`rg -n 'usefulness' docs AGENTS.md`).
+- [ ] **Step 4.** Commit: `Stop deleting verified claims by keyword`.
+
+The prompt and the verifier carry quality. If generic claims come back, fix the synthesis prompt in Task 3, not with a filter.
+
+**Finish line:** no regular expression runs over model-written claims; green check.
 
 ---
 
@@ -238,7 +287,7 @@ Do not add a rule against the one-line shortcut. The structural fix is Task 5's 
 
 ### Task 5: Rerun the judge comparison fairly, then choose
 
-Runs after Tasks 1 and 3, so that both models see the fixed evidence and the fixed rules.
+Runs after Tasks 2 through 4, so that both models see the fixed evidence, dates and rules. Audit finding 8 belongs here too: the judge's `context` repeats every snippet already in its evidence list. If Samay agrees, run the arms with the repeated snippets removed from `context`, and say so in the sheet.
 
 **Files:**
 - Output: `eval/curation/how-it-wins-batch/<timestamp>/` per run; a side-by-side sheet in `eval/curation/remediation-2026-09/`
@@ -278,6 +327,7 @@ Runs last, because it only pays off once the evidence text reaches the model (Ta
 
 - [ ] Update `docs/STATUS.md`: move this plan to Recently shipped with its commits, and list any open decisions under Next.
 - [ ] Update the How it wins latency and cost notes if Task 5 changed the judge.
+- [ ] Update `docs/qa/model-input-audit-2026-09.md` with what each finding became, and `docs/anthropic-llm-call-map.md` if a stage's inputs changed.
 - [ ] Archive this plan to `docs/archive/plans/`.
 - [ ] Append the session to `~/.progress.jsonl`.
 
@@ -305,31 +355,35 @@ Ranked by what they prove and how reachable they are. Most need only a targeted 
 ## Out of scope
 
 - The Paul Graham "powers" layer (`docs/superpowers/specs/2026-09-16-how-it-wins-framework-mapping-paul-graham-powers.md`). Revisit after Task 5.
-- New UI, new card fields, and contract-version changes.
+- New UI and contract-version changes. The one new card field is the optional citation `publishedAt` in Task 2B.
 - Any per-strategy rule, output regex, or model-specific prompt branch.
 
 ## Session prompt
 
-Paste this into a fresh session to run the plan.
+Paste this into a fresh session to run the plan from Task 2. (The first session prompt ran Tasks 0 and 1.)
 
 ```text
-Execute the evidence and judgment remediation plan in Cold Start: docs/superpowers/plans/2026-09-23-evidence-and-judgment-remediation.md.
+Execute the evidence and judgment remediation plan in Cold Start, from Task 2 onward: docs/superpowers/plans/2026-09-23-evidence-and-judgment-remediation.md.
 
-Read the whole plan first, then AGENTS.md. Use superpowers:executing-plans, superpowers:systematic-debugging for anything that behaves unexpectedly, and superpowers:verification-before-completion before you call any task done.
+Where things stand: Tasks 0 and 1 are done (commits 057bde4 and 030948c on local main, not pushed). The audit is docs/qa/model-input-audit-2026-09.md. On September 23 I approved every finding in it. The plan now carries them as Task 2 (five parts, A to E), Task 2B (publish dates) and Task 2C (remove the keyword filter). The ledger at .superpowers/sdd/2026-09-23-evidence-and-judgment-remediation/progress.md holds every ruling so far. Resume from it.
 
-Why this matters: yesterday we learned that 30% of the citation snippets our models read are search metadata with no page text. The bug reached every model stage that judges, and it lived for months because nobody read a real model input end to end. The quality of our reads depends more on what evidence reaches the model, and on whether our rules ask for proof private companies never publish, than on which model we pick.
+Read these in full before you touch code: the plan, the audit, AGENTS.md and the ledger. Use superpowers:executing-plans with that ledger, superpowers:test-driven-development for every code change, superpowers:systematic-debugging whenever something behaves unexpectedly, and superpowers:verification-before-completion before you call any step done.
+
+Why this matters: the audit showed that our reads are limited by what reaches the models, not by which model we pick. 37% of stored sources hold only a title, because eight paid searches never ask for page text. Most of the rest reach the models as cut-off JSON. Person reads describe the wrong person. The evidence leans toward funding news. This is the largest quality gain available in the product right now.
 
 How to work:
-1. Trust the models. Fix inputs before instructions. Never add a rule where better evidence would do. No prompt gets more rules than it has now. No patch aimed at one company, one strategy or one model, and no regex on model output.
-2. Read the real thing. Before you claim anything about what a model sees or does, open the actual payload, trace or record and read it in full. Count reach on the corpus or production traces. Label every finding verified or likely.
-3. Fix at the source, pin the invariant with a test, and delete the workarounds the bug made necessary.
-4. Keep the hygiene rules in the plan: one helper per job, small commits with one reason each, npm run check green after every commit with its full output read, files under 1,000 lines, docs updated in the same commit as the change that makes them wrong, and git status checked for other sessions' work before each commit.
-5. Stop at every "Samay decides" gate and wait. That covers every prompt and rubric wording change, the emphasis read's Quiet line, the judge model, scoped mode, any paid run over $10, the production backfill, and every production write, deploy or environment change. Production reads for measurement are fine.
-6. Keep every paid run inside its stated cap and report the actual spend.
+1. Trust the models. Fix inputs before instructions. Add no prompt rules. No patch aimed at one company, one strategy or one model, and no regex on model output. Task 2C removes the one that exists.
+2. Read the real thing. Before you claim what a model sees or does, open the payload (npm run qa:model-inputs -- --slug <slug>), the trace or the database row, and read it in full. Count reach on the 373-card corpus or with read-only production queries. Label every finding verified or likely.
+3. Fix at the source and pin the invariant with a test: no text a model reads as evidence is JSON. Use one readable-text function and one snippet builder everywhere, then delete the four workarounds. Old stored rows stay JSON, so every reader must handle both forms.
+4. Hygiene. Small commits, one reason each, in the repo's plain style. Watch each new test fail before you make it pass. Run npm run check after every commit, write its output to a file and read all of it. Never pipe it through tail. It fails today only at knip, on my untracked apps/web/src/app/proto/ folder. Leave that folder alone and treat any other failure as yours. Start Postgres with npm run db:local first. Run package tests with npm run test -w <package> -- <file>, never npx vitest run -w. Keep files under 1,000 lines. Update AGENTS.md, docs/code-map.md, docs/commands.md and docs/STATUS.md in the same commit as the change that makes them wrong.
+5. The tree is shared. Other work is staged or untracked on main: apps/video/share, two product docs, apps/web/src/app/proto and a Paul Graham spec. Never commit, stash, check out or clean it. Commit with explicit paths (git commit -m "..." -- <paths>) and check git status before each commit.
+6. Money. Keep each paid run inside its cap (Task 2 E2 $3, E4 $3, E5 $2, Task 3 $5, Task 6 $5) and report the actual spend. Ask me before anything over $10, which includes Task 5.
+7. Stop and wait for me at: prompt or rubric wording (Tasks 3 and 4), the emphasis read's Quiet line, the judge model and scoped mode (Task 5), the production backfill (Task 2 E7), the production dates migration (Task 2B), and every production write, deploy or environment change. Production reads for measurement are fine. The search query rewording in Task 2 A4 is not a gate, but show me the before and after.
+8. Stop and report if a change needs a schema change the plan does not name, a contract version bump, or anything that could break installed extensions.
 
-Order: Task 0, then Task 1, the audit. Bring me the audit's ranked findings before you fix anything, so I can choose what joins the plan. Then work through Task 2 onward, one task at a time.
+Delegation: you may use read-only subagents on Sonnet 5 for broad searches or payload reading. Give each one clear question and ask for file, line and counts. Verify what they report before you act on it. Write all code yourself. After Task 2C and before Task 3, run a whole-branch review with a fresh reviewer on the most capable model (superpowers:requesting-code-review), giving it the plan's Review focus section. Fix each Critical or Important finding with a failing test first.
 
-For the Task 1 fan-out you may use read-only subagents on Sonnet 5 at medium effort, one per model stage or code pattern. Each reports findings with file, line and a count. Verify every finding yourself before it goes in the audit.
+Order: Task 2 parts A to E, then 2B, then 2C, then the review, then Tasks 3 to 7. Stop at each gate.
 
-Report to me in plain English, short sentences, no jargon. At each stopping point, tell me what changed, what you checked and what is still open. When something needs my eyes, give me the side-by-side to read, not a summary of it.
+Reporting: at each stop, tell me in plain English, in short sentences with no jargon, what changed, what you checked and how, what it cost and what is still open. When something needs my eyes, such as the query rewording, the verifier comparison, or the Task 3 and Task 5 reads, give me the actual text side by side, not a summary of it. When Task 7 closes the plan, append the session to ~/.progress.jsonl.
 ```
