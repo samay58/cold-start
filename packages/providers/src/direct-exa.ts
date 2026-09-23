@@ -1,4 +1,4 @@
-import { sourceSearchSubjectForDomain, sourceTypeHintForHost } from "@cold-start/core";
+import { isRetryableHttpStatus, retryAfterMs, sourceSearchSubjectForDomain, sourceTypeHintForHost } from "@cold-start/core";
 import { normalizeNamedPeopleEmailHints, type NamedPeopleEmailHint } from "./people-hints";
 import type { DirectExaEnv, PeopleEmailHint, ProviderFactCandidate, ProviderSource, RetrievalIntent } from "./types";
 
@@ -316,22 +316,6 @@ const DIRECT_EXA_BACKOFF_MS = [500, 1500];
 // so the retry loop cannot advance and one stuck request burns the step budget.
 const DIRECT_EXA_TIMEOUT_MS = 20_000;
 
-function isRetryableDirectExaStatus(status: number) {
-  return status === 429 || (status >= 500 && status < 600);
-}
-
-function retryAfterMs(response: Response, fallbackMs: number) {
-  const header = response.headers.get("retry-after");
-  if (!header) {
-    return fallbackMs;
-  }
-  const seconds = Number(header);
-  if (Number.isFinite(seconds) && seconds > 0) {
-    return Math.min(seconds * 1000, 10_000);
-  }
-  return fallbackMs;
-}
-
 async function directExaJson(request: DirectExaRequest, timeoutMs: number = DIRECT_EXA_TIMEOUT_MS): Promise<unknown> {
   let lastError: unknown = null;
 
@@ -359,7 +343,7 @@ async function directExaJson(request: DirectExaRequest, timeoutMs: number = DIRE
       return response.json() as Promise<unknown>;
     }
 
-    const retryable = isRetryableDirectExaStatus(response.status);
+    const retryable = isRetryableHttpStatus(response.status);
     const isLastAttempt = attempt === DIRECT_EXA_MAX_ATTEMPTS - 1;
     if (!retryable || isLastAttempt) {
       throw new Error(`Direct Exa request failed with ${response.status}`);

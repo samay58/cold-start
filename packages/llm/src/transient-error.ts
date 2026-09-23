@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { isRetryableHttpStatus } from "@cold-start/core";
 import { OpenAiCompatHttpError } from "./openai-compat-error";
 
 // Classifies an error thrown from an LLM call (the Anthropic SDK path or the openai-compat
@@ -13,10 +14,6 @@ import { OpenAiCompatHttpError } from "./openai-compat-error";
 // outage, which is the status quo this item is fixing.
 const PROVIDER_BALANCE_PATTERN =
   /\b(?:credit balance is too low|insufficient[_ ](?:balance|quota|credits?)|billing quota (?:has been )?exceeded)\b/i;
-
-function isRetryableHttpStatus(status: number) {
-  return status === 429 || (status >= 500 && status < 600);
-}
 
 export function isTransientLlmError(error: unknown): boolean {
   if (error instanceof Anthropic.APIError) {

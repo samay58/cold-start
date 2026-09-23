@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Message } from "@anthropic-ai/sdk/resources/messages";
+import { isRetryableHttpStatus, retryAfterMs } from "@cold-start/core";
 import { buildLlmCallTrace, type AnthropicTelemetrySink, type AnthropicUsage } from "./call-trace";
 import { providerConfigFor, quirksForModel, type LlmRequestOptions, type ResolvedLlmModel } from "./llm-provider";
 import { estimateLlmCostUsd } from "./pricing";
@@ -253,22 +254,6 @@ function reportedCostUsd(usage: OpenAiCompatResponse["usage"]): number | undefin
   return typeof cost === "number" && Number.isFinite(cost) && cost >= 0 ? cost : undefined;
 }
 
-function isRetryableStatus(status: number) {
-  return status === 429 || (status >= 500 && status < 600);
-}
-
-function retryAfterMs(response: Response, fallbackMs: number) {
-  const header = response.headers.get("retry-after");
-  if (!header) {
-    return fallbackMs;
-  }
-  const seconds = Number(header);
-  if (Number.isFinite(seconds) && seconds > 0) {
-    return Math.min(seconds * 1000, 10_000);
-  }
-  return fallbackMs;
-}
-
 async function readResponseTextWithAbort(input: {
   response: Response;
   signal: AbortSignal;
@@ -379,7 +364,7 @@ async function postChatCompletion(input: {
       ...(estimatedCostUsd !== undefined ? { estimatedCostUsd } : {}),
       ...(usage ? { usage } : {})
     });
-    if (!isRetryableStatus(status) || isLastAttempt || input.requestOptions?.signal.aborted) throw error;
+    if (!isRetryableHttpStatus(status) || isLastAttempt || input.requestOptions?.signal.aborted) throw error;
     lastError = error;
 
     await new Promise((resolve) => setTimeout(resolve, retryAfterMs(response, BACKOFF_MS[attempt] ?? 1500)));
