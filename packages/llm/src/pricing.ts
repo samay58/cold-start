@@ -1,7 +1,6 @@
-// Pricing for non-Anthropic providers, USD per million tokens. The Anthropic table stays in
-// anthropic.ts (estimateAnthropicCostUsd) so that path's telemetry is byte-identical. Add a row
-// here whenever a new model joins the eval matrix; unknown models return undefined and the
-// trace simply omits estimatedCostUsd, matching the Anthropic behavior for unknown models.
+// Pricing for every provider, USD per million tokens. Add a row here whenever a new model joins
+// the eval matrix or a stage config; unknown models return null, and the trace simply omits
+// estimatedCostUsd. Anthropic's cache multipliers are applied by estimateAnthropicCostUsd.
 //
 // DeepSeek rates and the peak window verified 2026-09-14 against
 // https://api-docs.deepseek.com/quick_start/pricing, which reads: "Off-peak rates are half of
@@ -28,6 +27,38 @@ const pricingTable: Array<{ provider: string; modelIncludes: string; pricing: To
   // field is absent.
   { provider: "openrouter", modelIncludes: "kimi-k3", pricing: { input: 3, cacheRead: 0.3, output: 15 } },
 ];
+
+// Anthropic rows match an exact model id or that id plus a dated snapshot suffix
+// (claude-opus-5-20260901), never a substring: a substring match once priced Opus 5.5 as Opus 5,
+// and silently priced any unknown sonnet or opus name. Opus 5.5 list price checked September 22,
+// 2026.
+const anthropicPricingTable: Array<{ id: string; pricing: TokenPricing }> = [
+  { id: "claude-opus-5-5", pricing: { input: 4, output: 20 } },
+  { id: "claude-opus-5", pricing: { input: 5, output: 25 } },
+  { id: "claude-opus-4-7", pricing: { input: 5, output: 25 } },
+  { id: "claude-opus-4-6", pricing: { input: 5, output: 25 } },
+  { id: "claude-opus-4-5", pricing: { input: 5, output: 25 } },
+  { id: "claude-opus-4-1", pricing: { input: 15, output: 75 } },
+  { id: "claude-opus-4", pricing: { input: 15, output: 75 } },
+  { id: "claude-3-opus", pricing: { input: 15, output: 75 } },
+  { id: "claude-sonnet-5", pricing: { input: 3, output: 15 } },
+  { id: "claude-sonnet-4-6", pricing: { input: 3, output: 15 } },
+  { id: "claude-sonnet-4-5", pricing: { input: 3, output: 15 } },
+  { id: "claude-sonnet-4", pricing: { input: 3, output: 15 } },
+  { id: "claude-haiku-4-5", pricing: { input: 1, output: 5 } }
+].sort((a, b) => b.id.length - a.id.length);
+
+// Cache-token rates as multiples of the input rate, per Anthropic's published prompt caching
+// pricing: a 5-minute write, a 1-hour write, and a read.
+export const ANTHROPIC_CACHE_RATE_MULTIPLIERS = { write5m: 1.25, write1h: 2, read: 0.1 } as const;
+
+function anthropicPricing(model: string): TokenPricing | null {
+  const normalized = model.toLowerCase();
+  const row = anthropicPricingTable.find(
+    (entry) => normalized === entry.id || new RegExp(`^${entry.id}-\\d{8}$`).test(normalized)
+  );
+  return row?.pricing ?? null;
+}
 
 function deepSeekPricing(model: string, at: Date): TokenPricing | null {
   // Both published boundaries land on the hour, so whole UTC hours are exact. The weekend is
@@ -57,6 +88,7 @@ function deepSeekPricing(model: string, at: Date): TokenPricing | null {
 }
 
 export function pricingFor(provider: string, model: string, at = new Date()): TokenPricing | null {
+  if (provider === "anthropic") return anthropicPricing(model);
   if (provider === "deepseek") return deepSeekPricing(model, at);
   const normalizedModel = model.toLowerCase();
   const row = pricingTable.find(

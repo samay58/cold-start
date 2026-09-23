@@ -31,6 +31,31 @@ describe("pricingFor", () => {
     expect(pricingFor("together", "deepseek-v4-flash")).toBeNull();
     expect(pricingFor("deepseek", "some-future-model")).toBeNull();
   });
+
+  it("prices every Anthropic model the code, env docs, and tests name", () => {
+    const expected: Array<[string, { input: number; output: number }]> = [
+      ["claude-opus-5-5", { input: 4, output: 20 }],
+      ["claude-opus-5", { input: 5, output: 25 }],
+      ["claude-opus-5-20260901", { input: 5, output: 25 }],
+      ["claude-opus-4-7", { input: 5, output: 25 }],
+      ["claude-opus-4-6", { input: 5, output: 25 }],
+      ["claude-opus-4-5", { input: 5, output: 25 }],
+      ["claude-opus-4-1", { input: 15, output: 75 }],
+      ["claude-sonnet-5", { input: 3, output: 15 }],
+      ["claude-sonnet-4-6", { input: 3, output: 15 }],
+      ["claude-sonnet-4-6-20260901", { input: 3, output: 15 }],
+      ["claude-haiku-4-5", { input: 1, output: 5 }],
+      ["claude-haiku-4-5-20251001", { input: 1, output: 5 }]
+    ];
+    for (const [model, pricing] of expected) expect(pricingFor("anthropic", model), model).toEqual(pricing);
+  });
+
+  it("gives an unknown Anthropic model no price instead of a family guess", () => {
+    expect(pricingFor("anthropic", "claude-opus-5-6")).toBeNull();
+    expect(pricingFor("anthropic", "claude-sonnet-9")).toBeNull();
+    expect(pricingFor("anthropic", "claude-test")).toBeNull();
+    expect(pricingFor("anthropic", "claude-opus-5-5-preview")).toBeNull();
+  });
 });
 
 describe("estimateLlmCostUsd", () => {

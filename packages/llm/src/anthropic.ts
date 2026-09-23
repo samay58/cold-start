@@ -4,6 +4,7 @@ import type { GenerationLlmCallTrace } from "@cold-start/core";
 import { buildLlmCallTrace, type AnthropicTelemetrySink, type AnthropicUsage } from "./call-trace";
 import { parseModelString, type LlmRequestOptions } from "./llm-provider";
 import { createTracedOpenAiCompatMessage } from "./openai-compat";
+import { ANTHROPIC_CACHE_RATE_MULTIPLIERS, pricingFor } from "./pricing";
 
 export type AnthropicCallStage = GenerationLlmCallTrace["stage"];
 
@@ -52,50 +53,24 @@ export function anthropicCacheRequestOptions(): { headers: Record<string, string
     : undefined;
 }
 
-function perMillionTokenPricing(model: string) {
-  const normalized = model.toLowerCase();
-  if (normalized.includes("haiku")) {
-    return { input: 1, output: 5 };
-  }
-  if (normalized.includes("sonnet")) {
-    return { input: 3, output: 15 };
-  }
-  // Opus 5.5 list price, checked September 22, 2026. It must precede the "opus-5" match below.
-  if (normalized.includes("opus-5-5")) {
-    return { input: 4, output: 20 };
-  }
-  if (
-    normalized.includes("opus-5") ||
-    normalized.includes("opus-4-7") ||
-    normalized.includes("opus-4-6") ||
-    normalized.includes("opus-4-5")
-  ) {
-    return { input: 5, output: 25 };
-  }
-  if (normalized.includes("opus")) {
-    return { input: 15, output: 75 };
-  }
-  return null;
-}
-
 function tokenCost(tokens: number | undefined, perMillionUsd: number) {
   return ((tokens ?? 0) / 1_000_000) * perMillionUsd;
 }
 
 export function estimateAnthropicCostUsd(model: string, usage?: AnthropicUsage) {
-  const pricing = perMillionTokenPricing(model);
+  const pricing = pricingFor("anthropic", model);
   if (!pricing || !usage) {
     return undefined;
   }
 
   const cacheCreation = usage.cache_creation;
   const cacheCreationCost = cacheCreation
-    ? tokenCost(cacheCreation.ephemeral_5m_input_tokens, pricing.input * 1.25) +
-      tokenCost(cacheCreation.ephemeral_1h_input_tokens, pricing.input * 2)
-    : tokenCost(usage.cache_creation_input_tokens, pricing.input * 1.25);
+    ? tokenCost(cacheCreation.ephemeral_5m_input_tokens, pricing.input * ANTHROPIC_CACHE_RATE_MULTIPLIERS.write5m) +
+      tokenCost(cacheCreation.ephemeral_1h_input_tokens, pricing.input * ANTHROPIC_CACHE_RATE_MULTIPLIERS.write1h)
+    : tokenCost(usage.cache_creation_input_tokens, pricing.input * ANTHROPIC_CACHE_RATE_MULTIPLIERS.write5m);
   const total =
     tokenCost(usage.input_tokens, pricing.input) +
-    tokenCost(usage.cache_read_input_tokens, pricing.input * 0.1) +
+    tokenCost(usage.cache_read_input_tokens, pricing.input * ANTHROPIC_CACHE_RATE_MULTIPLIERS.read) +
     cacheCreationCost +
     tokenCost(usage.output_tokens, pricing.output);
 

@@ -10,7 +10,7 @@ import {
   type ColdStartDb, type HowItWinsCallAttempt, type StoredHowItWinsJob
 } from "@cold-start/db";
 import {
-  estimateAnthropicCostUsd, hashHowItWinsJudgeValue, OpenAiCompatHttpError, HowItWinsWriterOutputError,
+  ANTHROPIC_CACHE_RATE_MULTIPLIERS, hashHowItWinsJudgeValue, OpenAiCompatHttpError, HowItWinsWriterOutputError,
   HowItWinsEmptyTextError, isSupportedZodError, parseModelString, pricingFor,
   type HowItWinsJudgeExecuteCall, type HowItWinsJudgeValidationSink,
   type HowItWinsJudgeAdapterResult, type HowItWinsOutputDiagnostic, type HowItWinsMessageExecutor,
@@ -32,23 +32,16 @@ export class HowItWinsExecutionError extends Error {
 // This instant is a Monday at 02:00 UTC, inside DeepSeek's published peak window.
 const PEAK_INSTANT = new Date(Date.UTC(2026, 8, 14, 2));
 
-// One million tokens, so a cost estimate reads straight back as a per-million rate.
-const RATE_PROBE_TOKENS = 1_000_000;
-
-// Rates come from the same published pricing the run's own cost telemetry uses, not a second
-// copy that can drift from it. The Anthropic input rate is probed with a fresh one-hour cache
-// write, the most expensive way a run can spend input tokens.
+// Rates come from the same pricing table the run's own cost telemetry uses, not a second copy
+// that can drift from it. The Anthropic input rate is a fresh one-hour cache write, the most
+// expensive way a run can spend input tokens.
 export function howItWinsModelRates(model: string): { input: number; output: number } {
   const resolved = parseModelString(model);
-  const missing = () => new HowItWinsExecutionError("authentication_configuration", `No reservation rate for model ${model}`);
-  if (resolved.provider === "anthropic") {
-    const input = estimateAnthropicCostUsd(resolved.model, { cache_creation: { ephemeral_1h_input_tokens: RATE_PROBE_TOKENS } });
-    const output = estimateAnthropicCostUsd(resolved.model, { output_tokens: RATE_PROBE_TOKENS });
-    if (input === undefined || output === undefined) throw missing();
-    return { input, output };
-  }
   const pricing = pricingFor(resolved.provider, resolved.model, PEAK_INSTANT);
-  if (!pricing) throw missing();
+  if (!pricing) throw new HowItWinsExecutionError("authentication_configuration", `No reservation rate for model ${model}`);
+  if (resolved.provider === "anthropic") {
+    return { input: pricing.input * ANTHROPIC_CACHE_RATE_MULTIPLIERS.write1h, output: pricing.output };
+  }
   return { input: pricing.input, output: pricing.output };
 }
 
