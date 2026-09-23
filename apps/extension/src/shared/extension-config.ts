@@ -529,14 +529,23 @@ export async function parseHowItWinsJobResponse(response: Response): Promise<How
   return howItWinsJobStatusEnvelopeSchema.parse(body);
 }
 
+const OUR_SIDE_FAILURE = "Something went wrong on our side. Try again in a minute.";
+
+// Invited testers run production builds, so developer instructions (worker logs,
+// reloading the unpacked extension) only show when the panel points at a local API.
 export function readableCardError(message: string, apiOrigin: string): string {
   message = generationFailureMessage(message);
+  const local = isLocalApiOrigin(apiOrigin);
   if (message === "extension identity required") {
-    return "Reload the unpacked extension, then reopen Cold Start.";
+    return local
+      ? "Reload the unpacked extension, then reopen Cold Start."
+      : "Cold Start could not verify this extension. Reopen the side panel and try again.";
   }
 
   if (message === "extension auth not configured") {
-    return "Extension auth is missing on the API. Restart the local web app after loading .env.local.";
+    return local
+      ? "Extension auth is missing on the API. Restart the local web app after loading .env.local."
+      : OUR_SIDE_FAILURE;
   }
 
   if (message === "extension token required" || message === "extension token invalid") {
@@ -560,23 +569,25 @@ export function readableCardError(message: string, apiOrigin: string): string {
   }
 
   if (message === "request failed with 500") {
-    return "Generation failed on the API. Check the local web app and worker logs, then retry.";
+    return local ? "Generation failed on the API. Check the local web app and worker logs, then retry." : OUR_SIDE_FAILURE;
   }
 
   if (message === "No cited sources survived extraction") {
-    return "Sources were found, but the API could not build a profile. Retry generation, then check the worker logs if it fails again.";
+    return local
+      ? "Sources were found, but the API could not build a profile. Retry generation, then check the worker logs if it fails again."
+      : "Sources were found, but Cold Start could not build a profile. Try again in a minute.";
   }
 
   if (message === "api deployment out of date") {
-    return "The API deployment is out of date for this extension. Deploy the web app, then reload the unpacked extension.";
+    return local
+      ? "The API deployment is out of date for this extension. Deploy the web app, then reload the unpacked extension."
+      : "This version of the extension is out of date. Update it and try again.";
   }
 
   if (/^(Failed to fetch|Load failed)$/i.test(message) || /networkerror/i.test(message)) {
-    if (apiOrigin.startsWith("http://localhost") || apiOrigin.startsWith("http://127.0.0.1")) {
-      return `Could not reach ${apiOrigin}. Start the local web app, then try again.`;
-    }
-
-    return `Could not reach ${apiOrigin}. For local testing, set API origin to http://localhost:3000.`;
+    return local
+      ? `Could not reach ${apiOrigin}. Start the local web app, then try again.`
+      : "Could not reach Cold Start. Check your connection and try again.";
   }
 
   return message;

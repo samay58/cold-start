@@ -583,15 +583,37 @@ describe("readableCardError", () => {
     ).toContain("could not find enough cited basics");
   });
 
-  it("explains API contract mismatches as deployment skew", () => {
-    expect(readableCardError("api deployment out of date", "https://cold-start-samay58s-projects.vercel.app")).toContain(
-      "out of date"
+  it("explains API contract mismatches as an outdated extension on production origins", () => {
+    expect(readableCardError("api deployment out of date", "https://cold-start-samay58s-projects.vercel.app")).toBe(
+      "This version of the extension is out of date. Update it and try again."
     );
   });
 
-  it("points production-origin failures back to localhost for local testing", () => {
+  it("keeps deployment instructions for a local API origin", () => {
+    expect(readableCardError("api deployment out of date", "http://127.0.0.1:3000")).toContain("reload the unpacked extension");
+  });
+
+  it("shows plain connectivity copy on production origins", () => {
     expect(readableCardError("Failed to fetch", "https://coldstart.semitechie.vc")).toBe(
-      "Could not reach https://coldstart.semitechie.vc. For local testing, set API origin to http://localhost:3000."
+      "Could not reach Cold Start. Check your connection and try again."
     );
+  });
+
+  it("never shows developer instructions to testers on production origins", () => {
+    const origin = "https://cold-start.semitechie.vc";
+    const messages = [
+      "extension identity required",
+      "extension auth not configured",
+      "request failed with 500",
+      "No cited sources survived extraction",
+      "api deployment out of date",
+      "Failed to fetch",
+      "NetworkError when attempting to fetch resource."
+    ];
+    for (const message of messages) {
+      const readable = readableCardError(message, origin);
+      expect(readable).not.toMatch(/localhost|worker logs|unpacked|\.env\.local|local web app|Deploy the web app/i);
+    }
+    expect(readableCardError("request failed with 500", origin)).toBe("Something went wrong on our side. Try again in a minute.");
   });
 });

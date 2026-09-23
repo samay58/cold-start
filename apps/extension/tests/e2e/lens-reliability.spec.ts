@@ -571,6 +571,7 @@ test("a contract mismatch becomes a retryable card error", async ({ page }) => {
   await openSidePanel(page);
 
   await expect(page.getByRole("heading", { name: "Card unavailable" })).toBeVisible();
+  // The QA side panel runs against a local API origin, so it keeps the developer instruction.
   await expect(page.getByText("The API deployment is out of date for this extension. Deploy the web app, then reload the unpacked extension.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Try again" })).toBeEnabled();
 });
