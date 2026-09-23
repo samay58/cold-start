@@ -88,6 +88,9 @@ async function runPool<T, R>(items: T[], worker: (item: T) => Promise<R>): Promi
   return out;
 }
 
+// Not scripts/lib/stats.ts on purpose: p is a fraction (0.5, not 50), the index floors rather than
+// taking the nearest rank, and an empty input reads 0 so the summary JSON stays numeric. Earlier
+// screen runs were recorded under this definition, so it stays for comparability.
 function percentile(values: number[], p: number): number {
   const sorted = [...values].sort((a, b) => a - b);
   return sorted.length === 0 ? 0 : sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))]!;

@@ -17,6 +17,7 @@ import { pathToFileURL } from "node:url";
 import { Client } from "pg";
 
 import type { GenerationLlmCallTrace, GenerationTrace } from "@cold-start/core";
+import { distribution } from "./lib/stats";
 
 type RunRow = {
   id: string;
@@ -83,25 +84,6 @@ function parseDays(input: string | undefined, fallbackDays: number) {
 function parseLimit(input: string | undefined, fallbackLimit: number) {
   const limit = Number(input);
   return Number.isFinite(limit) && limit > 0 ? Math.min(5000, Math.floor(limit)) : fallbackLimit;
-}
-
-// Nearest-rank percentile, same method as measure-analysis-latency.ts, so reports read the same way.
-function percentile(values: number[], pct: number) {
-  const sorted = values.filter((value) => Number.isFinite(value)).sort((left, right) => left - right);
-  if (sorted.length === 0) {
-    return null;
-  }
-  const index = Math.min(sorted.length - 1, Math.ceil((pct / 100) * sorted.length) - 1);
-  return sorted[index] ?? null;
-}
-
-function distribution(values: number[]) {
-  return {
-    n: values.length,
-    p50: percentile(values, 50),
-    p90: percentile(values, 90),
-    max: values.length > 0 ? Math.max(...values) : null
-  };
 }
 
 function formatMs(value: number | null) {

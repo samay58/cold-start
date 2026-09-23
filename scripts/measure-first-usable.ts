@@ -22,6 +22,7 @@ import { pathToFileURL } from "node:url";
 import { Client } from "pg";
 
 import type { GenerationTrace } from "@cold-start/core";
+import { distribution, percentile } from "./lib/stats";
 
 type RunRow = {
   id: string;
@@ -67,15 +68,6 @@ function parseSinceDays(input: string | undefined, fallbackDays: number) {
   return Number.isFinite(days) && days > 0 ? days : fallbackDays;
 }
 
-function percentile(values: number[], pct: number) {
-  const sorted = values.filter((value) => Number.isFinite(value)).sort((left, right) => left - right);
-  if (sorted.length === 0) {
-    return null;
-  }
-  const index = Math.min(sorted.length - 1, Math.ceil((pct / 100) * sorted.length) - 1);
-  return sorted[index] ?? null;
-}
-
 function formatMs(value: number | null) {
   if (value === null) {
     return "-";
@@ -98,14 +90,9 @@ function sum(...values: Array<number | null>) {
   return values.reduce((total: number, value) => total + (value ?? 0), 0);
 }
 
-function distribution(values: number[]) {
-  return {
-    n: values.length,
-    p50: percentile(values, 50),
-    p90: percentile(values, 90),
-    p95: percentile(values, 95),
-    max: values.length > 0 ? Math.max(...values) : null
-  };
+// First-usable reports carry a p95 the other latency scripts do not.
+function distributionWithP95(values: number[]) {
+  return distribution(values, { p95: true });
 }
 
 export function recentBasicsRunsQuery(sinceIso: string, limit: number) {
@@ -169,14 +156,14 @@ async function main() {
         failed: failed.length,
         reachedFirstUsable: usable.length
       },
-      firstUsableMs: distribution(firstUsable),
-      seedPassedFirstUsableMs: distribution(seedPassed.map((run) => milestoneMs(run, "firstUsableCardMs") as number)),
-      seedMissedFirstUsableMs: distribution(seedMissed.map((run) => milestoneMs(run, "firstUsableCardMs") as number)),
+      firstUsableMs: distributionWithP95(firstUsable),
+      seedPassedFirstUsableMs: distributionWithP95(seedPassed.map((run) => milestoneMs(run, "firstUsableCardMs") as number)),
+      seedMissedFirstUsableMs: distributionWithP95(seedMissed.map((run) => milestoneMs(run, "firstUsableCardMs") as number)),
       seedPassRate: usable.length > 0 ? seedPassed.length / usable.length : null,
-      fetchSourcesMs: distribution(usable.map((run) => stepMs(run, "fetch-sources")).filter((value): value is number => value !== null)),
-      generateCardMs: distribution(seedMissed.map((run) => stepMs(run, "generate-card")).filter((value): value is number => value !== null)),
-      nonComputeOverheadMs: distribution(overhead),
-      contactsReadyMs: distribution(usable.map((run) => milestoneMs(run, "contactsReadyMs")).filter((value): value is number => value !== null))
+      fetchSourcesMs: distributionWithP95(usable.map((run) => stepMs(run, "fetch-sources")).filter((value): value is number => value !== null)),
+      generateCardMs: distributionWithP95(seedMissed.map((run) => stepMs(run, "generate-card")).filter((value): value is number => value !== null)),
+      nonComputeOverheadMs: distributionWithP95(overhead),
+      contactsReadyMs: distributionWithP95(usable.map((run) => milestoneMs(run, "contactsReadyMs")).filter((value): value is number => value !== null))
     };
 
     if (hasArg("--json")) {
@@ -187,7 +174,7 @@ async function main() {
     console.log(`first-usable latency over real-traffic basics runs (last ${sinceDays}d, limit ${limit}, floor ${minMs}ms)`);
     console.log(`population: ${rows.length} basics runs (${complete.length} complete, ${running.length} running, ${failed.length} failed); ${usable.length} reached first usable`);
     console.log("");
-    const lane = (label: string, dist: ReturnType<typeof distribution>) =>
+    const lane = (label: string, dist: ReturnType<typeof distributionWithP95>) =>
       `${label.padEnd(26)} n=${String(dist.n).padStart(4)}  p50=${formatMs(dist.p50).padStart(8)}  p90=${formatMs(dist.p90).padStart(8)}  p95=${formatMs(dist.p95).padStart(8)}  max=${formatMs(dist.max).padStart(8)}`;
     console.log(lane("firstUsableCardMs", summary.firstUsableMs));
     console.log(lane("  seed-passed (fast path)", summary.seedPassedFirstUsableMs));

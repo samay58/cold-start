@@ -26,6 +26,7 @@ import {
   valueFor
 } from "./alpha-common";
 import { generationCostBreakdown } from "./generation-cost-accounting";
+import { distribution, type Distribution } from "./lib/stats";
 
 const MAX_RUN_ROWS = 10_000;
 const ALPHA_RELEASE_WALLET_FLOOR_USD = 35;
@@ -173,13 +174,6 @@ type AllowanceCounter = {
   reserved: number;
   used: number;
   remaining: number;
-};
-
-type Distribution = {
-  n: number;
-  p50: number | null;
-  p90: number | null;
-  max: number | null;
 };
 
 export type AlphaStatusReport = {
@@ -1056,22 +1050,6 @@ function latenciesForRuns(runs: RunRow[]): TesterReport["latencyMs"] {
     firstUsable: distribution(firstUsable),
     lens: distribution(lens)
   };
-}
-
-function distribution(values: number[]): Distribution {
-  const sorted = values.filter(Number.isFinite).sort((left, right) => left - right);
-  return {
-    n: sorted.length,
-    p50: percentile(sorted, 50),
-    p90: percentile(sorted, 90),
-    max: sorted.length ? sorted[sorted.length - 1] : null
-  };
-}
-
-function percentile(sorted: number[], value: number): number | null {
-  if (sorted.length === 0) return null;
-  const index = Math.ceil((value / 100) * sorted.length) - 1;
-  return sorted[Math.max(0, Math.min(sorted.length - 1, index))];
 }
 
 function allowanceCounter(

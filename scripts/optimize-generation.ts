@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import { Client } from "pg";
 
 import type { ColdStartCard, GenerationTrace } from "@cold-start/core";
+import { percentile } from "./lib/stats";
 
 type GoldenCompany = {
   name: string;
@@ -98,16 +99,6 @@ function readGoldenCompanies() {
   const rows = JSON.parse(readFileSync(path, "utf8")) as GoldenCompany[];
   const limit = Math.max(1, Math.min(rows.length, Number(argValue("--limit") ?? rows.length) || rows.length));
   return rows.slice(0, limit);
-}
-
-function percentile(values: number[], pct: number) {
-  const sorted = values.filter((value) => Number.isFinite(value)).sort((left, right) => left - right);
-  if (sorted.length === 0) {
-    return null;
-  }
-
-  const index = Math.min(sorted.length - 1, Math.ceil((pct / 100) * sorted.length) - 1);
-  return sorted[index] ?? null;
 }
 
 function formatMs(value: number | null) {

@@ -34,6 +34,7 @@ import { pathToFileURL } from "node:url";
 import { Client } from "pg";
 
 import type { GenerationTrace, GenerationTraceStep } from "@cold-start/core";
+import { distribution, percentile, type Distribution } from "./lib/stats";
 
 type RunRow = {
   id: string;
@@ -104,17 +105,6 @@ function parseSinceDays(input: string | undefined, fallbackDays: number) {
   return Number.isFinite(days) && days > 0 ? days : fallbackDays;
 }
 
-// Nearest-rank percentile: sort ascending, take index ceil(pct/100 * n) - 1. Matches
-// measure-first-usable.ts so the two baselines are comparable on the same method.
-function percentile(values: number[], pct: number) {
-  const sorted = values.filter((value) => Number.isFinite(value)).sort((left, right) => left - right);
-  if (sorted.length === 0) {
-    return null;
-  }
-  const index = Math.min(sorted.length - 1, Math.ceil((pct / 100) * sorted.length) - 1);
-  return sorted[index] ?? null;
-}
-
 function mean(values: number[]) {
   const finite = values.filter((value) => Number.isFinite(value));
   if (finite.length === 0) {
@@ -129,15 +119,6 @@ function formatMs(value: number | null) {
   }
   const seconds = value / 1000;
   return seconds < 60 ? `${seconds.toFixed(1)}s` : `${Math.floor(seconds / 60)}m ${String(Math.round(seconds % 60)).padStart(2, "0")}s`;
-}
-
-function distribution(values: number[]) {
-  return {
-    n: values.length,
-    p50: percentile(values, 50),
-    p90: percentile(values, 90),
-    max: values.length > 0 ? Math.max(...values) : null
-  };
 }
 
 // Mean is the required statistic (brief: "mean per-step decomposition"), but the decomposition
@@ -278,7 +259,7 @@ function cohortSummary(runs: IncludedRun[]) {
 
 function printCohortSummary(title: string, summary: ReturnType<typeof cohortSummary>) {
   console.log(title);
-  const percentileLane = (label: string, dist: ReturnType<typeof distribution>) =>
+  const percentileLane = (label: string, dist: Distribution) =>
     `${pad(label, 26)} n=${String(dist.n).padStart(4)}  p50=${formatMs(dist.p50).padStart(8)}  p90=${formatMs(dist.p90).padStart(8)}  max=${formatMs(dist.max).padStart(8)}`;
   console.log(percentileLane("wall duration", summary.wallMs));
   console.log(percentileLane("analysisReadyMs", summary.analysisReadyMs));
