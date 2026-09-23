@@ -4,7 +4,9 @@ import { deriveEmailPattern } from "@cold-start/core";
 import { type AgentcashFetch, type StableenrichEmailPatternResult, type StableenrichProbeFailure, type StableenrichProbeResult, type StableenrichSourcesResult, createAgentcashBudgetState, requireStableenrichConfig, runAgentcashProbeCall, runStableenrichProbe, stableenrichEndpointUrl, stableenrichProbeFailure, stableenrichProbeTimeoutMs, takeAgentcashBudget } from "./stableenrich/core";
 import { MAX_LEADERS_FOR_ENRICHMENT, namedLeadersWithSourceUrl, runApolloPeopleDiscovery, runExaEmailDiscovery, runPeopleFollowupRequests, runSecEdgarDiscovery, runStableenrichPeopleFollowups } from "./stableenrich/discovery";
 import { collectStableenrichSources } from "./stableenrich/facts";
-import { extractPeopleFromExaEmailResults, peopleHintsFromProviderSources, peopleRecordsFromEmailHints, rankPeople, summarizeEmailDiscovery } from "./stableenrich/people";
+import { extractPeopleFromExaEmailResults, rankPeople } from "./stableenrich/people";
+import { summarizeEmailDiscovery } from "./stableenrich/people-email-discovery";
+import { peopleHintsFromProviderSources, peopleRecordsFromEmailHints } from "./stableenrich/people-search-hints";
 
 const unavailableApolloProbeNames = [
   "apollo_org_search",

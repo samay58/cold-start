@@ -9,9 +9,7 @@ export const FILE_SIZE_ALLOWLIST: ReadonlySet<string> = new Set([
   "apps/extension/src/research/ResearchLayerPanel.tsx",
   "apps/extension/src/sidepanel.tsx",
   "apps/web/src/inngest/functions.ts",
-  "packages/pipeline/src/generate-card.ts",
-  "packages/providers/src/stableenrich/people.ts",
-  "scripts/alpha-status.ts"
+  "packages/pipeline/src/generate-card.ts"
 ]);
 
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".mjs"]);

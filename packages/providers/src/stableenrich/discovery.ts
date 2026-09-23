@@ -3,7 +3,8 @@ import { type SecFormDOfficer, fetchSecFormD, isSecFormDResult } from "../sec-ed
 import { allSettledLimited, extractUrlRecords, stringRecordValue, supportedUrl, workEmailValue } from "../stableenrich-utils";
 import type { ProviderFactCandidate, ProviderSource, StableenrichEnv } from "../types";
 import { APOLLO_LEADER_SENIORITIES, APOLLO_LEADER_TITLES, type AgentcashBudgetState, type AgentcashFetch, type StableenrichProbeFailure, type StableenrichProbeResult, fullName, providerSourceFromText, runAgentcashProbeCall, stableenrichEndpointUrl, stableenrichProbeFailure, stableenrichProbeTimeoutMs, takeAgentcashBudget } from "./core";
-import { type PersonRecord, apolloOrganizationIdForDomain, dedupeByName, dedupePeopleInOrder, emailCandidatesForPerson, extractPeopleFromExaEmailResults, extractPeopleRecords, isLikelyPersonName, minervaRecordForPerson, peopleEnrichBody, peopleHintsFromSearchResults, personMetadata, personNameKey, personPath, rankPeople } from "./people";
+import { peopleHintsFromSearchResults } from "./people-search-hints";
+import { type PersonRecord, apolloOrganizationIdForDomain, dedupeByName, dedupePeopleInOrder, emailCandidatesForPerson, extractPeopleFromExaEmailResults, extractPeopleRecords, isLikelyPersonName, minervaRecordForPerson, peopleEnrichBody, personMetadata, personNameKey, personPath, rankPeople } from "./people";
 
 function probeFailure(error: unknown, name: StableenrichProbeFailure["name"], endpointUrl: string): StableenrichProbeFailure {
   return stableenrichProbeFailure(error)[0] ?? {
