@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
-type FormState = "idle" | "submitting" | "success" | "error";
+export type FormState = "idle" | "submitting" | "success" | "error";
 
 // Keep transport and response-contract failures distinct from visitor input errors.
 export function accessFormFailureMessage(status: number): string {
@@ -16,6 +16,10 @@ export function accessFormFailureMessage(status: number): string {
   }
 
   return "That did not send. Check the fields and try again.";
+}
+
+export function accessFormSubmitLabel(state: FormState): string {
+  return state === "submitting" ? "Sending" : "Send";
 }
 
 type AccessRequestBody = {
@@ -39,6 +43,12 @@ function bodyFromForm(form: HTMLFormElement): AccessRequestBody {
 export function AccessForm() {
   const [state, setState] = useState<FormState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const successRef = useRef<HTMLParagraphElement>(null);
+
+  // The form unmounts on success, so move focus to the confirmation instead of dropping it on the page body.
+  useEffect(() => {
+    if (state === "success") successRef.current?.focus();
+  }, [state]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,7 +81,11 @@ export function AccessForm() {
   }
 
   if (state === "success") {
-    return <p className="cs-landing-access-success">Sent. A person reads it and answers either way.</p>;
+    return (
+      <p className="cs-landing-access-success" ref={successRef} role="status" tabIndex={-1}>
+        Sent. A person reads it and answers either way.
+      </p>
+    );
   }
 
   return (
@@ -107,7 +121,7 @@ export function AccessForm() {
       />
 
       <button className="cs-landing-seal-pill cs-landing-access-submit" disabled={state === "submitting"} type="submit">
-        <span className="cs-landing-seal-pill-label">Send</span>
+        <span className="cs-landing-seal-pill-label">{accessFormSubmitLabel(state)}</span>
       </button>
 
       {state === "error" && errorMessage ? (

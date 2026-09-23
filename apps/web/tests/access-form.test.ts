@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accessFormFailureMessage } from "../src/components/landing/AccessForm";
+import { accessFormFailureMessage, accessFormSubmitLabel } from "../src/components/landing/AccessForm";
 
 // AccessForm is a client component; the resting (idle) markup is covered by
 // home-page.test.tsx's renderToStaticMarkup pass over the whole landing page.
@@ -26,5 +26,13 @@ describe("accessFormFailureMessage", () => {
 
   it("maps a malformed successful response to the our-side-fault copy", () => {
     expect(accessFormFailureMessage(200)).toBe("Something went wrong on our side. Try again in a minute.");
+  });
+});
+
+describe("accessFormSubmitLabel", () => {
+  it("says Sending while the request is in flight and Send otherwise", () => {
+    expect(accessFormSubmitLabel("submitting")).toBe("Sending");
+    expect(accessFormSubmitLabel("idle")).toBe("Send");
+    expect(accessFormSubmitLabel("error")).toBe("Send");
   });
 });
