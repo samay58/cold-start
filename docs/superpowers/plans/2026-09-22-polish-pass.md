@@ -1,6 +1,6 @@
 # Project polish pass
 
-Status: proposed, September 22, 2026. Five read-only reviews (prompts, user-facing copy, code health, reliability and cost, docs and tracking), each finding checked against the code before it was listed. Nothing here is applied until Samay approves its group. Items that touch the How it wins pipeline wait until the other session working in those files commits.
+Status: applied September 22, 2026, except C3 and C5, which stay open. Outcomes are recorded under each group. Five read-only reviews (prompts, user-facing copy, code health, reliability and cost, docs and tracking) found these; each was checked against the code before it was listed, and Samay approved every group.
 
 Rule for this pass: one change, one check, then stop. Prompt changes get a single before-and-after run on frozen inputs with a stated cap, not a tournament.
 
@@ -13,6 +13,13 @@ Rule for this pass: one change, one check, then stop. Prompt changes get a singl
 | A3 | Synthesis: one question per open question, and `wouldChangeReadIf` names the single answer that would move the read most, without "thesis", "validate", "bull case". | 61 of 91 open questions join two questions; 73 of 91 change lines use "X would support; Y would weaken" | One run on 5 corpus cards, cap $1.50. Update `synthesis.test.ts:103`. |
 | A4 | Research sections: never refer to "the evidence", "the card" or "the supplied sources". Say what the source said, or state the gap as a fact. | 176 of 4,795 items, still present in August market and customer-proof sections | Covered by the A3 run. |
 | A5 | Expanded description: drop the literal example "How it charges is not publicly disclosed." Write an absence sentence only when nothing about pricing is known. | 53 of 67 second paragraphs say "not publicly disclosed"; 13 copy the example word for word; the stat strip already says it | Covered by the A3 run. |
+
+Outcome, checked on 8 cached How it wins verdicts and 5 provider-matrix fixtures for $2.15:
+
+- A1, A2: in-question notes ending on "would show / answer / decide" went from 40 of 51 to 0 of 52; current notes ending on a "Neither / None" hedge from 5 of 8 to 0 of 8. New habits: 15 of 52 in-question notes end on a "No customer..." absence sentence, and none names a concrete test. The writer prompt hash is now in the evaluator signature, so filed reads are re-written from stored verdicts on their next refresh; no verdict is re-judged.
+- A3: median open question 33 words to 23; two-part questions 9 to 6; two-sided change lines 14 to 9. "Thesis", "validate" and "bull" still appear 9 times.
+- A4 did not hold: 11 of 82 section items still say "the evidence". Left for a later pass.
+- A5 has no offline runner and was not checked live.
 
 ## B. What users see
 
@@ -27,6 +34,8 @@ Rule for this pass: one change, one check, then stop. Prompt changes get a singl
 
 Flagged for Samay, not changed (his copy): the landing page's five questions do not match the labels shown beside them (`page.tsx:79-81`); the "Verified" legend promises two independent sources while the code accepts one outside source plus any second citation (`SourcesLegend.tsx:15` against `card-face/model.ts:118`); "The alpha is resting".
 
+Outcome: B1 to B6 shipped as listed. Tester errors are plain on any non-local API origin; local builds keep developer text. "Investor Lens" is the one name in UI strings and screen-reader labels. Two Playwright specs in `sidepanel-ui.spec.ts` (domain-receipt overflow at 825, drag attachment at 1471) failed in the worker's run on surfaces these changes do not touch; they are not in the required checks.
+
 ## C. Reliability and cost
 
 | # | Fix | Evidence |
@@ -36,6 +45,8 @@ Flagged for Samay, not changed (his copy): the landing page's five questions do 
 | C3 | When the full judge misses rows, the fix re-runs the whole judgment. Ask only for the missing rows. | 2 of 8 full-judge cards re-asked, $0.41 and $0.49, 87 to 110 s each. Waits on the other session. |
 | C4 | Decision: the one-hour prompt cache costs about twice as much as no cache when reads are hours apart. A five-minute cache on the judge would save about $0.29 a read. It was chosen deliberately and applies to every stage, so this is a trade-off, not a bug. | `anthropic.ts:30-43`, `docs/anthropic-llm-call-map.md:100` |
 | C5 | Later: move the judge off the forced tool choice, then A/B Opus 5.5 as the judge. | spec step 7 |
+
+Outcome: C1, C2 and C4 shipped. C3 and C5 stay open. A truncated reply now surfaces as its own error; the How it wins job still files it under the reason `internal_storage`, which is misleading and left for later.
 
 ## D. Code health
 
@@ -51,6 +62,8 @@ Flagged for Samay, not changed (his copy): the landing page's five questions do 
 | D8 | Fake timers for the two slow retry tests. | S |
 | D9 | Split `stableenrich/people.ts` (57 lines over) and `scripts/alpha-status.ts`, from the size allowlist. | M |
 
+Outcome: all shipped except the three person-name heuristics in `people.ts`, which are not equivalent and stay separate. Every Anthropic model now needs an exact row in `pricing.ts`; an unpriced model gets no cost estimate and cannot reserve a How it wins budget. Citation funding labels between $1M and $10M now show one decimal. `researchPlannerSystemPrompt` has no caller left.
+
 ## E. Organization and tracking
 
 | # | Fix | Evidence |
@@ -62,3 +75,5 @@ Flagged for Samay, not changed (his copy): the landing page's five questions do 
 | E5 | Correct two wrong status lines and label SPEC.md's May build schedule as history. | recovery spec says "proposed"; Firefox says "partial" |
 | E6 | Add `.claude/worktrees/` and `.claude/settings.local.json` to `.gitignore`; delete a byte-identical 1 MB icon copy. | ignored only on this machine |
 | E7 | Flag: `.codex/config.toml` names `gpt-5.4`, outside Samay's Astra-or-Sol rule. | his config |
+
+Outcome: E1 to E6 shipped. AGENTS.md went from 68 KB to 32 KB with nothing lost; command and file-level detail moved to `docs/commands.md` and `docs/code-map.md`. 33 specs and plans moved to `docs/archive/`. The How it wins recovery spec stays in place because SPEC.md links to it. E7 is Samay's.

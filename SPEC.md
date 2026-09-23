@@ -266,7 +266,9 @@ Observed production target after the May cost cuts is roughly `$0.75` for basics
 
 Cache hit (Postgres lookup, no LLM): ~$0.0001. At any meaningful traffic the blended cost converges toward the cache-hit case because popular domains (Notion, Stripe, OpenAI) get hit thousands of times.
 
-## 3-week MVP plan
+## 3-week MVP plan (history)
+
+This is the original May 2026 build schedule, kept as a record. It is not current work; `docs/STATUS.md` tracks that.
 
 **Week 1: backend + claim store**
 

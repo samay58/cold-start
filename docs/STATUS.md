@@ -5,7 +5,7 @@ What is in progress, what comes next, and what shipped recently. Update this pag
 ## In flight
 
 - How it wins Phase 5: the scoped judge is built and off. `HOW_IT_WINS_SCREEN=shadow` runs in production and never changes a read. `scoped` waits on Samay's blind review. See [the layered screen spec](superpowers/specs/2026-09-22-how-it-wins-layered-screen.md).
-- Polish pass: writing quality, what users see, reliability and cost, code health, and repo organization. See `superpowers/plans/2026-09-22-polish-pass.md`.
+- Polish pass follow-ups: re-ask only the missing rows when the full judge drops some (C3), move the judge off the forced tool choice and A/B Opus 5.5 as judge (C5), and a second look at research sections, which still say "the evidence" in 11 of 82 items. See [the plan](superpowers/plans/2026-09-22-polish-pass.md).
 - Friend alpha production readiness. The open gates are the owner rehearsal through the store install, production spend-control and alert readbacks, five fresh current-version company journeys, a clean seven-day `alpha:status --gate`, and a 24-hour owner-only soak. No invitation goes out without approval. See [the plan](superpowers/plans/2026-07-24-alpha-production-readiness.md) and [the evidence record](product/alpha-production-readiness-2026-07-24.md).
 - Firefox: the port shipped through 2026-07-29. The in-sidebar activeTab probe still needs a live check in real Firefox. See [the port plan](archive/plans/2026-07-13-firefox-port.md).
 
@@ -20,6 +20,8 @@ What is in progress, what comes next, and what shipped recently. Update this pag
 
 | Date | Commit | What | Record |
 | --- | --- | --- | --- |
+| 2026-09-22 | `43baec6`..`3bceeb9` | Polish pass: writing prompts, plain tester errors, not-found page, one Investor Lens name, critic cap, cut-off detection, five-minute judge cache, one price table, file splits, one agent guide, 33 docs archived | [plan](superpowers/plans/2026-09-22-polish-pass.md) |
+| 2026-09-22 | `9f323ae` | How it wins writer on Opus 5.5, judge pinned to Opus 5 | [spec](superpowers/specs/2026-09-22-how-it-wins-layered-screen.md) |
 | 2026-09-22 | `88463b6` | Jev screen in shadow mode, and the scoped judge behind an off flag | [spec](superpowers/specs/2026-09-22-how-it-wins-layered-screen.md) |
 | 2026-09-15 | `a88d114` | Review remediation, merged and deployed | [plan](archive/plans/2026-09-15-review-remediation.md) |
 | 2026-09-14 | `1cb2614` | How it wins recovery with durable jobs | [spec](superpowers/specs/2026-09-14-how-it-wins-recovery.md) |
