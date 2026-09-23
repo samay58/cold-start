@@ -1,4 +1,4 @@
-// Frozen data for the landing page's record exhibit (docs/superpowers/plans/
+// Frozen data for the landing page's record exhibit (docs/archive/plans/
 // 2026-08-11-landing-exhibit-and-video-bookend.md, "Visual direction, decided 2026-08-12"):
 // real PitchBook output as a continuous-feed printout next to real Cold Start output as a
 // miniature filed catalogue card, same companies. Reference mockup:

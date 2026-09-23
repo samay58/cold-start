@@ -1,6 +1,6 @@
 # How it wins recovery
 
-Status: proposed for implementation. Source inspected at `fe4493658ad647d393b4e489aeeff700c2105892`.
+Status: shipped 2026-09-14 (1cb2614); the legacy in-flight queue drained September 15. Source inspected at `fe4493658ad647d393b4e489aeeff700c2105892`.
 
 Keep the company profile available when How it wins fails. Correct recoverable model-output errors within a fixed budget. Save the outcome so the extension can explain what happened and retry only the unfinished read.
 

@@ -1,6 +1,6 @@
 # Execute: Loading Screen Refinement
 
-You are in `~/Projects/active/cold-start` on `main`. The approved design spec is `docs/superpowers/specs/2026-08-11-loading-screen-refinement-design.md`. Read it in full before touching anything. It is the contract. Samay approved every decision in it on 2026-08-11; do not re-litigate them.
+You are in `~/Projects/active/cold-start` on `main`. The approved design spec is `docs/archive/specs/2026-08-11-loading-screen-refinement-design.md`. Read it in full before touching anything. It is the contract. Samay approved every decision in it on 2026-08-11; do not re-litigate them.
 
 At task start, invoke the `fable-judgment` and `fable-execution` skills. Before reporting any conclusion as done, invoke `fable-verification`. Talk to Samay in plain English: short full sentences, outcomes first, no process narration.
 

@@ -1,6 +1,6 @@
 # September 15 review remediation
 
-Two review passes over the September 14 wave (`d91a8af..5ff3732`) were merged into one ordered list of 21 items and worked by two sessions in one working tree with exclusive file ownership. The list, the per-item done-definitions, and the close state live in `docs/superpowers/plans/2026-09-15-review-remediation.md`. The work landed on main as nine commits (34f6d4d through 382d7ac), fast-forwarded and pushed on September 15 at 20:12 UTC.
+Two review passes over the September 14 wave (`d91a8af..5ff3732`) were merged into one ordered list of 21 items and worked by two sessions in one working tree with exclusive file ownership. The list, the per-item done-definitions, and the close state live in `docs/archive/plans/2026-09-15-review-remediation.md`. The work landed on main as nine commits (34f6d4d through 382d7ac), fast-forwarded and pushed on September 15 at 20:12 UTC.
 
 ## Verified
 

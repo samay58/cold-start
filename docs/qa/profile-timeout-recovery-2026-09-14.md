@@ -71,7 +71,7 @@ The isolated repair worktree is clean after its commits. The original checkout's
 
 ## Links
 
-- [Implementation spec](../superpowers/specs/2026-09-14-profile-timeout-recovery.md)
-- [Execution prompt](../superpowers/specs/2026-09-14-provider-reliability-prompt.md)
+- [Implementation spec](../archive/specs/2026-09-14-profile-timeout-recovery.md)
+- [Execution prompt](../archive/specs/2026-09-14-provider-reliability-prompt.md)
 - [Boski](https://cold-start.semitechie.vc/c/boski)
 - [Dumb](https://cold-start.semitechie.vc/c/dumb)

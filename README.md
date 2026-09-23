@@ -286,7 +286,7 @@ If the side panel reports an API contract mismatch, restart or deploy the API, r
 
 ### Firefox
 
-The Firefox build ships as a Mozilla-signed, self-distributed XPI (`docs/superpowers/plans/2026-07-13-firefox-port.md` records the port). Firefox 140 or newer is required.
+The Firefox build ships as a Mozilla-signed, self-distributed XPI (`docs/archive/plans/2026-07-13-firefox-port.md` records the port). Firefox 140 or newer is required.
 
 Testers install from the invitation: the invite page detects Firefox, links the signed XPI at `/firefox/cold-start.xpi`, and Firefox installs it directly. Because Firefox has no page-to-extension messaging, the invitation is connected inside the sidebar: open any company site, click the Cold Start toolbar button, and paste the invitation link into the panel's connect form.
 
