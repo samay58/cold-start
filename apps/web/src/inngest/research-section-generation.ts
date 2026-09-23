@@ -45,7 +45,8 @@ function normalizedUrlKey(value: string) {
   }
 }
 
-function evidenceForSection(card: ColdStartCard, storedSources: Awaited<ReturnType<typeof findSourcesBySlug>>): ResearchSectionEvidenceSource[] {
+// Exported for scripts/dump-model-inputs.ts, which prints what each model stage reads.
+export function evidenceForSection(card: ColdStartCard, storedSources: Awaited<ReturnType<typeof findSourcesBySlug>>): ResearchSectionEvidenceSource[] {
   const sourcesByUrl = new Map(storedSources.map((source) => [normalizedUrlKey(source.url), source]));
 
   return card.citations.flatMap((citation) => {
