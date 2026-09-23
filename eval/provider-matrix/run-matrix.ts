@@ -8,7 +8,7 @@
 //   set -a; source .env.local; set +a    # ANTHROPIC_API_KEY + DEEPSEEK_API_KEY as needed
 //   npm run eval:providers:matrix -- \
 //     --models "claude-sonnet-4-6,claude-haiku-4-5,deepseek/deepseek-v4-flash" \
-//     --stages extract_full,extract_block,verify --k 3 --concurrency 4 --limit 10
+//     --stages extract_full,extract_block,verify --k 3 --concurrency 4 --limit 10 --budget-usd 2
 
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -473,7 +473,21 @@ async function main() {
   }
 
   console.log(`${tasks.length} cells: ${fixtures.length} fixtures x ${models.length} models, stages [${stages.join(", ")}], k=${k}`);
-  const results = await runPool(tasks, concurrency);
+  // --budget-usd stops starting new cells once candidate plus judge spend reaches the cap. Cells
+  // already in flight finish, so the real total can pass the cap by at most `concurrency` cells.
+  const budgetUsd = Number(argValue("--budget-usd", "Infinity"));
+  let spentUsd = 0;
+  const budgetedTasks = tasks.map((task) => async (): Promise<CellResult | null> => {
+    if (spentUsd >= budgetUsd) return null;
+    const result = await task();
+    spentUsd += (result.costUsd ?? 0) + (result.judgeCostUsd ?? 0);
+    return result;
+  });
+  const settled = await runPool(budgetedTasks, concurrency);
+  const results = settled.filter((result): result is CellResult => result !== null);
+  if (results.length < tasks.length) {
+    console.log(`budget $${budgetUsd} reached: ${tasks.length - results.length} of ${tasks.length} cells not started`);
+  }
 
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const runDir = path.join(runsDir, stamp);
@@ -606,7 +620,8 @@ async function main() {
   console.log(`\nreport: ${path.join(runDir, "report.md")}`);
 
   const totalCost = results.reduce((sum, result) => sum + (result.costUsd ?? 0), 0);
-  console.log(`total matrix spend: $${totalCost.toFixed(4)} across ${results.length} cells (${failures.length} failures)`);
+  const judgeCost = results.reduce((sum, result) => sum + (result.judgeCostUsd ?? 0), 0);
+  console.log(`total matrix spend: $${totalCost.toFixed(4)} across ${results.length} cells (${failures.length} failures), plus judge $${judgeCost.toFixed(4)}`);
 }
 
 main().catch((error) => {

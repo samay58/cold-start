@@ -17,6 +17,7 @@ import {
 } from "./evidence-budget";
 import { investorTasteKernel } from "./investor-taste-kernel";
 import { withProviderFallback, withSchemaRetry } from "./llm-provider";
+import { researchSectionStyleIssues, styleRetryNote, withStyleRetry } from "./output-style";
 
 const TOOL_NAME = "emit_research_section";
 const maxEvidenceItems = 18;
@@ -175,7 +176,7 @@ export async function synthesizeResearchSection(input: ResearchSectionSynthesisI
   ].join("\n");
 
   return withProviderFallback("research_section", input.model, (model) =>
-    withSchemaRetry(model, async () => {
+    withStyleRetry((styleIssues) => withSchemaRetry(model, async () => {
       const message = await createTracedAnthropicMessage({
         client: input.client,
         label: `research-section:${input.definition.id}`,
@@ -197,7 +198,8 @@ export async function synthesizeResearchSection(input: ResearchSectionSynthesisI
                 `Section: ${input.definition.title}`,
                 input.definition.generationPrompt,
                 "Evidence JSON:",
-                JSON.stringify(evidenceForResearchSectionPrompt(input.evidence), null, 2)
+                JSON.stringify(evidenceForResearchSectionPrompt(input.evidence), null, 2),
+                ...(styleIssues ? [styleRetryNote(styleIssues)] : [])
               ].join("\n\n")
             }
           ]
@@ -205,7 +207,7 @@ export async function synthesizeResearchSection(input: ResearchSectionSynthesisI
       });
 
       return parseToolInput(message);
-    })
+    }), researchSectionStyleIssues)
   );
 }
 

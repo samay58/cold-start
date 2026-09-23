@@ -5,6 +5,7 @@ import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { investorTasteKernel } from "./investor-taste-kernel";
 import { withProviderFallback, withSchemaRetry } from "./llm-provider";
+import { styleRetryNote, synthesisStyleIssues, withStyleRetry } from "./output-style";
 import {
   citationMarkerRegex,
   nonEmptyStringSchema,
@@ -303,7 +304,7 @@ export async function synthesizeCard(input: {
   // Re-ask once when a non-Anthropic synthesis model returns output the strict synthesis parser
   // rejects (the 3/3/3 + marker-multiset shape). Anthropic stays bit-for-bit identical, matching
   // the extraction and verifier stages, which already wrap their calls the same way.
-  return withProviderFallback("synthesis", input.model, (model) => withSchemaRetry(model, async () => {
+  return withProviderFallback("synthesis", input.model, (model) => withStyleRetry((styleIssues) => withSchemaRetry(model, async () => {
     const response: Message = await createTracedAnthropicMessage({
       client: input.client,
       label: "synthesize-card",
@@ -321,7 +322,9 @@ export async function synthesizeCard(input: {
             cache_control: anthropicSystemCacheControl()
           }
         ],
-        messages: [{ role: "user", content: JSON.stringify(input.card) }],
+        messages: [
+          { role: "user", content: styleIssues ? `${JSON.stringify(input.card)}\n\n${styleRetryNote(styleIssues)}` : JSON.stringify(input.card) }
+        ],
         tools: [synthesisTool],
         tool_choice: { type: "tool", name: SYNTHESIS_TOOL_NAME }
       },
@@ -330,5 +333,5 @@ export async function synthesizeCard(input: {
     const synthesis = parseSynthesisToolUse(response);
     assertSynthesisCitationsExistOnCard(synthesis, input.card);
     return synthesis;
-  }));
+  }), synthesisStyleIssues));
 }
