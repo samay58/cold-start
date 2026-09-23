@@ -116,9 +116,18 @@ describe("createJevAsk", () => {
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce(ok({}, 429))
       .mockResolvedValueOnce(ok({ answers: { q: { noul: 0.2 } }, usage: { input_tokens: 10 } }));
-    await expect(createJevAsk({ apiKey: "k", fetchImpl })("s", questions)).resolves.toMatchObject({ answers: { q: 0.2 } });
+    vi.useFakeTimers();
+    try {
+      const retried = createJevAsk({ apiKey: "k", fetchImpl })("s", questions);
+      // The 1.5s rate-limit wait runs on the fake clock.
+      await vi.advanceTimersByTimeAsync(1_500);
+      await expect(retried).resolves.toMatchObject({ answers: { q: 0.2 } });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
     await expect(createJevAsk({ apiKey: "k", fetchImpl: vi.fn(async () => ok({}, 500)) })("s", questions)).rejects.toThrow("jev 500");
-  }, 10_000);
+  });
 
   it("rejects a missing or out-of-range answer", async () => {
     const fetchImpl = vi.fn(async () => ok({ answers: { q: { noul: 1.4 } } }));

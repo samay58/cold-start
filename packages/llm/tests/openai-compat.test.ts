@@ -389,11 +389,14 @@ describe("createTracedOpenAiCompatMessage", () => {
       .mockResolvedValueOnce(jsonResponse(okPayload));
 
     const traces: GenerationLlmCallTrace[] = [];
-    const message = await createTracedOpenAiCompatMessage({ ...callInput(), telemetry: (call) => traces.push(call) });
+    const pending = createTracedOpenAiCompatMessage({ ...callInput(), telemetry: (call) => traces.push(call) });
+    // Both backoffs (500ms after the 429's zero Retry-After, 1500ms after the 503) on the fake clock.
+    await vi.advanceTimersByTimeAsync(2_000);
+    const message = await pending;
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(message.content[0]).toMatchObject({ type: "tool_use" });
     expect(traces[0]?.retryCount).toBe(2);
-  }, 15_000);
+  });
 
   it("retries network errors", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("fetch failed")).mockResolvedValueOnce(jsonResponse(okPayload));
