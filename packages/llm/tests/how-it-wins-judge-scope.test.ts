@@ -21,6 +21,7 @@ import {
   type HowItWinsScreenStrategy,
   type JevAsk
 } from "../src";
+import { HOW_IT_WINS_SCOPED_CRITIC_RULE, howItWinsCriticJudgmentPayload } from "../src/how-it-wins-judge-scope";
 
 const evidencePacket = {
   cutoff: "2026-08-21T00:00:00.000Z",
@@ -220,6 +221,54 @@ describe("scoped How it wins judge", () => {
     const result = await judge(judgeInput({ scope }));
     expect(result.currentStrategyIds).toEqual(["specialization"]);
     expect(result.refinement?.notes.some((note) => note.includes("citation check failed"))).toBe(true);
+  });
+
+  it("sends the critic screened-out ids as a list instead of their filler rows, with the prompt unchanged", async () => {
+    const fake = fakeAdapters([scopedOutput([...scopedIds, "hybrid"])]);
+    const judge = createHowItWinsJudge({ adapters: fake, rules, scope, providers: { strong: "anthropic", critic: "deepseek" } });
+    await judge(judgeInput({ scope }));
+
+    const request = fake.critic.mock.calls[0]![0];
+    expect(request.prompt).toBe(HOW_IT_WINS_JUDGE_PROMPTS.critic);
+    const payload = request.payload as {
+      judgment: { strategyEvaluations: Array<{ strategyId: string }> };
+      screenedOutStrategyIds: string[];
+      screenedOutRule: string;
+    };
+    expect(payload.judgment.strategyEvaluations.map((row) => row.strategyId).sort())
+      .toEqual([...scopedIds, "hybrid"].sort());
+    expect(payload.screenedOutStrategyIds).toHaveLength(76);
+    expect(payload.screenedOutStrategyIds).not.toContain("hybrid");
+    expect(payload.screenedOutRule).toBe(HOW_IT_WINS_SCOPED_CRITIC_RULE);
+    expect(payload.screenedOutRule).toContain("evidence id");
+  });
+
+  it("leaves the unscoped critic view exactly the judgment", () => {
+    const judgment = { strategyEvaluations: [] } as unknown as Parameters<typeof howItWinsCriticJudgmentPayload>[0];
+    const view = howItWinsCriticJudgmentPayload(judgment, undefined);
+    expect(Object.keys(view)).toEqual(["judgment"]);
+    expect(view.judgment).toBe(judgment);
+  });
+
+  it("caps critic findings at 12 in the tool schema and rejects a longer list", async () => {
+    const criticRequest: HowItWinsJudgeCallRequest = {
+      callId: "how-it-wins:critic", stage: "critic", attempt: 1, prompt: "Critique.",
+      payload: { evidencePacket, rules, vocabulary: HOW_IT_WINS_STRATEGIES }, model: "claude-opus-5"
+    };
+    const findings = (benchmarkToolSchemaForRequest(criticRequest) as {
+      properties: { findings: { maxItems: number; items: { properties: { summary: { maxLength: number } } } } };
+    }).properties.findings;
+    expect(findings.maxItems).toBe(12);
+    expect(findings.items.properties.summary.maxLength).toBe(200);
+
+    const fake = fakeAdapters([scopedOutput(scopedIds)]);
+    const finding = { kind: "strategy", material: true, summary: "Missed.", strategyIds: ["hybrid"], evidenceIds: ["e1"] };
+    fake.critic.mockImplementation(async (request) => ({
+      ok: true, output: { findings: Array.from({ length: 13 }, () => finding) }, trace: trace(request, "fake-critic")
+    }));
+    const judge = createHowItWinsJudge({ adapters: fake, rules, scope, providers: { strong: "anthropic", critic: "deepseek" } });
+    const result = await judge(judgeInput({ scope }));
+    expect(result.refinement?.critic).toBe("failed");
   });
 
   it("skips the citation check when refinement is off, since only adjudication reads its flags", async () => {

@@ -74,7 +74,7 @@ export const criticFindingSchema = z.object({
   evidenceIds: z.array(z.string().min(1))
 }).strict();
 
-export const criticOutputSchema = z.object({ findings: z.array(criticFindingSchema) }).strict();
+export const criticOutputSchema = z.object({ findings: z.array(criticFindingSchema).max(12) }).strict();
 
 // A scoped call's row count is the company's Round 1 count. The schema stays one fixed range
 // rather than that count, because the tool schema leads Anthropic's cache prefix; code checks

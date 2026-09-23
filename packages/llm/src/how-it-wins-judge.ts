@@ -27,6 +27,7 @@ import {
   HOW_IT_WINS_SCOPED_JUDGE_ADDENDUM
 } from "./how-it-wins-judge-prompts";
 import {
+  howItWinsCriticJudgmentPayload,
   runHowItWinsCitationCheck,
   type HowItWinsCitationCheck,
   type HowItWinsJudgeScope
@@ -510,7 +511,7 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
         evidencePacket: packet,
         vocabulary: input.vocabulary,
         rules: config.rules,
-        judgment: semanticJudgmentForModel(globalJudgment)
+        ...howItWinsCriticJudgmentPayload(semanticJudgmentForModel(globalJudgment), config.scope)
       },
       ...(config.models ? { model: config.models.critic } : {}),
       ...(config.signal ? { signal: config.signal } : {}),

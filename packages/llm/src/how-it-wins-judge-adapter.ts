@@ -248,7 +248,9 @@ const PROSE_MAX_LENGTH: Record<string, number> = {
   bridge: 200,
   question: 200,
   whyMaterial: 200,
-  evidenceNeeded: 200
+  evidenceNeeded: 200,
+  // Critic findings and global-judge disagreements; both are one-sentence summaries.
+  summary: 200
 };
 
 function applyMaxLength(value: unknown, maxLength: number) {

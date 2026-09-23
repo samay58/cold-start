@@ -61,6 +61,34 @@ export function completeScopedJudgment(
   };
 }
 
+// Rides in the scoped critic payload, never the critic prompt, so the critic prompt and every
+// judge prompt hash stay unchanged.
+export const HOW_IT_WINS_SCOPED_CRITIC_RULE = "Code filed each strategy in screenedOutStrategyIds as insufficient_evidence because a screen found no specific supporting fact for it. Their rows are left out of judgment. Do not report them as missing. Flag one only when you can name a specific evidence id that supports it, and put that id in evidenceIds.";
+
+function isScreenedOutFiller(row: SemanticHowItWinsJudgment["strategyEvaluations"][number], screened: Set<HowItWinsStrategyId>) {
+  return screened.has(row.strategyId)
+    && row.disposition === "insufficient_evidence"
+    && row.dispositionReason.startsWith("Screened out before judging:");
+}
+
+// The critic's view of the judgment. Unscoped, it is the judgment as before. Scoped, the rows code
+// filed for screened-out strategies become one compact id list, since 37 to 51 identical filler
+// rows pushed critic replies past their token limit.
+export function howItWinsCriticJudgmentPayload(
+  judgment: SemanticHowItWinsJudgment,
+  scope: HowItWinsJudgeScope | undefined
+): { judgment: SemanticHowItWinsJudgment; screenedOutStrategyIds?: HowItWinsStrategyId[]; screenedOutRule?: string } {
+  if (!scope) return { judgment };
+  const screened = new Set(scope.screenedOut.map((entry) => entry.strategyId));
+  const filler = judgment.strategyEvaluations.filter((row) => isScreenedOutFiller(row, screened));
+  const fillerIds = new Set(filler.map((row) => row.strategyId));
+  return {
+    judgment: { ...judgment, strategyEvaluations: judgment.strategyEvaluations.filter((row) => !fillerIds.has(row.strategyId)) },
+    screenedOutStrategyIds: filler.map((row) => row.strategyId),
+    screenedOutRule: HOW_IT_WINS_SCOPED_CRITIC_RULE
+  };
+}
+
 type CitationFinding = {
   kind: "evidence";
   material: true;
