@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildEvidenceLedger } from "../src/index";
 
 describe("buildEvidenceLedger", () => {
-  it("deduplicates sources, preserves intents, and surfaces funding support snippets", () => {
+  it("deduplicates sources and preserves intents", () => {
     const ledger = buildEvidenceLedger({
       domain: "perplexity.ai",
       sources: [
@@ -34,6 +34,37 @@ describe("buildEvidenceLedger", () => {
       authorityScore: expect.any(Number),
     });
     expect(ledger[0]?.supportingSnippets.join(" ")).toContain("Series B");
+  });
+
+  it("takes the supporting snippet from the page's lead, not its funding sentence", () => {
+    const [entry] = buildEvidenceLedger({
+      domain: "perplexity.ai",
+      sources: [
+        {
+          url: "https://news.example/perplexity",
+          title: "Perplexity profile",
+          sourceType: "news",
+          fetchedAt: "2026-05-07T00:00:00.000Z",
+          intent: "company_profile",
+          rawText: JSON.stringify({ id: "x", text: "Perplexity is a conversational answer engine. It raised $63 million in a Series B led by IVP." }),
+        },
+      ],
+    });
+
+    expect(entry?.supportingSnippets).toEqual(["Perplexity is a conversational answer engine. It raised $63 million in a Series B led by IVP."]);
+  });
+
+  it("gives funding sources no ranking bonus over equal sources", () => {
+    const source = { sourceType: "news" as const, fetchedAt: "2026-05-07T00:00:00.000Z" };
+    const ledger = buildEvidenceLedger({
+      domain: "perplexity.ai",
+      sources: [
+        { ...source, url: "https://news.example/product", title: "Product", intent: "company_profile" as const, rawText: "Perplexity answers questions." },
+        { ...source, url: "https://news.example/round", title: "Round", intent: "funding" as const, rawText: "Perplexity raised a round." },
+      ],
+    });
+
+    expect(ledger.map((entry) => entry.url)).toEqual(["https://news.example/product", "https://news.example/round"]);
   });
 
   it("ranks independent technical analysis ahead of press releases for qualitative evidence", () => {

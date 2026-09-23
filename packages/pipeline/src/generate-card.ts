@@ -32,7 +32,7 @@ import {
 import type { ProviderFactCandidate, ProviderResearchPlan, ProviderSource } from "@cold-start/providers";
 import { withResolvedCitationRefs } from "./citation-refs";
 import { type CostLine, totalGenerationCost } from "./cost";
-import { buildEvidenceLedger, type EvidenceLedgerEntry } from "./evidence-ledger";
+import { buildEvidenceLedger, type EvidenceLedgerEntry, withPageTextSnippets } from "./evidence-ledger";
 import { applyProviderFactCandidates } from "./provider-facts";
 import {
   buildSkeletonCard,
@@ -394,7 +394,7 @@ function recoverEvidenceCitationRefs<T extends { citations: ColdStartCard["citat
   value: T,
   evidenceLedger: EvidenceLedgerEntry[],
 ): T {
-  const citations = [...value.citations];
+  const citations = withPageTextSnippets(value.citations, evidenceLedger);
   const citationIds = new Set(citations.map((citation) => citation.id));
   const citationIdsByUrl = new Map(citations.map((citation) => [citationDedupeKey(citation.url), citation.id]));
   const evidenceById = new Map(evidenceLedger.map((entry) => [entry.id, entry]));

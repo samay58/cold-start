@@ -1,5 +1,5 @@
 import type { ProviderSource, RetrievalIntent } from "@cold-start/providers";
-import { readableSourceText, sourceQualityRank, splitIntoSentences } from "@cold-start/core";
+import { readableSourceText, sourceQualityRank, sourceSnippet } from "@cold-start/core";
 
 export type EvidenceLedgerEntry = {
   id: string;
@@ -39,6 +39,16 @@ export function buildEvidenceLedger(input: { domain: string; sources: ProviderSo
   return Array.from(entries.values())
     .sort((left, right) => right.authorityScore - left.authorityScore || right.intents.length - left.intents.length)
     .map((entry, index) => ({ id: `e${index + 1}`, ...entry }));
+}
+
+// A cited source's snippet is its own page text. The extraction model's snippet stays only when
+// the page has no readable text.
+export function withPageTextSnippets<T extends { url: string; snippet?: string | undefined }>(citations: T[], ledger: EvidenceLedgerEntry[]): T[] {
+  const pageText = new Map(ledger.map((entry) => [canonicalSourceKey(entry.url), entry.supportingSnippets[0]]));
+  return citations.map((citation) => {
+    const snippet = pageText.get(canonicalSourceKey(citation.url));
+    return snippet ? { ...citation, snippet } : citation;
+  });
 }
 
 function canonicalSourceKey(url: string) {
@@ -106,30 +116,9 @@ function authorityScore(source: ProviderSource, domain: string) {
     enrichment: 1,
     other: 1,
   };
-  const qualityRank = sourceQualityRank(source, { targetDomain: domain });
-  const intentBonus = source.intent === "funding" ? 1 : 0;
-
-  return base[source.sourceType] + intentBonus + qualityRank;
+  return base[source.sourceType] + sourceQualityRank(source, { targetDomain: domain });
 }
 
 function supportSnippets(text: string) {
-  const keywords = [
-    "raised",
-    "funding",
-    "series",
-    "valuation",
-    "led by",
-    "investor",
-    "product",
-    "platform",
-    "customers",
-    "what does",
-  ];
-  const sentences = splitIntoSentences(text.replace(/\s+/g, " "));
-  const relevant = sentences.filter((sentence) => {
-    const lower = sentence.toLowerCase();
-    return keywords.some((keyword) => lower.includes(keyword));
-  });
-
-  return (relevant.length > 0 ? relevant : sentences).slice(0, 4);
+  return text ? [sourceSnippet(text)] : [];
 }

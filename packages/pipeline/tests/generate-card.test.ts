@@ -335,6 +335,43 @@ describe("generateCardForDomain", () => {
     expect(result.card.citations).toHaveLength(3);
   });
 
+  it("uses a cited source's own page text as its snippet, keeping the model's only when the page has none", async () => {
+    const skeleton = buildSkeletonCard("geckorobotics.com");
+    const homepage = "https://www.geckorobotics.com/";
+    const unfetched = "https://analyst.example/gecko";
+
+    const result = await generateCardForDomainWithTrace("geckorobotics.com", {
+      fetchSources: async () => [
+        {
+          url: homepage,
+          title: "Gecko Robotics",
+          sourceType: "company_site",
+          fetchedAt: "2026-08-17T00:00:00.000Z",
+          intent: "homepage",
+          rawText: JSON.stringify({ id: homepage, title: "Gecko Robotics", text: "Gecko Robotics builds robots and software for industrial inspections." }),
+        },
+      ],
+      extractSections: async () => ({
+        identity: {
+          ...skeleton.identity,
+          name: { value: "Gecko Robotics", status: "verified", confidence: "high", citationIds: ["c1", "c2"] },
+        },
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: [
+          { id: "c1", url: homepage, title: "Gecko Robotics", fetchedAt: "2026-08-17T00:00:00.000Z", sourceType: "company_site", snippet: "Gecko raised $73 million from investors." },
+          { id: "c2", url: unfetched, title: "Gecko analysis", fetchedAt: "2026-08-17T00:00:00.000Z", sourceType: "news", snippet: "Analysts cover Gecko's inspection robots." },
+        ],
+      }),
+    } as GenerateCardDeps);
+
+    const snippetFor = (url: string) => result.card.citations.find((citation) => citation.url === url)?.snippet;
+    expect(snippetFor(homepage)).toBe("Gecko Robotics builds robots and software for industrial inspections.");
+    expect(snippetFor(unfetched)).toBe("Analysts cover Gecko's inspection robots.");
+  });
+
   it("recovers block facts that cite the block evidence ledger", async () => {
     const skeleton = buildSkeletonCard("geckorobotics.com");
     const teamUrl = "https://www.geckorobotics.com/about";
