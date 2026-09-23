@@ -11,6 +11,7 @@ import {
   anthropicSystemCacheControl,
   createTracedAnthropicMessage,
   estimateAnthropicCostUsd,
+  type AnthropicCacheTtl,
   type AnthropicTelemetrySink
 } from "./anthropic";
 import { buildLlmCallTrace } from "./call-trace";
@@ -299,6 +300,11 @@ function toolFor(request: HowItWinsJudgeCallRequest): Tool {
   } as Tool;
 }
 
+// The judge's calls for one card land within minutes of each other, and cards are read hours
+// apart, so a one-hour write (2x input) rarely pays back. A five-minute write (1.25x) still
+// covers the critic and adjudication calls that follow the global judgment.
+export const HOW_IT_WINS_JUDGE_CACHE_TTL = "5m" satisfies AnthropicCacheTtl;
+
 export function howItWinsJudgeProviderRequest(
   request: HowItWinsJudgeCallRequest,
   model = request.model
@@ -316,7 +322,7 @@ export function howItWinsJudgeProviderRequest(
         ? [{
           type: "text" as const,
           text: cachedSystemText,
-          cache_control: anthropicSystemCacheControl()
+          cache_control: anthropicSystemCacheControl(HOW_IT_WINS_JUDGE_CACHE_TTL)
         }]
         : [])
     ],
@@ -786,7 +792,7 @@ function createHowItWinsJudgeTransport(input: JudgeTransportInput): HowItWinsJud
                   signal: callDeadline.signal,
                   maxRetries: 0,
                   timeout: callDeadline.timeoutMs,
-                  ...anthropicCacheRequestOptions()
+                  ...anthropicCacheRequestOptions(HOW_IT_WINS_JUDGE_CACHE_TTL)
                 }
               )
               .finalMessage();

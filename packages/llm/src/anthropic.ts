@@ -32,7 +32,7 @@ export function anthropicModel(model = process.env.ANTHROPIC_MODEL) {
 // requires that beta header; `createTracedAnthropicMessage` attaches it automatically when 1h is
 // the resolved TTL. Override via ANTHROPIC_CACHE_TTL=5m to roll back to the shorter TTL without a
 // redeploy if cost telemetry ever shows the 1h create cost is not amortizing through reads.
-type AnthropicCacheTtl = "5m" | "1h";
+export type AnthropicCacheTtl = "5m" | "1h";
 const EXTENDED_CACHE_TTL_BETA = "extended-cache-ttl-2025-04-11";
 
 function resolveCacheTtl(): AnthropicCacheTtl {
@@ -40,15 +40,20 @@ function resolveCacheTtl(): AnthropicCacheTtl {
   return configured === "5m" ? "5m" : "1h";
 }
 
-export function anthropicSystemCacheControl(): { type: "ephemeral"; ttl: AnthropicCacheTtl } {
-  return { type: "ephemeral", ttl: resolveCacheTtl() };
+// An explicit ttl overrides the environment for one caller. Only the How it wins judge passes one.
+export function anthropicSystemCacheControl(
+  ttl: AnthropicCacheTtl = resolveCacheTtl()
+): { type: "ephemeral"; ttl: AnthropicCacheTtl } {
+  return { type: "ephemeral", ttl };
 }
 
 // The 1h TTL only lands with the beta header; without it the API silently downgrades to 5m.
 // Every Anthropic call that sets a cache_control block needs these options, including the
 // streamed judge call, which does not go through createTracedAnthropicMessage.
-export function anthropicCacheRequestOptions(): { headers: Record<string, string> } | undefined {
-  return resolveCacheTtl() === "1h"
+export function anthropicCacheRequestOptions(
+  ttl: AnthropicCacheTtl = resolveCacheTtl()
+): { headers: Record<string, string> } | undefined {
+  return ttl === "1h"
     ? { headers: { "anthropic-beta": EXTENDED_CACHE_TTL_BETA } }
     : undefined;
 }

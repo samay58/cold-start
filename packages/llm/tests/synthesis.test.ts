@@ -481,6 +481,29 @@ describe("parseSynthesisToolUse", () => {
 });
 
 describe("synthesizeCard", () => {
+  it("keeps the default one-hour system cache and its beta header", async () => {
+    const saved = process.env.ANTHROPIC_CACHE_TTL;
+    delete process.env.ANTHROPIC_CACHE_TTL;
+    const calls: Array<{ params: { system: Array<{ cache_control?: { ttl: string } }> }; options?: { headers?: Record<string, string> } | undefined }> = [];
+    const client = {
+      messages: {
+        create: async (params: never, options?: never) => {
+          calls.push({ params, options });
+          return { content: [{ type: "tool_use", name: "emit_investor_synthesis", input: validSynthesisPayload }] };
+        }
+      }
+    } as unknown as Anthropic;
+    try {
+      await synthesizeCard({ client, model: "claude-test", card: { citations: [{ id: "c1" }] } as ColdStartCard }).catch(() => undefined);
+    } finally {
+      if (saved === undefined) delete process.env.ANTHROPIC_CACHE_TTL;
+      else process.env.ANTHROPIC_CACHE_TTL = saved;
+    }
+    const cached = calls[0]?.params.system.find((block) => block.cache_control);
+    expect(cached?.cache_control?.ttl).toBe("1h");
+    expect(calls[0]?.options?.headers?.["anthropic-beta"]).toBe("extended-cache-ttl-2025-04-11");
+  });
+
   it("rejects citation IDs that are not present on the input card", async () => {
     const client = {
       messages: {

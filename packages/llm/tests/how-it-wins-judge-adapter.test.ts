@@ -368,7 +368,9 @@ describe("the how it wins judge transport", () => {
     expect(body.system).toHaveLength(2);
     expect(body.system[0]?.cache_control).toBeUndefined();
     expect(body.system[0]?.text).toContain("Judge the record.");
-    expect(body.system[1]?.cache_control).toMatchObject({ type: "ephemeral" });
+    expect(body.system[1]?.cache_control).toEqual({ type: "ephemeral", ttl: "5m" });
+    // Five minutes needs no extended-TTL beta header.
+    expect(new Headers(requests[0]?.init.headers).get("anthropic-beta") ?? "").not.toContain("extended-cache-ttl");
     expect(body.system[1]?.text).toBe(
       `Rules:\n${JSON.stringify(rules)}\n\nVocabulary:\n${JSON.stringify(HOW_IT_WINS_STRATEGIES)}`
     );
