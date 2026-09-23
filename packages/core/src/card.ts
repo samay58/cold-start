@@ -2,6 +2,7 @@ import { z } from "zod";
 import { companyDescriptionSchema } from "./intelligence";
 import { safePublicImageUrl, safeWebUrl } from "./external-url";
 import { howItWinsSchema } from "./how-it-wins";
+import { readableSourceText } from "./source-text";
 
 const webUrlSchema = z.string().max(2_048).refine((value) => safeWebUrl(value) !== null, {
   message: "Expected a safe HTTP(S) URL"
@@ -17,7 +18,9 @@ export const citationSchema = z.object({
   title: z.string().min(1),
   fetchedAt: z.string().datetime(),
   sourceType: z.enum(["company_site", "news", "filing", "enrichment", "github", "rdap", "other"]),
-  snippet: z.string().optional(),
+  // Cards stored before snippets were page text carry slices of provider JSON. Every read turns
+  // them into readable text, or drops them, so no reader sees JSON.
+  snippet: z.preprocess((value) => (typeof value === "string" ? readableSourceText(value) || undefined : value), z.string().optional()),
   sourceQuality: z.object({
     tier: z.enum([
       "independent_technical",

@@ -1,0 +1,63 @@
+import { splitIntoSentences } from "./sentences";
+
+/*
+ * The one way to turn a stored source into text a model or a reader sees. Most providers store
+ * `sources.raw_text` as the serialized provider record, and older card snippets are slices of that
+ * JSON, so every reader goes through here and handles both forms. Order: page text, summary,
+ * highlights, then the title. The result is never JSON.
+ */
+
+export const SOURCE_SNIPPET_MAX_LENGTH = 600;
+
+export function readableSourceText(rawText: string | null | undefined, title = ""): string {
+  const raw = (rawText ?? "").trim();
+  const readable = tidy(raw.startsWith("{") ? pageTextFromRecord(raw) : raw);
+  return readable && !readable.startsWith("{") ? readable : tidy(title);
+}
+
+// A snippet is the source's own text, cut at a sentence boundary.
+export function sourceSnippet(text: string): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length <= SOURCE_SNIPPET_MAX_LENGTH) return normalized;
+
+  let snippet = "";
+  for (const sentence of splitIntoSentences(normalized)) {
+    const next = snippet ? `${snippet} ${sentence}` : sentence;
+    if (next.length > SOURCE_SNIPPET_MAX_LENGTH) break;
+    snippet = next;
+  }
+  if (snippet) return snippet;
+
+  const cut = normalized.slice(0, SOURCE_SNIPPET_MAX_LENGTH);
+  const lastSpace = cut.lastIndexOf(" ");
+  return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trim();
+}
+
+function pageTextFromRecord(raw: string): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return "";
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "";
+
+  const record = parsed as Record<string, unknown>;
+  const field = (key: string) => (typeof record[key] === "string" ? (record[key] as string).trim() : "");
+  const highlights = Array.isArray(record.highlights)
+    ? record.highlights.filter((part): part is string => typeof part === "string").join("\n")
+    : "";
+  return field("text") || field("summary") || highlights;
+}
+
+// Markdown links keep their words, images and heading marks go, and Exa's "[...]" highlight
+// separators go, so the text reads as prose instead of spending length on URLs.
+function tidy(text: string): string {
+  return text
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^[ \t]*#{1,6}[ \t]+/gm, "")
+    .replace(/^[ \t]*(?:\[\.\.\.\]|\.\.\.)[ \t]*$/gm, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
