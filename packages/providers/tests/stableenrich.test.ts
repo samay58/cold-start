@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { defaultSourceSearchQueries } from "@cold-start/core";
 import {
   buildStableenrichRequests,
   fetchStableenrichEmailPatternSources,
@@ -129,7 +130,7 @@ describe("buildStableenrichRequests", () => {
       numResults: 5,
     });
     expect(requests[2]?.body).toMatchObject({
-      query: expect.stringContaining("founders CEO leadership"),
+      query: expect.stringContaining("founders CEO management team"),
       numResults: 5,
     });
     expect(requests[3]?.body).toMatchObject({
@@ -144,15 +145,6 @@ describe("buildStableenrichRequests", () => {
       query: expect.stringContaining("independent analysis"),
       numResults: 6,
     });
-    expect(requests[5]?.body).toMatchObject({
-      query: expect.stringContaining("technical benchmark"),
-    });
-    expect(requests[5]?.body).toMatchObject({
-      query: expect.stringContaining("expert transcript"),
-    });
-    expect(requests[5]?.body).toMatchObject({
-      query: expect.stringContaining("investor research"),
-    });
     expect(requests[6]?.body).toMatchObject({
       query: expect.stringContaining("case study"),
       numResults: 5,
@@ -165,6 +157,22 @@ describe("buildStableenrichRequests", () => {
     expect(requests[10]?.body).toEqual({ url: "https://cartesia.ai/about" });
     expect(requests[11]?.body).toEqual({ url: "https://cartesia.ai/team" });
     expect(requests.map((request) => request.name)).not.toContain("apollo_people_search");
+  });
+
+  it("falls back to the one shared default query set when no plan is given", () => {
+    const queries = defaultSourceSearchQueries("cartesia.ai");
+    const requests = buildStableenrichRequests({}, "cartesia.ai");
+
+    expect(requests.slice(0, 8).map((request) => request.body.query)).toEqual([
+      queries.funding,
+      queries.companyProfile,
+      queries.managementTeam,
+      queries.recentSignals,
+      queries.comparables,
+      queries.independentAnalysis,
+      queries.customerProof,
+      queries.productProof,
+    ]);
   });
 
   it("asks every Exa search and find-similar call for page text", () => {
@@ -886,7 +894,7 @@ describe("fetchStableenrichSources", () => {
       domain: "zo.computer",
       agentcashFetch: async ({ url, body }) => {
         calls.push({ url, body });
-        if (url === "https://stable.example/exa/search" && String(body.query).includes("founders CEO leadership")) {
+        if (url === "https://stable.example/exa/search" && String(body.query).includes("founders CEO management team")) {
           return {
             results: [
               {
@@ -1028,7 +1036,7 @@ describe("fetchStableenrichSources", () => {
       domain: "zo.computer",
       agentcashFetch: async ({ url, body }) => {
         calls.push({ url, body });
-        if (url === "https://stable.example/exa/search" && String(body.query).includes("founders CEO leadership")) {
+        if (url === "https://stable.example/exa/search" && String(body.query).includes("founders CEO management team")) {
           return {
             results: [
               {
@@ -1101,7 +1109,7 @@ describe("fetchStableenrichSources", () => {
       domain: "canva.com",
       agentcashFetch: async ({ url, body }) => {
         calls.push({ url, body });
-        if (url === "https://stable.example/exa/search" && String(body.query).includes("founders CEO leadership")) {
+        if (url === "https://stable.example/exa/search" && String(body.query).includes("founders CEO management team")) {
           return {
             results: [
               {

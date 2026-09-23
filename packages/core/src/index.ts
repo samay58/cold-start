@@ -31,6 +31,7 @@ export * from "./slug";
 export * from "./source-authority";
 export * from "./source-class";
 export * from "./source-quality";
+export * from "./search-queries";
 export * from "./source-target";
 export * from "./synthesis-evidence";
 export * from "./trust";

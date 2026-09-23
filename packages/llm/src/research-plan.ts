@@ -1,4 +1,5 @@
 import type { Tool } from "@anthropic-ai/sdk/resources/messages";
+import { defaultSourceSearchQueries } from "@cold-start/core";
 import { z } from "zod";
 
 const RESEARCH_PLAN_TOOL_NAME = "emit_research_plan";
@@ -101,16 +102,7 @@ export function fallbackResearchPlan(domain: string): ResearchPlan {
         sourceHint: "Recent funding coverage, company announcements, investor posts, and data enrichment.",
       },
     ],
-    searchQueries: {
-      funding: `${domain} funding history latest round valuation investors total raised`,
-      companyProfile: `${domain} product customers buyer workflow what does the company do`,
-      managementTeam: `${domain} founders CEO management team leadership contact email`,
-      recentSignals: `${domain} recent launch customers hiring funding product partnership traction`,
-      comparables: `${domain} competitors alternatives similar companies market map`,
-      independentAnalysis: `${domain} independent analysis technical deep dive market structure buyer budget timing`,
-      customerProof: `${domain} customer case study deployment results rollout named customer in production`,
-      productProof: `${domain} technical documentation github repository benchmark API architecture how it works`,
-    },
+    searchQueries: defaultSourceSearchQueries(domain),
     presentationFocus: ["product and technology", "buyer and use case", "market structure and timing", "source quality", "funding cadence", "public proof gaps"],
   };
 }

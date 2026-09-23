@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { defaultSourceSearchQueries } from "@cold-start/core";
 import { fallbackResearchPlan, investorTasteKernel, parseResearchPlanToolUse, researchPlanTool } from "../src/index";
 
 const validPlan = {
@@ -65,5 +66,9 @@ describe("fallbackResearchPlan", () => {
     expect(plan.searchQueries.customerProof).toContain("case study");
     expect(plan.searchQueries.productProof).toContain("documentation");
     expect(investorTasteKernel).toContain("Source incentives matter");
+  });
+
+  it("searches with the one shared default query set", () => {
+    expect(fallbackResearchPlan("nekohealth.com").searchQueries).toEqual(defaultSourceSearchQueries("nekohealth.com"));
   });
 });

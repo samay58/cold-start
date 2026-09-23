@@ -4,7 +4,7 @@ import { exaPageTextContents } from "../exa-contents";
 import { providerBudgetForEndpoint } from "../provider-budget";
 import { allSettledLimited, supportedUrl } from "../stableenrich-utils";
 import type { ProviderFactCandidate, ProviderResearchPlan, ProviderSource, RetrievalIntent, StableenrichEnv, StableenrichProbe } from "../types";
-import { type EmailPattern, sourceSearchSubjectForDomain } from "@cold-start/core";
+import { defaultSourceSearchQueries, type EmailPattern } from "@cold-start/core";
 
 export type StableenrichEmailDiscovery = {
   name: string;
@@ -182,15 +182,15 @@ export function missingStableenrichConfig(env: StableenrichEnv): string[] {
 
 export function buildStableenrichRequests(env: StableenrichEnv, domain: string, researchPlan?: ProviderResearchPlan): StableenrichProbe[] {
   requireStableenrichConfig(env);
-  const queries = researchPlan?.searchQueries;
-  const searchSubject = sourceSearchSubjectForDomain(domain);
+  const defaults = defaultSourceSearchQueries(domain);
+  const queries = { ...defaults, ...researchPlan?.searchQueries };
 
   return [
     {
       name: "exa_funding_history",
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
       body: {
-        query: queries?.funding ?? `${searchSubject} funding raised Series valuation investors led by latest round total raised`,
+        query: queries.funding,
         numResults: 8,
         contents: exaPageTextContents,
       },
@@ -199,7 +199,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       name: "exa_company_profile",
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
       body: {
-        query: queries?.companyProfile ?? `${searchSubject} what does the company do product customers platform investor profile`,
+        query: queries.companyProfile,
         numResults: 5,
         contents: exaPageTextContents,
       },
@@ -208,7 +208,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       name: "exa_management_team",
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
       body: {
-        query: queries?.managementTeam ?? `${searchSubject} founders CEO leadership management team contact email`,
+        query: queries.managementTeam,
         numResults: 5,
         contents: exaPageTextContents,
       },
@@ -217,7 +217,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       name: "exa_recent_signals",
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
       body: {
-        query: queries?.recentSignals ?? `${searchSubject} recent launch customers hiring funding product partnership traction`,
+        query: queries.recentSignals,
         numResults: 5,
         contents: exaPageTextContents,
       },
@@ -226,7 +226,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       name: "exa_competition",
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
       body: {
-        query: queries?.comparables ?? `${searchSubject} competitors alternatives similar companies market map`,
+        query: queries.comparables,
         numResults: 5,
         contents: exaPageTextContents,
       },
@@ -236,8 +236,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
       body: {
         query:
-          queries?.independentAnalysis ??
-          `${searchSubject} independent analysis market map deep dive analyst report technical benchmark expert transcript investor research revenue funding traction customers`,
+          queries.independentAnalysis,
         numResults: 6,
         contents: exaPageTextContents,
       },
@@ -249,8 +248,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
       body: {
         query:
-          queries?.customerProof ??
-          `${searchSubject} customer case study deployment results rollout named customer in production`,
+          queries.customerProof,
         numResults: 5,
         contents: exaPageTextContents,
       },
@@ -260,8 +258,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
       body: {
         query:
-          queries?.productProof ??
-          `${searchSubject} technical documentation github repository benchmark API architecture how it works`,
+          queries.productProof,
         numResults: 5,
         contents: exaPageTextContents,
       },
