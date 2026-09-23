@@ -262,3 +262,12 @@ describe("research section registry", () => {
     ]);
   });
 });
+
+describe("research section prompts", () => {
+  it("tell every section to say what the source said rather than refer to the evidence", () => {
+    for (const definition of RESEARCH_SECTION_DEFINITIONS) {
+      expect(definition.generationPrompt).toContain("Never refer to the evidence, the supplied sources, the card, or the packet");
+      expect(definition.generationPrompt).not.toContain("point to evidence or missing evidence");
+    }
+  });
+});

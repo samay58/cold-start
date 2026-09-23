@@ -168,6 +168,7 @@ export async function synthesizeResearchSection(input: ResearchSectionSynthesisI
     investorTasteKernel,
     "You write one saved Cold Start research section.",
     "Use only the evidence JSON supplied by the user.",
+    "Never refer to the evidence, the supplied sources, the card, or the packet in what you write. Say what the source said, or state a gap as a plain fact.",
     "Use citationIds exactly as provided. Do not invent citationIds.",
     "If evidence is too weak, return status empty, summary null, no items, and confidence low.",
     "Prefer fewer strong points over complete-looking filler."
