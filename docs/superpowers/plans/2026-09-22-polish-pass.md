@@ -34,7 +34,7 @@ Outcome, checked on 8 cached How it wins verdicts and 5 provider-matrix fixtures
 
 Flagged for Samay, not changed (his copy): the landing page's five questions do not match the labels shown beside them (`page.tsx:79-81`); the "Verified" legend promises two independent sources while the code accepts one outside source plus any second citation (`SourcesLegend.tsx:15` against `card-face/model.ts:118`); "The alpha is resting".
 
-Outcome: B1 to B6 shipped as listed. Tester errors are plain on any non-local API origin; local builds keep developer text. "Investor Lens" is the one name in UI strings and screen-reader labels. Two Playwright specs in `sidepanel-ui.spec.ts` (domain-receipt overflow at 825, drag attachment at 1471) failed in the worker's run on surfaces these changes do not touch; they are not in the required checks.
+Outcome: B1 to B6 shipped as listed. B3 went further afterwards: the card route's loading screen streamed a 200 before the page could call `notFound()`, so a missing card answered 200. The loading screen is gone and a missing card now answers 404. Tester errors are plain on any non-local API origin; local builds keep developer text. "Investor Lens" is the one name in UI strings and screen-reader labels. Two Playwright specs in `sidepanel-ui.spec.ts` (domain-receipt overflow at 825, drag attachment at 1471) failed in the worker's run on surfaces these changes do not touch; they are not in the required checks.
 
 ## C. Reliability and cost
 
@@ -74,6 +74,6 @@ Outcome: all shipped except the three person-name heuristics in `people.ts`, whi
 | E4 | Fix references to deleted files (`ReadRegion.tsx`, `read-region.test.tsx`, three `packages/ui` files) and the stale `docs/README.md` map. | checked against tracked files |
 | E5 | Correct two wrong status lines and label SPEC.md's May build schedule as history. | recovery spec says "proposed"; Firefox says "partial" |
 | E6 | Add `.claude/worktrees/` and `.claude/settings.local.json` to `.gitignore`; delete a byte-identical 1 MB icon copy. | ignored only on this machine |
-| E7 | Flag: `.codex/config.toml` names `gpt-5.4`, outside Samay's Astra-or-Sol rule. | his config |
+| E7 | `.codex/config.toml` named `gpt-5.4`, outside Samay's Astra-or-Sol rule. The repo no longer sets a model or effort, so Codex uses Samay's global default. | done |
 
-Outcome: E1 to E6 shipped. AGENTS.md went from 68 KB to 32 KB with nothing lost; command and file-level detail moved to `docs/commands.md` and `docs/code-map.md`. 33 specs and plans moved to `docs/archive/`. The How it wins recovery spec stays in place because SPEC.md links to it. E7 is Samay's.
+Outcome: E1 to E6 shipped. AGENTS.md went from 68 KB to 32 KB with nothing lost; command and file-level detail moved to `docs/commands.md` and `docs/code-map.md`. 33 specs and plans moved to `docs/archive/`. The How it wins recovery spec stays in place because SPEC.md links to it. E7 is done.

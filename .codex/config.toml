@@ -1,6 +1,4 @@
 approval_policy = "on-request"
-model = "gpt-5.4"
-model_reasoning_effort = "high"
 project_root_markers = [".git", "CLAUDE.md"]
 default_permissions = ":workspace"
 service_tier = "fast"
