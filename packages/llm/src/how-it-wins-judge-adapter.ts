@@ -205,10 +205,6 @@ function splitCachedPayload(payload: unknown) {
   };
 }
 
-export function benchmarkCachedSystemTextForRequest(request: HowItWinsJudgeCallRequest) {
-  return splitCachedPayload(request.payload).cached;
-}
-
 export function benchmarkProviderPayloadForRequest(request: HowItWinsJudgeCallRequest) {
   const aliases = evidenceHandlesForRequest(request);
   return mapEvidenceReferences(splitCachedPayload(structuredClone(request.payload)).company, (evidenceId, path) => {
@@ -307,7 +303,7 @@ export function howItWinsJudgeProviderRequest(
 ) {
   if (!model) throw new Error(`${request.callId} needs its requested model to build provider params`);
   const maxTokens = request.stage === "global_judge" ? 50_000 : 12_000;
-  const cachedSystemText = benchmarkCachedSystemTextForRequest(request);
+  const cachedSystemText = splitCachedPayload(request.payload).cached;
   return {
     model,
     max_tokens: maxTokens,

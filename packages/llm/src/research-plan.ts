@@ -1,8 +1,5 @@
-import type Anthropic from "@anthropic-ai/sdk";
-import type { Message, Tool } from "@anthropic-ai/sdk/resources/messages";
+import type { Tool } from "@anthropic-ai/sdk/resources/messages";
 import { z } from "zod";
-import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
-import { researchPlannerSystemPrompt } from "./investor-taste-kernel";
 
 const RESEARCH_PLAN_TOOL_NAME = "emit_research_plan";
 
@@ -129,36 +126,4 @@ export function parseResearchPlanToolUse(message: { content: ToolUseLike[] }): R
   }
 
   return researchPlanZodSchema.parse(toolUse.input);
-}
-
-export async function planCompanyResearch(input: {
-  client: Anthropic;
-  model: string;
-  domain: string;
-  telemetry?: AnthropicTelemetrySink;
-}): Promise<ResearchPlan> {
-  const response: Message = await createTracedAnthropicMessage({
-    client: input.client,
-    label: "research-plan",
-    model: input.model,
-    stage: "research_plan",
-    telemetry: input.telemetry,
-    params: {
-      model: input.model,
-      max_tokens: 1200,
-      temperature: 0,
-      system: [
-        {
-          type: "text",
-          text: researchPlannerSystemPrompt,
-          cache_control: anthropicSystemCacheControl(),
-        },
-      ],
-      messages: [{ role: "user", content: `Domain: ${input.domain}` }],
-      tools: [researchPlanTool],
-      tool_choice: { type: "tool", name: RESEARCH_PLAN_TOOL_NAME },
-    },
-  });
-
-  return parseResearchPlanToolUse(response);
 }

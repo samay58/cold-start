@@ -1,8 +1,7 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { rowsFromExecuteResult, type ColdStartDb } from "../client";
 import {
-  alphaAllowanceLedger,
   alphaAllowances,
   alphaInstallations,
   alphaInvites,
@@ -706,55 +705,6 @@ type AlphaEventBatchSqlResult = {
   acknowledged_event_ids: string[];
 };
 
-export async function getAlphaTesterStatus(db: ColdStartDb, inviteId: string) {
-  const [invite, allowance, installations, requests, ledger] = await Promise.all([
-    findAlphaInviteById(db, inviteId),
-    getAlphaAllowanceSnapshot(db, inviteId),
-    db
-      .select({
-        id: alphaInstallations.id,
-        browser: alphaInstallations.browser,
-        channel: alphaInstallations.channel,
-        extensionVersion: alphaInstallations.extensionVersion,
-        connectedAt: alphaInstallations.connectedAt,
-        lastSeenAt: alphaInstallations.lastSeenAt,
-        revokedAt: alphaInstallations.revokedAt
-      })
-      .from(alphaInstallations)
-      .where(eq(alphaInstallations.inviteId, inviteId))
-      .orderBy(desc(alphaInstallations.lastSeenAt)),
-    db
-      .select({
-        disposition: alphaRunRequests.disposition,
-        outcome: alphaRunRequests.outcome
-      })
-      .from(alphaRunRequests)
-      .where(eq(alphaRunRequests.inviteId, inviteId)),
-    db
-      .select({
-        entryKind: alphaAllowanceLedger.entryKind,
-        allowanceKind: alphaAllowanceLedger.allowanceKind,
-        amount: alphaAllowanceLedger.amount
-      })
-      .from(alphaAllowanceLedger)
-      .where(eq(alphaAllowanceLedger.inviteId, inviteId))
-  ]);
-
-  return {
-    invite,
-    allowance,
-    installations,
-    dispositions: countBy(requests, (row) => row.disposition),
-    outcomes: countBy(requests.filter((row) => row.outcome !== null), (row) => row.outcome as AlphaRunOutcome),
-    ledger: {
-      profile: ledger.filter((entry) => entry.allowanceKind === "profile").reduce((sum, entry) => sum + entry.amount, 0),
-      lens: ledger.filter((entry) => entry.allowanceKind === "lens").reduce((sum, entry) => sum + entry.amount, 0),
-      debits: ledger.filter((entry) => entry.entryKind === "debit").length,
-      refunds: ledger.filter((entry) => entry.entryKind === "refund").length
-    }
-  };
-}
-
 export async function pruneAlphaEvents(
   db: ColdStartDb,
   input: { before: Date; limit?: number }
@@ -932,13 +882,4 @@ function allowanceCounter(limit: number, reserved: number, used: number) {
     used,
     remaining: limit - reserved - used
   };
-}
-
-function countBy<T, K extends string>(values: readonly T[], key: (value: T) => K): Partial<Record<K, number>> {
-  const counts: Partial<Record<K, number>> = {};
-  for (const value of values) {
-    const itemKey = key(value);
-    counts[itemKey] = (counts[itemKey] ?? 0) + 1;
-  }
-  return counts;
 }

@@ -319,12 +319,6 @@ export function emptyResearchSectionForCard(card: ColdStartCard, sectionId: Rese
   };
 }
 
-export function placeholderResearchSectionsForCard(card: ColdStartCard): ResearchSection[] {
-  return RESEARCH_SECTION_DEFINITIONS.map((definition) =>
-    emptyResearchSectionForCard(card, definition.id, definition.visibility === "gated" ? "not_started" : "empty")
-  );
-}
-
 function hasReaderFacingEvidence(card: ColdStartCard, citationIds: string[]) {
   const citations = new Map(card.citations.map((citation) => [citation.id, citation]));
   return citationIds.some((id) => {
