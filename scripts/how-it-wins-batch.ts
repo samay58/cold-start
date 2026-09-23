@@ -98,6 +98,8 @@ export type Flags = {
   parallel: number;
   refinement: boolean;
   scoped: boolean;
+  // A folder of <slug>.json cards (such as the rebuilt remediation cards) read instead of the corpus.
+  cardsDir: string | null;
 };
 
 export function parseFlags(argv: string[]): Flags {
@@ -110,7 +112,8 @@ export function parseFlags(argv: string[]): Flags {
     budgetUsd: DEFAULT_BUDGET_USD,
     parallel: 1,
     refinement: true,
-    scoped: false
+    scoped: false,
+    cardsDir: null
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i] ?? "";
@@ -124,11 +127,13 @@ export function parseFlags(argv: string[]): Flags {
     else if (arg === "--parallel") flags.parallel = Number.parseInt(value(), 10);
     else if (arg === "--no-refinement") flags.refinement = false;
     else if (arg === "--scoped") flags.scoped = true;
+    else if (arg === "--cards-dir") flags.cardsDir = path.resolve(value());
     else if (arg.startsWith("--")) throw new Error(`unknown flag: ${arg}`);
   }
   if (!Number.isFinite(flags.limit) || flags.limit < 1) throw new Error("--limit must be a positive integer");
   if (!Number.isFinite(flags.budgetUsd) || flags.budgetUsd <= 0) throw new Error("--budget-usd must be a positive number");
   if (!Number.isFinite(flags.parallel) || flags.parallel < 1) throw new Error("--parallel must be a positive integer");
+  if (flags.cardsDir && !flags.slugs) throw new Error("--cards-dir needs --slugs");
   return flags;
 }
 
@@ -677,15 +682,21 @@ function cardLine(record: HowItWinsBatchCardRecord): string {
 async function main() {
   loadRootEnv(ROOT);
   const flags = parseFlags(process.argv.slice(2));
-  const index = await loadCorpusIndex();
-
   const cardsBySlug = new Map<string, ColdStartCard>();
   const candidates: BatchCandidate[] = [];
-  for (const row of index) {
-    if (!row.hasSynthesis) continue;
-    const card = await loadCorpusCard(row.slug);
-    cardsBySlug.set(row.slug, card);
-    candidates.push({ slug: row.slug, hasSynthesis: true, thinFileReason: howItWinsThinFileReason(card) });
+  if (flags.cardsDir) {
+    for (const slug of flags.slugs ?? []) {
+      const card = coldStartCardSchema.parse(JSON.parse(await readFile(path.join(flags.cardsDir, `${slug}.json`), "utf8")));
+      cardsBySlug.set(slug, card);
+      candidates.push({ slug, hasSynthesis: Boolean(card.synthesis), thinFileReason: howItWinsThinFileReason(card) });
+    }
+  } else {
+    for (const row of await loadCorpusIndex()) {
+      if (!row.hasSynthesis) continue;
+      const card = await loadCorpusCard(row.slug);
+      cardsBySlug.set(row.slug, card);
+      candidates.push({ slug: row.slug, hasSynthesis: true, thinFileReason: howItWinsThinFileReason(card) });
+    }
   }
 
   const selection = selectBatchSlugs(candidates, { seed: flags.seed, limit: flags.limit, requestedSlugs: flags.slugs });

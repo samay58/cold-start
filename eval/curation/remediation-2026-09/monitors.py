@@ -75,7 +75,8 @@ def absence_lines(card_paths):
 def citation_stubs(card_paths):
     # The same bug seen from the card: snippets that are provider JSON, or missing.
     for path in card_paths:
-        citations = json.load(open(path))["card"].get("citations", [])
+        data = json.load(open(path))
+        citations = data.get("card", data).get("citations", [])  # corpus files wrap the card; rebuilt ones do not
         snippets = [(c.get("snippet") or "").strip() for c in citations]
         stubs = sum(s.startswith("{") for s in snippets)
         empty = sum(not s for s in snippets)

@@ -1,4 +1,5 @@
 import { test } from "node:test";
+import path from "node:path";
 import assert from "node:assert/strict";
 import type { HowItWins, HowItWinsJudgment, HowItWinsStrategyId } from "@cold-start/core";
 import {
@@ -291,4 +292,10 @@ test("a batch leaning on one strategy fails the gate; a spread batch passes", ()
 test("too few reads to judge is not a gate failure", () => {
   assert.equal(strategyGateFailed([]), false);
   assert.equal(strategyGateFailed([runningRead(["chokepoint"]), runningRead(["chokepoint"])]), false);
+});
+
+test("--cards-dir reads named cards from a folder instead of the corpus", () => {
+  assert.equal(parseFlags([]).cardsDir, null);
+  assert.equal(parseFlags(["--slugs", "notion", "--cards-dir", "eval/x"]).cardsDir, path.resolve("eval/x"));
+  assert.throws(() => parseFlags(["--cards-dir", "eval/x"]), /--cards-dir needs --slugs/);
 });

@@ -14,6 +14,10 @@ eval/provider-matrix/runs/
 eval/curation/corpus/
 eval/curation/how-it-wins/
 eval/curation/how-it-wins-batch/
+# Rebuilt cards, sources and raw Exa responses: synthesis and page text. README and monitors stay tracked.
+eval/curation/remediation-2026-09/cards/
+eval/curation/remediation-2026-09/sources/
+eval/curation/remediation-2026-09/raw/
 .env
 .env.local
 .env.*.local

@@ -7,6 +7,10 @@
 // .cold-start/model-inputs/<slug>/ (gitignored: the files carry source page text).
 //
 //   npm run qa:model-inputs -- --slug notion [--out <dir>]
+//   npm run qa:model-inputs -- --slug notion --card <card.json> --sources <sources.json>
+//
+// --card and --sources read a card and its sources from files instead of the database, such as
+// the rebuilt cards `npm run qa:rebuild-snippets` writes.
 //
 // Stages the dump cannot reproduce from stored rows are written with a `gap` note instead:
 // person reads also draw on provider fact candidates that are never stored, and the emphasis
@@ -16,7 +20,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import type Anthropic from "@anthropic-ai/sdk";
-import { emphasisSourceDigests, RESEARCH_SECTION_DEFINITIONS, type ColdStartCard } from "@cold-start/core";
+import { coldStartCardSchema, emphasisSourceDigests, RESEARCH_SECTION_DEFINITIONS, type ColdStartCard } from "@cold-start/core";
 import { createDb, findCardBySlug, findSourcesBySlug } from "@cold-start/db";
 import {
   extractCompanyClaims,
@@ -94,22 +98,40 @@ async function capture(name: string, captured: Captured[], run: () => Promise<un
 function parseArgs(argv: string[]) {
   let slug = "";
   let out = "";
+  let card = "";
+  let sources = "";
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--slug") slug = argv[++i] ?? "";
     else if (argv[i] === "--out") out = argv[++i] ?? "";
+    else if (argv[i] === "--card") card = argv[++i] ?? "";
+    else if (argv[i] === "--sources") sources = argv[++i] ?? "";
   }
-  if (!slug) throw new Error("usage: dump-model-inputs --slug <slug> [--out <dir>]");
-  return { slug, out: out || path.join(ROOT, ".cold-start", "model-inputs", slug) };
+  if (!slug) throw new Error("usage: dump-model-inputs --slug <slug> [--out <dir>] [--card <file> --sources <file>]");
+  if (Boolean(card) !== Boolean(sources)) throw new Error("--card and --sources go together");
+  return { slug, card, sources, out: out || path.join(ROOT, ".cold-start", "model-inputs", slug) };
 }
 
-async function main() {
-  const { slug, out } = parseArgs(process.argv.slice(2));
+type StoredRows = Awaited<ReturnType<typeof findSourcesBySlug>>;
+
+async function loadCardAndSources(args: ReturnType<typeof parseArgs>): Promise<{ card: ColdStartCard | null; stored: StoredRows }> {
+  if (args.card) {
+    const rows = JSON.parse(readFileSync(args.sources, "utf8")) as Array<Omit<StoredRows[number], "id" | "imageUrl">>;
+    return {
+      card: coldStartCardSchema.parse(JSON.parse(readFileSync(args.card, "utf8"))),
+      stored: rows.map((row, index) => ({ ...row, id: `file-${index}`, imageUrl: null }))
+    };
+  }
   loadEnvFile(path.join(ROOT, ".env.production.migrate.local"));
   if (!process.env.DATABASE_URL) loadEnvFile(path.join(ROOT, ".env.local"));
   const db = createDb();
-  const card: ColdStartCard | null = await findCardBySlug(db, slug, { allowStale: true });
+  return { card: await findCardBySlug(db, args.slug, { allowStale: true }), stored: await findSourcesBySlug(db, args.slug) };
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const { slug, out } = args;
+  const { card, stored } = await loadCardAndSources(args);
   if (!card) throw new Error(`no card for ${slug}`);
-  const stored = await findSourcesBySlug(db, slug);
   const sources = stored.map((source) => ({ ...source, sourceType: source.sourceType as never }));
 
   const captured: Captured[] = [];
