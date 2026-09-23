@@ -381,7 +381,7 @@ function InvestorLensControl({
 // control below this card is still the retry action; this only states what happened.
 function LensFailedCard() {
   return (
-    <div aria-label="Lens run failed" className="cs-lens-failed" role="status">
+    <div aria-label="Investor Lens run failed" className="cs-lens-failed" role="status">
       <strong>{LENS_RUN_FAILED_NOTICE}</strong>
       <p>The last run did not produce a read. Retry when ready.</p>
     </div>

@@ -55,7 +55,7 @@ async function openPhase(page: Page, phaseId: LensGalleryPhaseId) {
     await expect(page.locator(".cs-card-tray")).toBeVisible();
   }
   if (phaseId === "read-full") {
-    await expect(page.getByRole("article", { name: "Investor read" })).toBeVisible();
+    await expect(page.getByRole("article", { name: "Investor Lens" })).toBeVisible();
   }
   await page.waitForTimeout(300);
 }

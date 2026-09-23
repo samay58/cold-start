@@ -21,7 +21,7 @@ describe("FirstCompanyGuide", () => {
     expect(html).toContain("Follow the browser.");
     expect(html).toContain("Begin research");
     expect(html).toContain("Cannot see Cold Start?");
-    expect(html).toContain("12 fresh profiles and 6 Lens runs");
+    expect(html).toContain("12 fresh profiles and 6 Investor Lens runs");
     expect(html).toContain("Open Linear");
     expect(html).toContain('aria-current="step"');
   });

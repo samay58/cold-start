@@ -226,7 +226,7 @@ function NextQuestionSection({ question }: { question: NonNullable<ReturnType<ty
 
 function InvestorReadSection() {
   return (
-    <SectionRow label="Investor read">
+    <SectionRow label="Investor Lens">
       <div className="cs-face-investor">
         {INVESTOR_READ_LABELS.map((label) => (
           <div className="cs-face-investor-item" key={label}>

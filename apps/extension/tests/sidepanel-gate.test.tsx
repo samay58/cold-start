@@ -336,7 +336,7 @@ describe("SidePanel generation gate", () => {
     }));
     const { container, unmount } = await renderSidePanel({ domain: "amazon.com", fetchMock });
 
-    expect(container.textContent).toContain("10 profiles · 5 Lens runs left");
+    expect(container.textContent).toContain("10 profiles · 5 Investor Lens runs left");
     expect(container.textContent).toContain("Profiles are public. They never show who requested them.");
     expect(container.querySelector<HTMLButtonElement>(".cs-start-primary")?.disabled).toBe(false);
     await unmount();
@@ -360,7 +360,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "amazon.com", fetchMock });
 
     expect(container.textContent).toContain("New research paused");
-    expect(container.textContent).toContain("Saved profiles and filed Lens results still open");
+    expect(container.textContent).toContain("Saved profiles and filed Investor Lens results still open");
     expect(container.querySelector<HTMLButtonElement>(".cs-start-primary")?.disabled).toBe(true);
     expect(container.textContent).toContain("Research unavailable");
     await unmount();

@@ -27,7 +27,7 @@ export function LensWithheldCard({
     .map((advisory) => advisoryCopy(advisory, nonEnrichmentSourceTypes));
 
   return (
-    <div aria-label="Lens withheld" className="cs-lens-withheld" role="status">
+    <div aria-label="Investor Lens withheld" className="cs-lens-withheld" role="status">
       <strong>{`Analysis ran ${relativeTimeFromNow(withheld.at)}`}</strong>
       {reasonLines.length > 0 ? (
         <ul className="cs-lens-withheld-reasons">

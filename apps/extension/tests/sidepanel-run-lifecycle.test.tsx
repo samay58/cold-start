@@ -477,7 +477,7 @@ describe("SidePanel run lifecycle", () => {
     // beat, since cardWithSynthesis has no marketStructureAndTiming), and resuming the
     // backgrounded analysis run must not refire generation behind it.
     expect(container.textContent).toContain("The company has a supported wedge.");
-    const investorRead = container.querySelector("[aria-label='Investor read']");
+    const investorRead = container.querySelector("[aria-label='Investor Lens']");
     expect(investorRead?.querySelector("[data-role='lede']")?.textContent)
       .toBe("The company has a supported wedge.");
     expect(generateCalls(fetchMock)).toHaveLength(0);

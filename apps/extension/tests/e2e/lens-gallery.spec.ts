@@ -31,7 +31,7 @@ type PhaseCheck = {
 };
 
 async function investorRead(page: Page): Promise<Locator> {
-  const read = page.getByRole("article", { name: "Investor read" });
+  const read = page.getByRole("article", { name: "Investor Lens" });
   await expect(read).toBeVisible();
   return read;
 }
@@ -216,7 +216,7 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
   withheld: {
     heading: "Nettle Systems",
     verify: async (page) => {
-      const withheldCard = page.getByLabel("Lens withheld");
+      const withheldCard = page.getByLabel("Investor Lens withheld");
       await expect(withheldCard).toBeVisible();
       await expect(withheldCard).toContainText("There is not enough public evidence for a useful read yet.");
     }
@@ -250,7 +250,7 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
   failed: {
     heading: "Loom Signal",
     verify: async (page) => {
-      const failedNotice = page.getByLabel("Lens run failed");
+      const failedNotice = page.getByLabel("Investor Lens run failed");
       await expect(failedNotice).toBeVisible();
       await expect(failedNotice).toContainText("Investor Lens run failed.");
     }

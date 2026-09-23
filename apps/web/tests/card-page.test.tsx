@@ -75,12 +75,12 @@ describe("CompanyCardPage", () => {
     expect(html).not.toContain("SYNTHESIS-MARKER-OPEN-QUESTION");
   });
 
-  it("renders the thin fixture's THIN FILE stamp and withholds Investor read", async () => {
+  it("renders the thin fixture's THIN FILE stamp and withholds Investor Lens", async () => {
     mocks.getPublicCachedCardProfile.mockResolvedValue({ card: thinFileCard, sections: [] });
 
     const html = await renderCardPage("hollowlabs-example");
 
     expect(html).toContain("THIN FILE");
-    expect(html).not.toContain("Investor read");
+    expect(html).not.toContain("Investor Lens");
   });
 });

@@ -506,7 +506,7 @@ describe("SidePanel analysis and sections", () => {
 
     // The packet renders on synthesis alone, no card to activate. Timing folded into Why care,
     // so an unsupported trigger and risk simply add nothing: the lede is the thesis, full stop.
-    const investorRead = container.querySelector("[aria-label='Investor read']");
+    const investorRead = container.querySelector("[aria-label='Investor Lens']");
     expect(investorRead?.querySelector("[data-role='lede']")?.textContent)
       .toBe("The company has a supported wedge.");
     expect(investorRead?.querySelector(".cs-lens-timing")).toBeNull();
@@ -544,7 +544,7 @@ describe("SidePanel analysis and sections", () => {
     const fetchMock = vi.fn(async () => jsonResponse(cardWithSynthesis("linear.app")));
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    const questionSection = container.querySelector("[aria-label='Investor read'] [aria-label='What to learn next']");
+    const questionSection = container.querySelector("[aria-label='Investor Lens'] [aria-label='What to learn next']");
     expect(questionSection).toBeTruthy();
     expect(questionSection?.textContent).toContain("Who owns the budget?");
     expect(questionSection?.textContent).toContain("Buyer & budget");

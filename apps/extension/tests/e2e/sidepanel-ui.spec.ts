@@ -185,7 +185,7 @@ test("cached card renders the research layer without old analyze affordances", a
   await expect(page.locator(".cs-dormant-card-index").first()).toHaveText("01");
   await expect(page.locator(".cs-dormant-card-index i")).toHaveCount(0);
   await expect(page.locator(".cs-card-plus")).toHaveCount(0);
-  await expect(page.getByRole("article", { name: "Investor read" })).toContainText(
+  await expect(page.getByRole("article", { name: "Investor Lens" })).toContainText(
     "Browserbase turns browser automation into agent infrastructure"
   );
   await expect(page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" })).toHaveAttribute("target", "_blank");
@@ -221,7 +221,7 @@ for (const reducedMotion of [false, true]) {
     await mockExtensionApi(page, researchPanelPolishCard());
     await openSidePanel(page);
 
-    const packet = page.getByRole("article", { name: "Investor read" });
+    const packet = page.getByRole("article", { name: "Investor Lens" });
     await expect(packet.locator(".cs-investor-read-category")).toHaveCount(4);
     await expect(packet.locator('[data-category="the-case"]')).toContainText(LENS_TENSION_EMPTY_COPY.holds);
     await expect(packet.locator('[data-category="the-case"]')).toContainText(LENS_TENSION_EMPTY_COPY.breaks);
@@ -338,7 +338,7 @@ test("investor read stays bounded and honest with long partial synthesis", async
   await mockExtensionApi(page, card);
   await openSidePanel(page);
 
-  const investorRead = page.getByRole("article", { name: "Investor read" });
+  const investorRead = page.getByRole("article", { name: "Investor Lens" });
   await expect(investorRead).toBeVisible();
   await expect(investorRead).toContainText("Physician burnout from documentation");
 
@@ -404,7 +404,7 @@ test("no long text renders in a collapsed track", async ({ page }) => {
   await mockExtensionApi(page, card);
   await openSidePanel(page);
 
-  const investorRead = page.getByRole("article", { name: "Investor read" });
+  const investorRead = page.getByRole("article", { name: "Investor Lens" });
   await expect(investorRead).toBeVisible();
   // Exercise every row that shattered in the regression: the lede, and both sides of the
   // tension pair (previously commit 827bff8 left an orphaned dot-column grid under all three).
@@ -503,7 +503,7 @@ test("keyboard-reachable controls keep visible focus targets", async ({ page }) 
 
   const controls = [
     page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" }),
-    page.getByRole("article", { name: "Investor read" }).locator(".cs-lens-source").first(),
+    page.getByRole("article", { name: "Investor Lens" }).locator(".cs-lens-source").first(),
     page.locator(".cs-dormant-card", { hasText: "Who pays" }),
     page.locator(".cs-dormant-card", { hasText: "Money" })
   ];
@@ -2384,7 +2384,7 @@ test("the case files extra holds and breaks claims behind inline disclosure, not
   await mockExtensionApi(page, card);
   await openSidePanel(page);
 
-  const investorRead = page.getByRole("article", { name: "Investor read" });
+  const investorRead = page.getByRole("article", { name: "Investor Lens" });
   const theCase = investorRead.locator('[data-category="the-case"]');
   // One row now holds both sides, so it opens once and both disclosures answer inside it.
   await theCase.locator(".cs-investor-read-category-trigger").click();
@@ -2453,7 +2453,7 @@ test("next question files extra ranked questions behind inline disclosure, not a
   await mockExtensionApi(page, card);
   await openSidePanel(page);
 
-  const questionCategory = page.getByRole("article", { name: "Investor read" }).locator('[data-category="learn-next"]');
+  const questionCategory = page.getByRole("article", { name: "Investor Lens" }).locator('[data-category="learn-next"]');
   await questionCategory.getByRole("button").click();
   const question = questionCategory.getByLabel("What to learn next");
   await expect(question).toContainText("What share of managed sessions convert from a free trial");
@@ -2497,7 +2497,7 @@ test("the filed Lens packet supports keyboard travel through categories and nest
   await mockExtensionApi(page, card);
   await openSidePanel(page);
 
-  const read = page.getByRole("article", { name: "Investor read" });
+  const read = page.getByRole("article", { name: "Investor Lens" });
   const whyCare = read.locator('[data-category="why-care"]');
   const theCase = read.locator('[data-category="the-case"]');
   const learnNext = read.locator('[data-category="learn-next"]');
@@ -2578,7 +2578,7 @@ test("the lens footer's own '+N also cited' chip is a hover tooltip, not inline 
   await mockExtensionApi(page, card);
   await openSidePanel(page);
 
-  const investorRead = page.getByRole("article", { name: "Investor read" });
+  const investorRead = page.getByRole("article", { name: "Investor Lens" });
   const footer = investorRead.locator(".cs-lens-footer-sources");
   await expect(footer.locator("a.cs-lens-source")).toHaveCount(4);
   const chip = footer.locator(".cs-lens-source-more");
@@ -2604,7 +2604,7 @@ test("the How it wins crown never moves the plate or covers the sentence", async
   await mockExtensionApi(page, card);
   await openSidePanel(page);
 
-  const plate = page.getByRole("article", { name: "Investor read" });
+  const plate = page.getByRole("article", { name: "Investor Lens" });
   const crown = plate.locator(".cs-how-it-wins");
   const sentence = crown.locator(".cs-how-it-wins-sentence");
   await expect(crown).toBeVisible();

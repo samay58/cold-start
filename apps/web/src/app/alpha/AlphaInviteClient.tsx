@@ -536,7 +536,7 @@ function stateCopy(code: ViewCode, storeUrl: string) {
     generation_disabled: {
       label: "New research paused",
       title: "Your connection is intact",
-      copy: "Existing cards and filed Lens results still open, but new profile and Lens runs are temporarily paused.",
+      copy: "Existing cards and filed Investor Lens results still open, but new profile and Investor Lens runs are temporarily paused.",
       action: "support"
     },
     installation_limit: {
@@ -552,9 +552,9 @@ function stateCopy(code: ViewCode, storeUrl: string) {
       action: "support"
     },
     lens_exhausted: {
-      label: "Lens allowance used",
+      label: "Investor Lens allowance used",
       title: "Your filed work stays available",
-      copy: "You can keep opening profiles and existing Lens results. Ask Samay if you want more fresh Lens runs.",
+      copy: "You can keep opening profiles and existing Investor Lens results. Ask Samay if you want more fresh Investor Lens runs.",
       action: "support"
     },
     offline: {

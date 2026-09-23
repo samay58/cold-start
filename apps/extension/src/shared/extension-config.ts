@@ -553,11 +553,11 @@ export function readableCardError(message: string, apiOrigin: string): string {
   }
 
   if (message === "profile needs cited sources before analysis") {
-    return "Regenerate the profile first. Investor analysis needs sources.";
+    return "Regenerate the profile first. Investor Lens needs sources.";
   }
 
   if (message === "profile needs more structured facts before analysis") {
-    return "Regenerate the profile first. Investor analysis needs more than citations.";
+    return "Regenerate the profile first. Investor Lens needs more than citations.";
   }
 
   if (message === "profile not found") {

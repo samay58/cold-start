@@ -104,13 +104,13 @@ describe("Investor Lens withheld and failed states", () => {
       card: card({ synthesisWithheld: withheldRecord() })
     });
 
-    const withheld = container.querySelector("[aria-label='Lens withheld']");
+    const withheld = container.querySelector("[aria-label='Investor Lens withheld']");
     expect(withheld).not.toBeNull();
     expect(withheld?.textContent).toContain("Analysis ran");
     expect(withheld?.textContent).toContain("There is not enough public evidence for a useful read yet.");
     expect(withheld?.textContent).toContain("A stronger public record may support a useful read.");
     expect(withheld?.textContent).not.toContain("unlock");
-    expect(container.querySelector("[aria-label='Lens run failed']")).toBeNull();
+    expect(container.querySelector("[aria-label='Investor Lens run failed']")).toBeNull();
 
     await unmount();
   });
@@ -127,10 +127,10 @@ describe("Investor Lens withheld and failed states", () => {
       })
     });
 
-    const withheld = container.querySelector("[aria-label='Lens withheld']");
+    const withheld = container.querySelector("[aria-label='Investor Lens withheld']");
     expect(withheld).not.toBeNull();
     expect(withheld?.textContent).toContain("The public evidence did not support a clear investor read.");
-    expect(container.querySelector("[aria-label='Lens run failed']")).toBeNull();
+    expect(container.querySelector("[aria-label='Investor Lens run failed']")).toBeNull();
 
     await unmount();
   });
@@ -142,10 +142,10 @@ describe("Investor Lens withheld and failed states", () => {
       analysisNotice: LENS_RUN_FAILED_NOTICE
     });
 
-    const failed = container.querySelector("[aria-label='Lens run failed']");
+    const failed = container.querySelector("[aria-label='Investor Lens run failed']");
     expect(failed).not.toBeNull();
     expect(failed?.textContent).toContain(LENS_RUN_FAILED_NOTICE);
-    expect(container.querySelector("[aria-label='Lens withheld']")).toBeNull();
+    expect(container.querySelector("[aria-label='Investor Lens withheld']")).toBeNull();
 
     await unmount();
   });
@@ -156,7 +156,7 @@ describe("Investor Lens withheld and failed states", () => {
       analysisNotice: LENS_RUN_FAILED_NOTICE
     });
 
-    expect(container.querySelector("[aria-label='Lens run failed']")).toBeNull();
+    expect(container.querySelector("[aria-label='Investor Lens run failed']")).toBeNull();
     expect(container.querySelector(".cs-research-notice")?.textContent).toContain(LENS_RUN_FAILED_NOTICE);
 
     await unmount();
@@ -169,7 +169,7 @@ describe("Investor Lens withheld and failed states", () => {
       onRunAnalysis
     });
 
-    const retryButton = container.querySelector<HTMLButtonElement>("[aria-label='Lens withheld'] button");
+    const retryButton = container.querySelector<HTMLButtonElement>("[aria-label='Investor Lens withheld'] button");
     expect(retryButton).not.toBeNull();
 
     await act(async () => {
@@ -190,7 +190,7 @@ describe("Investor Lens withheld and failed states", () => {
       onRunAnalysis: () => true
     });
 
-    const retryButton = container.querySelector<HTMLButtonElement>("[aria-label='Lens withheld'] button");
+    const retryButton = container.querySelector<HTMLButtonElement>("[aria-label='Investor Lens withheld'] button");
     expect(retryButton?.disabled).toBe(false);
     expect(retryButton?.textContent).toBe("Check for new evidence");
 
@@ -210,7 +210,7 @@ describe("Investor Lens withheld and failed states", () => {
       onRunAnalysis: () => false
     });
 
-    const retryButton = container.querySelector<HTMLButtonElement>("[aria-label='Lens withheld'] button");
+    const retryButton = container.querySelector<HTMLButtonElement>("[aria-label='Investor Lens withheld'] button");
     await act(async () => {
       retryButton?.click();
     });
@@ -227,7 +227,7 @@ describe("Investor Lens withheld and failed states", () => {
       lensUnavailableReason: "This invitation has used its fresh Investor Lens runs."
     });
 
-    const withheld = container.querySelector("[aria-label='Lens withheld']");
+    const withheld = container.querySelector("[aria-label='Investor Lens withheld']");
     const retryButton = withheld?.querySelector<HTMLButtonElement>("button");
     expect(withheld?.textContent).toContain("This invitation has used its fresh Investor Lens runs.");
     expect(retryButton?.disabled).toBe(true);
@@ -242,8 +242,8 @@ describe("Investor Lens withheld and failed states", () => {
     });
 
     expect(container.querySelector(".cs-investor-read")).not.toBeNull();
-    expect(container.querySelector("[aria-label='Lens withheld']")).toBeNull();
-    expect(container.querySelector("[aria-label='Lens run failed']")).toBeNull();
+    expect(container.querySelector("[aria-label='Investor Lens withheld']")).toBeNull();
+    expect(container.querySelector("[aria-label='Investor Lens run failed']")).toBeNull();
 
     await unmount();
   });

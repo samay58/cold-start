@@ -684,7 +684,7 @@ describe("LensSlot", () => {
       running: <div aria-label="Investor Lens running">Running receipt</div>,
       state,
       trigger: <div aria-label="Lens trigger">Run Investor Lens</div>,
-      withheld: <div aria-label="Lens withheld">Withheld receipt</div>
+      withheld: <div aria-label="Investor Lens withheld">Withheld receipt</div>
     };
   }
 
@@ -692,12 +692,12 @@ describe("LensSlot", () => {
     const { container, rerender, unmount } = await renderSlot(slotProps("running"));
 
     expect(container.querySelector('[aria-label="Investor Lens running"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="Investor read"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Investor Lens"]')).toBeNull();
 
     await rerender(slotProps("result"));
 
     expect(container.querySelector('[aria-label="Investor Lens running"]')).toBeNull();
-    expect(container.querySelector('[aria-label="Investor read"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Investor Lens"]')).not.toBeNull();
 
     // The staged entrance must not gate interactivity: the disclosure toggle is clickable the
     // instant the result card mounts, not after its stagger settles.
@@ -720,12 +720,12 @@ describe("LensSlot", () => {
   it("(h) crossfades the withheld card out and the trigger control in on retry, leaving no orphaned withheld node", async () => {
     const { container, rerender, unmount } = await renderSlot(slotProps("withheld"));
 
-    expect(container.querySelector('[aria-label="Lens withheld"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Investor Lens withheld"]')).not.toBeNull();
     expect(container.querySelector('[aria-label="Lens trigger"]')).toBeNull();
 
     await rerender(slotProps("trigger"));
 
-    expect(container.querySelector('[aria-label="Lens withheld"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Investor Lens withheld"]')).toBeNull();
     expect(container.querySelector('[aria-label="Lens trigger"]')).not.toBeNull();
 
     await unmount();

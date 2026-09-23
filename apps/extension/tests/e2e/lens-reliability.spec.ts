@@ -279,7 +279,7 @@ test("a cached synthesis response files the memo without a polling detour", asyn
   await openSidePanel(page);
 
   await page.getByRole("button", { name: "Run Investor Lens" }).click();
-  await expect(page.getByRole("article", { name: "Investor read" })).toBeVisible();
+  await expect(page.getByRole("article", { name: "Investor Lens" })).toBeVisible();
   await expect(page.getByLabel("Investor Lens running")).toHaveCount(0);
   expect(postCount).toBe(1);
 });
@@ -322,7 +322,7 @@ for (const reducedMotion of [false, true]) {
     await installEntranceSampler(page);
 
     await page.getByRole("button", { name: "Run Investor Lens" }).click();
-    await expect(page.getByRole("article", { name: "Investor read" })).toBeVisible();
+    await expect(page.getByRole("article", { name: "Investor Lens" })).toBeVisible();
     await page.waitForTimeout(850);
 
     const samples = await entranceSamples(page);
@@ -621,10 +621,10 @@ test("a watchdog-retired silent run recovers to retry and can file a cached resu
   await openSidePanel(page);
 
   await expect.poll(() => failedStatusReads).toBeGreaterThan(0);
-  await expect(page.getByLabel("Lens run failed")).toBeVisible();
+  await expect(page.getByLabel("Investor Lens run failed")).toBeVisible();
   const retry = page.getByRole("button", { name: "Run Investor Lens" });
   await expect(retry).toBeEnabled();
   await retry.click();
-  await expect(page.getByRole("article", { name: "Investor read" })).toBeVisible();
+  await expect(page.getByRole("article", { name: "Investor Lens" })).toBeVisible();
   expect(retried).toBe(true);
 });

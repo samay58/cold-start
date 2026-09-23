@@ -127,7 +127,7 @@ export function FirstCompanyGuide({
       <p className={styles.guideTip}>Cannot see Cold Start? Open your browser&apos;s Extensions menu and pin it.</p>
       {profileRemaining !== undefined && lensRemaining !== undefined ? (
         <p className={styles.guideAllowance}>
-          Your invitation has {profileRemaining} fresh profiles and {lensRemaining} Lens runs. Opening filed work is free.
+          Your invitation has {profileRemaining} fresh profiles and {lensRemaining} Investor Lens runs. Opening filed work is free.
         </p>
       ) : null}
       <a className={styles.primaryAction} href="https://linear.app" rel="noreferrer" target="_blank">

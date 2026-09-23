@@ -113,16 +113,18 @@ describe("CardFace", () => {
     expect(html).toContain('id="headcount-conflict"');
     expect(html).toContain(">Signals<");
     expect(html).toContain("company claim, not independently confirmed");
+    expect(html).toContain(">Investor Lens<");
+    expect(html).not.toContain("Investor read");
     expect(html).toContain(
       "Filled in the side panel for invited readers. This card carries sourced facts only."
     );
   });
 
-  it("shows the Money empty state and withholds Investor read on a thin file", () => {
+  it("shows the Money empty state and withholds Investor Lens on a thin file", () => {
     const html = renderFace(thinFileCard);
 
     expect(html).toContain("No public funding found.");
-    expect(html).not.toContain("Investor read");
+    expect(html).not.toContain("Investor Lens");
   });
 
   it("shows the Comps empty state on a card with no comparables but a vetted citation", () => {

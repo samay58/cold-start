@@ -122,8 +122,8 @@ function AlphaPosture({ access }: { access: AlphaAccessState }) {
         <strong>{generationPaused ? "New research paused" : "Research allowance"}</strong>
         <p>
           {generationPaused
-            ? "Saved profiles and filed Lens results still open."
-            : `${access.profile?.remaining ?? "Current"} profiles · ${access.lens?.remaining ?? "Current"} Lens runs left`}
+            ? "Saved profiles and filed Investor Lens results still open."
+            : `${access.profile?.remaining ?? "Current"} profiles · ${access.lens?.remaining ?? "Current"} Investor Lens runs left`}
         </p>
         <small>Profiles are public. They never show who requested them.</small>
       </div>
@@ -260,7 +260,7 @@ export function CompanyArc({
     profile && !profile.profileRun && !profile.analysisRun && !profile.activeSectionRun && !profile.contactRun
   );
   const lensUnavailableReason = alphaAccess?.generationEnabled === false
-    ? "New research is temporarily paused. Filed Lens results still open."
+    ? "New research is temporarily paused. Filed Investor Lens results still open."
     : alphaAccess?.lens?.remaining === 0
       ? "This invitation has used its fresh Investor Lens runs."
       : undefined;

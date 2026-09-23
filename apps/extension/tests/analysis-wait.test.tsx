@@ -369,7 +369,7 @@ describe("Investor Lens wait-to-read hand-off (exit-state rule)", () => {
     });
 
     expect(container.querySelector(".cs-wait")).not.toBeNull();
-    expect(container.querySelector("[aria-label='Investor read']")).toBeNull();
+    expect(container.querySelector("[aria-label='Investor Lens']")).toBeNull();
 
     // The run resolved: analysisRun clears and the fetched card now carries synthesis, matching
     // exactly what runAnalysisGenerationWithController / resumeAnalysisWithController hand off in
@@ -377,7 +377,7 @@ describe("Investor Lens wait-to-read hand-off (exit-state rule)", () => {
     await rerender({ card: filedCard, events: [] });
 
     expect(container.querySelector(".cs-wait")).toBeNull();
-    expect(container.querySelector("[aria-label='Investor read']")).not.toBeNull();
+    expect(container.querySelector("[aria-label='Investor Lens']")).not.toBeNull();
     await unmount();
   });
 });

@@ -90,7 +90,7 @@ test("built MV3 extension boots and renders a cached card", async () => {
 
     await page.reload();
     await expect(page.getByRole("heading", { name: "Browserbase" })).toBeVisible();
-    await expect(page.getByText("10 profiles · 5 Lens runs left")).toBeVisible();
+    await expect(page.getByText("10 profiles · 5 Investor Lens runs left")).toBeVisible();
     await expect(page.getByLabel("Research layer")).toBeVisible();
     await expect(page.getByLabel("Research card stack")).toBeVisible();
     await expect(page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" })).toBeVisible();

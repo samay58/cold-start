@@ -507,7 +507,7 @@ export function InvestorReadCard({
   }
 
   return (
-    <article className="cs-investor-read" aria-label="Investor read">
+    <article className="cs-investor-read" aria-label="Investor Lens">
       {howItWins.state === "not_read" ? null : (
         <HowItWinsEdge display={howItWins} prefersReducedMotion={prefersReducedMotion} />
       )}
