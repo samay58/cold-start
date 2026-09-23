@@ -65,17 +65,6 @@ a {
   min-height: 100vh;
 }
 
-.cs-loading-body h1 {
-  margin: 0;
-  color: var(--color-ink);
-  font-family: var(--font-display);
-  font-size: clamp(56px, 8vw, 104px);
-  font-weight: 780;
-  letter-spacing: -0.06em;
-  line-height: 0.93;
-  overflow-wrap: anywhere;
-}
-
 .cs-loading-plate {
   width: min(940px, 100%);
   margin: 32px auto 0;
@@ -105,8 +94,7 @@ a {
   font-weight: 700;
 }
 
-.cs-home-mark,
-.cs-home-hero-mark {
+.cs-home-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -116,100 +104,14 @@ a {
   color: var(--color-ink);
   font-family: var(--font-text);
   font-weight: 700;
-}
-
-.cs-home-mark {
   width: 24px;
   height: 18px;
   font-size: 11px;
 }
 
-.cs-home-hero-mark {
-  width: 42px;
-  height: 32px;
-  font-size: 16px;
-}
-
-.cs-loading-body {
-  display: grid;
-  gap: 20px;
-  padding: 30px 0 4px;
-}
-
-.cs-home-kicker {
-  margin: 0 0 6px;
-  color: var(--color-muted);
-  font-family: var(--font-text);
-  font-size: 11px;
-}
-
-.cs-loading-shimmer {
-  display: inline-block;
-  width: fit-content;
-}
-
-/* A quiet seal glint passes through the loading title. Under reduced motion the
-   class stays a plain ink title (no sweep), which is a real state, not a freeze. */
-@media (prefers-reduced-motion: no-preference) {
-  .cs-loading-shimmer {
-    background: linear-gradient(
-      90deg,
-      var(--color-ink) 0%,
-      var(--color-ink) 42%,
-      rgb(var(--color-seal-rgb) / 0.55) 50%,
-      var(--color-ink) 58%,
-      var(--color-ink) 100%
-    );
-    background-size: 240% 100%;
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: cs-loading-shimmer-sweep 2.4s ease-in-out infinite;
-  }
-}
-
-@keyframes cs-loading-shimmer-sweep {
-  0% {
-    background-position: 120% 0;
-  }
-
-  100% {
-    background-position: -120% 0;
-  }
-}
-
-.cs-loading-stages {
-  display: grid;
-  gap: 0;
-  width: min(520px, 100%);
-  border-top: 1px solid var(--color-rule);
-}
-
-.cs-loading-stages p {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  gap: 10px;
+.cs-loading-line {
   margin: 0;
-  padding: 9px 0;
-  border-bottom: 1px solid var(--color-rule);
+  padding: 30px 0 4px;
   color: var(--color-ink);
-  font-size: 13px;
-}
-
-.cs-loading-stages span {
-  color: var(--color-company);
-  font-family: var(--font-text);
-  font-size: 11px;
-}
-
-.cs-loading-body h1 {
-  text-wrap: balance;
-}
-
-@media (max-width: 620px) {
-  .cs-loading-body h1 {
-    font-size: 44px;
-    letter-spacing: -0.05em;
-    line-height: 0.98;
-  }
+  font-size: 15px;
 }
