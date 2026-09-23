@@ -56,12 +56,16 @@ export function buildPersonReadEvidence(input: {
 
   return uniquePeople(input.people).map((person) => {
     const evidence: PersonReadEvidence["evidence"] = [];
+    // A cited page can arrive as its snippet, a provider fact and its stored row; send it once.
+    const add = (item: PersonReadEvidence["evidence"][number]) => {
+      if (!evidence.some((existing) => existing.citationId === item.citationId)) evidence.push(item);
+    };
 
     for (const citation of input.citations) {
       if (evidence.length >= maxEvidence) break;
       const text = textAboutPerson(citation.snippet ?? "", person.name);
       if (!text) continue;
-      evidence.push({ citationId: citation.id, title: citation.title, url: citation.url, text });
+      add({ citationId: citation.id, title: citation.title, url: citation.url, text });
     }
 
     for (const candidate of input.candidates) {
@@ -70,7 +74,7 @@ export function buildPersonReadEvidence(input: {
       if (!text) continue;
       const citationId = citationIdForUrl(input.citations, candidate.citationUrl);
       if (!citationId) continue;
-      evidence.push({ citationId, title: candidate.citationTitle, url: candidate.citationUrl, text });
+      add({ citationId, title: candidate.citationTitle, url: candidate.citationUrl, text });
     }
 
     for (const source of input.sources) {
@@ -79,7 +83,7 @@ export function buildPersonReadEvidence(input: {
       if (!text) continue;
       const citationId = citationIdForUrl(input.citations, source.url);
       if (!citationId) continue;
-      evidence.push({ citationId, title: source.title, url: source.url, text });
+      add({ citationId, title: source.title, url: source.url, text });
     }
 
     return {

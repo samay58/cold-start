@@ -78,6 +78,17 @@ describe("buildPersonReadEvidence", () => {
     expect(ivan?.evidence[0]?.text).toBe("Ivan Zhao, CEO Akshay Kothari, COO");
   });
 
+  it("sends each cited source once per person, even when its snippet and stored text both name them", () => {
+    const [katy] = buildPersonReadEvidence({
+      people: [person({ name: "Katy Shields", role: "Chief People Officer" })],
+      citations: [{ id: "e1", title: "Katy Shields", url: "https://linkedin.com/in/katyshields", snippet: "Katy Shields is Chief People Officer at Notion." }],
+      candidates: [],
+      sources: [{ url: "https://linkedin.com/in/katyshields", title: "Katy Shields", rawText: "Katy Shields is Chief People Officer at Notion." }]
+    });
+
+    expect(katy?.evidence.map((item) => item.citationId)).toEqual(["e1"]);
+  });
+
   it("reads a person listed as both founder and executive once", () => {
     const evidence = buildPersonReadEvidence({
       people: [person({ name: "Ivan Zhao", role: "Co-founder" }), person({ name: " ivan zhao ", role: "CEO" })],
