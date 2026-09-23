@@ -489,7 +489,7 @@ test("retry is one pending request and stays usable in a narrow reduced-motion p
     button?.click();
     button?.click();
   });
-  await expect(page.getByRole("button", { name: "Starting..." })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Starting" })).toBeDisabled();
   await expect.poll(() => retryPosts).toBe(1);
   const statusBox = page.locator(".cs-how-it-wins-status");
   await statusBox.scrollIntoViewIfNeeded();
@@ -497,7 +497,7 @@ test("retry is one pending request and stays usable in a narrow reduced-motion p
   expect(await statusBox.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
 
   releaseRetry?.();
-  await expect(page.getByText("Reading how it wins...")).toBeVisible();
+  await expect(page.getByText("Reading how it wins")).toBeVisible();
   expect(retryPosts).toBe(1);
 });
 

@@ -97,7 +97,8 @@ describe("SidePanel How it wins recovery", () => {
     expect(retryCalls).toHaveLength(1);
     expect(JSON.parse(String(retryCalls[0]?.[1]?.body))).toMatchObject({ jobId: failedJob().id });
     expect(generateCalls(fetchMock)).toHaveLength(0);
-    expect(container.textContent).toContain("Reading how it wins...");
+    expect(container.textContent).toContain("Reading how it wins");
+    expect(container.textContent).not.toContain("Reading how it wins...");
     await unmount();
   });
 

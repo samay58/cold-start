@@ -15,7 +15,7 @@ import {
   type LensTensionClaim
 } from "./investor-lens";
 import { useHowItWinsJob, type HowItWinsJobView } from "./how-it-wins-reading";
-import { EMPHASIS_EMPTY_COPY, EMPHASIS_LABELS, LENS_CASE_LABEL, LENS_TENSION_EMPTY_COPY } from "./investor-read-copy";
+import { EMPHASIS_EMPTY_COPY, EMPHASIS_LABELS, HOW_IT_WINS_COPY, LENS_CASE_LABEL, LENS_TENSION_EMPTY_COPY } from "./investor-read-copy";
 import { HowItWinsEdge } from "./HowItWinsEdge";
 import { advisoryCopy, isSynthesisAdvisory } from "./synthesis-advisory-copy";
 import { commitSpring, motionTokens } from "../shared/motion-primitives";
@@ -441,7 +441,7 @@ function HowItWinsJobNotice({
   let message: string;
   let action: "check" | "retry" | null = null;
   if (view.phase === "reading") {
-    message = "Reading how it wins...";
+    message = HOW_IT_WINS_COPY.reading;
   } else if (view.phase === "failed") {
     message = hasSavedRead ? "The update couldn't finish." : "How it wins couldn't finish.";
     action = view.job?.canRetry ? "retry" : null;
@@ -466,7 +466,7 @@ function HowItWinsJobNotice({
           onClick={action === "retry" ? view.retry : view.checkAgain}
           type="button"
         >
-          {view.actionPending ? "Starting..." : action === "retry" ? "Try again" : "Check again"}
+          {view.actionPending ? "Starting" : action === "retry" ? "Try again" : "Check again"}
         </button>
       ) : null}
     </div>
