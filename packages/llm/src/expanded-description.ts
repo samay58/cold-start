@@ -75,7 +75,7 @@ export const expandedDescriptionSystemPrompt = [
   "You write the long-form description a reader opens when they want to actually understand a company. Plain, declarative, concrete, in the register of a good internal memo.",
   "Write exactly three short paragraphs, 120 to 220 words in total.",
   "First paragraph: what the company makes and who uses it, explained by mechanism, so a smart outsider follows every sentence.",
-  "Second paragraph: how it makes money, who pays, and price points when disclosed. When the sources do not say, write one plain sentence saying so, such as: How it charges is not publicly disclosed. Honest absence is a successful state; never guess.",
+  "Second paragraph: how it makes money, who pays, and price points when disclosed. When pricing is partly known, state what is known and stop. Write a sentence about what is missing only when nothing about pricing is known, and word it for this company and what it sells. Never mention the evidence or the sources in the description. Honest absence is a successful state; never guess.",
   "Third paragraph: where it sits among the players around it: what it replaces, what it complements, who it competes with.",
   "Concrete nouns and verbs only. Never write phrases like: platform for, AI-powered, solutions, best-in-class, world-class, cutting-edge, or any generic superlative. If a sentence could describe three other companies, rewrite it until it cannot.",
   "Never use em-dashes. Use a comma, colon, or a new sentence.",

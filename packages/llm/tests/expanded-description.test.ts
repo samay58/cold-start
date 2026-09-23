@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   expandedDescriptionCorrection,
+  expandedDescriptionSystemPrompt,
   synthesizeExpandedDescription,
   validateExpandedDescriptionDraft
 } from "../src/expanded-description";
@@ -155,5 +156,13 @@ describe("synthesizeExpandedDescription retry", () => {
 
     expect(create).toHaveBeenCalledTimes(1);
     expect(result.suppressionReason).toBe("no_draft");
+  });
+});
+
+describe("expandedDescriptionSystemPrompt", () => {
+  it("keeps honest absence without handing the model a stock absence line", () => {
+    expect(expandedDescriptionSystemPrompt).not.toContain("How it charges is not publicly disclosed");
+    expect(expandedDescriptionSystemPrompt).toContain("When pricing is partly known, state what is known and stop.");
+    expect(expandedDescriptionSystemPrompt).toContain("Honest absence is a successful state; never guess.");
   });
 });
