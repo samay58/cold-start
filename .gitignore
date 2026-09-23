@@ -47,3 +47,7 @@ docs/product/design/**/prompt-test/out-*
 
 # Local design studies contain private synthesis and bundled licensed fonts.
 docs/design/mockups/quiet-monochrome-study/
+
+# Local Claude Code state: agent worktrees and per-machine settings.
+.claude/worktrees/
+.claude/settings.local.json

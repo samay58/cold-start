@@ -234,7 +234,7 @@ Read these files when validating or changing intent-critical behavior:
 - Public/gated API split: `apps/web/src/app/api/cards/[slug]/route.ts`, `apps/web/src/app/api/extension/cards/[slug]/route.ts`, `apps/web/src/lib/extension-auth.ts`.
 - Generation queue: `apps/web/src/app/api/generate/route.ts`, `apps/web/src/inngest/functions.ts`.
 - Persistence: `packages/db/src/schema.ts`, `packages/db/src/repositories/`.
-- UI surfaces: `packages/ui/src/CardShell.tsx`, `packages/ui/src/SynthesisSection.tsx`, `packages/ui/src/SourceDrawer.tsx`, `apps/extension/src/sidepanel.tsx`.
+- UI surfaces: `apps/web/src/components/card/CardFace.tsx` and `SourcesRail.tsx` for the public card, `apps/extension/src/research/InvestorReadCard.tsx` for the gated synthesis, `apps/extension/src/sidepanel.tsx` for the side panel.
 
 ## Questions For Samay
 
