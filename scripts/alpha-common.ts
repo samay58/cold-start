@@ -29,6 +29,7 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
 
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
+    if (argument === undefined) continue;
     if (!argument.startsWith("--")) {
       positionals.push(argument);
       continue;
@@ -222,9 +223,9 @@ export function runCli(moduleUrl: string, main: () => Promise<void>): void {
 export function loadEnvFile(path: string): void {
   if (!existsSync(path)) return;
   for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
-    const match = line.match(/^([A-Z0-9_]+)\s*=\s*(.*)$/);
-    if (!match || process.env[match[1]]) continue;
-    process.env[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, "");
+    const [, key, value] = line.match(/^([A-Z0-9_]+)\s*=\s*(.*)$/) ?? [];
+    if (key === undefined || value === undefined || process.env[key]) continue;
+    process.env[key] = value.trim().replace(/^['"]|['"]$/g, "");
   }
 }
 

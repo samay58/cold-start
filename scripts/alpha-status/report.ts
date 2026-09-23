@@ -43,6 +43,7 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
 
   const testers = [...inviteGroups.entries()].map(([inviteId, rows]) => {
     const base = rows[0];
+    if (!base) throw new Error(`invite ${inviteId} has no rows`);
     const activeInstallations = rows
       .filter((row) => row.installation_id && !row.installation_revoked_at)
       .sort((left, right) => dateNumber(right.last_seen_at) - dateNumber(left.last_seen_at));
