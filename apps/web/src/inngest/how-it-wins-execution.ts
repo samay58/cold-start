@@ -10,7 +10,7 @@ import {
   type ColdStartDb, type HowItWinsCallAttempt, type StoredHowItWinsJob
 } from "@cold-start/db";
 import {
-  ANTHROPIC_CACHE_RATE_MULTIPLIERS, hashHowItWinsJudgeValue, OpenAiCompatHttpError, HowItWinsWriterOutputError,
+  ANTHROPIC_CACHE_RATE_MULTIPLIERS, hashHowItWinsJudgeValue, OpenAiCompatHttpError, OpenAiCompatTruncatedError, HowItWinsWriterOutputError,
   HowItWinsEmptyTextError, isSupportedZodError, parseModelString, pricingFor,
   type HowItWinsJudgeExecuteCall, type HowItWinsJudgeValidationSink,
   type HowItWinsJudgeAdapterResult, type HowItWinsOutputDiagnostic, type HowItWinsMessageExecutor,
@@ -78,7 +78,10 @@ function validationIssues(stage: string, diagnostics: readonly HowItWinsOutputDi
 
 export function howItWinsFailureReason(error: unknown): HowItWinsJobReasonCode {
   if (error instanceof HowItWinsExecutionError) return error.reasonCode;
-  if (error instanceof HowItWinsWriterOutputError || error instanceof HowItWinsEmptyTextError || isSupportedZodError(error) || error instanceof SyntaxError) return "structured_output";
+  // A reply cut off at max_tokens is an answer that came back incomplete. It files under
+  // structured_output rather than a new code because older extension builds check this list strictly.
+  if (error instanceof HowItWinsWriterOutputError || error instanceof HowItWinsEmptyTextError || isSupportedZodError(error) ||
+      error instanceof SyntaxError || error instanceof OpenAiCompatTruncatedError) return "structured_output";
   if (error instanceof Anthropic.APIUserAbortError ||
       (error instanceof DOMException && (error.name === "AbortError" || error.name === "TimeoutError"))) return "deadline_expired";
   if (error instanceof Anthropic.APIError || error instanceof OpenAiCompatHttpError) {

@@ -4,7 +4,7 @@ import type {
   HowItWinsJudgeAdapterResult,
   HowItWinsJudgeCallRequest
 } from "@cold-start/llm";
-import { OpenAiCompatHttpError } from "@cold-start/llm";
+import { OpenAiCompatHttpError, OpenAiCompatTruncatedError } from "@cold-start/llm";
 
 const mocks = vi.hoisted(() => ({
   annotateHowItWinsCallValidation: vi.fn(),
@@ -25,6 +25,7 @@ vi.mock("@cold-start/db", async (importOriginal) => ({
 import {
   createHowItWinsExecution,
   howItWinsCallReservation,
+  howItWinsFailureReason,
   howItWinsModelRates,
   howItWinsRequestDeadline,
   HowItWinsExecutionError
@@ -376,6 +377,13 @@ describe("How it wins durable paid-call execution", () => {
         validationOutcome: "not_run"
       }
     }));
+  });
+});
+
+describe("How it wins failure reasons", () => {
+  it("files a reply cut off at max_tokens as incomplete output, not an internal storage fault", () => {
+    expect(howItWinsFailureReason(new OpenAiCompatTruncatedError())).toBe("structured_output");
+    expect(howItWinsFailureReason(new Error("anything else"))).toBe("internal_storage");
   });
 });
 
