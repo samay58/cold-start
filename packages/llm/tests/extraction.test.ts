@@ -512,6 +512,29 @@ describe("evidenceForExtractionPrompt", () => {
     expect(evidence.sources[0]?.url).toBe("https://source.example/0");
   });
 
+  it("sends each source once, as page text, and ledger entries without their stored text", () => {
+    const record = JSON.stringify({ id: "https://notion.com/", title: "Notion", url: "https://notion.com/", text: "Notion is a connected workspace." });
+    const evidence = evidenceForExtractionPrompt({
+      domain: "notion.so",
+      sources: [{ url: "https://notion.com/", title: "Notion", sourceType: "company_site", rawText: record }],
+      evidenceLedger: [
+        {
+          id: "e1",
+          url: "https://notion.com/",
+          title: "Notion",
+          sourceType: "company_site",
+          intents: [],
+          authorityScore: 9,
+          supportingSnippets: ["Notion is a connected workspace."],
+          rawText: record,
+        } as NonNullable<Parameters<typeof evidenceForExtractionPrompt>[0]["evidenceLedger"]>[number],
+      ],
+    });
+
+    expect(evidence.sources[0]?.rawText).toBe("Notion is a connected workspace.");
+    expect(evidence.evidenceLedger?.[0]).not.toHaveProperty("rawText");
+  });
+
   it("prioritizes high-trust evidence before lower-yield enrichment text", () => {
     const evidence = evidenceForExtractionPrompt({
       domain: "modal.com",

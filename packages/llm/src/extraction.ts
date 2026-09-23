@@ -12,6 +12,7 @@ import {
   firstDescriptionSentence,
   isWeakDescriptionLabel,
   normalizeExactInteger as normalizeExtractionInteger,
+  readableSourceText,
   safePublicImageUrl,
   safeWebUrl,
   signalCategorySchema,
@@ -267,9 +268,10 @@ export function evidenceForExtractionPrompt(
   const sourceLimit = isBlock ? maxBlockPromptSources : maxPromptSources;
   const sourceTextLimit = isBlock ? maxBlockPromptSourceTextLength : maxPromptSourceTextLength;
 
-  const evidenceLedger = evidence.evidenceLedger?.slice(0, ledgerLimit).map((entry) => ({
-    ...entry,
-    supportingSnippets: entry.supportingSnippets.map((snippet) => compactEvidenceText(snippet, maxPromptSnippetLength)),
+  // Named fields only: pipeline ledger entries also carry full stored text, which the budgeted sources send.
+  const evidenceLedger = evidence.evidenceLedger?.slice(0, ledgerLimit).map(({ id, url, title, sourceType, intents, authorityScore, supportingSnippets }) => ({
+    id, url, title, sourceType, intents, authorityScore,
+    supportingSnippets: supportingSnippets.map((snippet) => compactEvidenceText(snippet, maxPromptSnippetLength)),
   }));
   const priorityUrls = new Set(evidenceLedger?.map((entry) => entry.url) ?? []);
   const sourcePool =
@@ -284,7 +286,7 @@ export function evidenceForExtractionPrompt(
       itemLimit: sourceLimit,
       textLimit: sourceTextLimit,
       budgetChars: extractionEvidenceBudgetChars,
-      getText: (source) => source.rawText,
+      getText: (source) => readableSourceText(source.rawText, source.title),
       withText: (source, rawText) => ({ ...source, rawText }),
     }),
   };
