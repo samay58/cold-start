@@ -15,7 +15,7 @@ type Transport = SemanticHowItWinsJudgment & { betRevision?: unknown };
 
 // Past this many missing rows the patch saves little over a full re-ask, and a judgment that
 // short is more likely wrong in other ways too.
-export const HOW_IT_WINS_PATCH_MAX_MISSING_ROWS = 40;
+const HOW_IT_WINS_PATCH_MAX_MISSING_ROWS = 40;
 
 export const HOW_IT_WINS_PATCH_CALL_SUFFIX = "patch";
 
