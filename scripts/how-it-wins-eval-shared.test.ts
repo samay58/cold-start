@@ -11,6 +11,7 @@ import {
   compactCalls,
   hashBenchmarkValue,
   judgmentCacheFileName,
+  judgmentCacheFileNameForModel,
   loadRootEnv,
   seededBenchmarkOrder,
   usageFromCalls
@@ -57,6 +58,13 @@ test("the cache file name changes when any one of the three hashes changes", () 
   assert.notEqual(judgmentCacheFileName("a2", "b", "c"), base);
   assert.notEqual(judgmentCacheFileName("a", "b2", "c"), base);
   assert.notEqual(judgmentCacheFileName("a", "b", "c2"), base);
+});
+
+test("a saved judgment keeps its Opus 5 name and any other judge model gets its own file", () => {
+  const base = judgmentCacheFileName("a", "b", "c");
+  assert.equal(judgmentCacheFileNameForModel(base, "claude-opus-5"), base);
+  assert.equal(judgmentCacheFileNameForModel(base, "claude-opus-5-5"), "a.b.c.claude-opus-5-5.json");
+  assert.equal(judgmentCacheFileNameForModel(base, "deepseek/deepseek-v4-pro"), "a.b.c.deepseek_deepseek-v4-pro.json");
 });
 
 // ---- usage ---------------------------------------------------------------------------------------

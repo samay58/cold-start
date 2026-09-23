@@ -170,17 +170,27 @@ export function judgmentCacheFileName(evidencePacketHash: string, promptHash: st
   return `${evidencePacketHash}.${promptHash}.${vocabularyHash}.json`;
 }
 
+// Every verdict filed before September 22, 2026 was judged by Opus 5 and keeps its name. Any
+// other judge model gets its own file, so one model's verdict never replays for another.
+const CACHE_BASE_JUDGE_MODEL = "claude-opus-5";
+
 export function judgmentCacheKeyForCard(
   card: ColdStartCard,
   rules: ReturnType<typeof loadHowItWinsJudgeRules>,
   refinement: boolean,
-  screenIdentity?: string
+  screenIdentity?: string,
+  judgeModel: string = CACHE_BASE_JUDGE_MODEL
 ): string {
   const packet = howItWinsEvidencePacketFromCard(card);
   const evidencePacketHash = hashBenchmarkValue(packet);
   const promptHash = howItWinsJudgePromptHash(rules, { refinement, screenIdentity });
   const vocabularyHash = hashBenchmarkValue(HOW_IT_WINS_STRATEGIES);
-  return judgmentCacheFileName(evidencePacketHash, promptHash, vocabularyHash);
+  return judgmentCacheFileNameForModel(judgmentCacheFileName(evidencePacketHash, promptHash, vocabularyHash), judgeModel);
+}
+
+export function judgmentCacheFileNameForModel(fileName: string, judgeModel: string): string {
+  if (judgeModel === CACHE_BASE_JUDGE_MODEL) return fileName;
+  return fileName.replace(/\.json$/, `.${judgeModel.replace(/[^A-Za-z0-9._-]/g, "_")}.json`);
 }
 
 export async function loadOrRunJudgment(input: {
@@ -194,7 +204,7 @@ export async function loadOrRunJudgment(input: {
   citationCheck?: HowItWinsCitationCheck;
 }): Promise<{ judgment: HowItWinsJudgment; cached: boolean }> {
   const rules = loadHowItWinsJudgeRules();
-  const fileName = judgmentCacheKeyForCard(input.card, rules, input.refinement, input.scope?.identity);
+  const fileName = judgmentCacheKeyForCard(input.card, rules, input.refinement, input.scope?.identity, input.models.judge);
   const filePath = path.join(HOW_IT_WINS_JUDGMENT_CACHE_DIR, fileName);
   if (existsSync(filePath)) {
     const stored = JSON.parse(await readFile(filePath, "utf8"));
