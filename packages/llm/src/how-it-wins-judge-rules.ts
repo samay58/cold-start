@@ -2,6 +2,7 @@ import {
   HOW_IT_WINS_STRATEGIES,
   coldStartCardSchema,
   howItWinsStrategyIdForName,
+  sourceQualityForSource,
   type ColdStartCard,
   type HowItWinsEvidenceItem
 } from "@cold-start/core";
@@ -90,7 +91,9 @@ export function howItWinsEvidencePacketFromCard(cardInput: ColdStartCard) {
     text: citation.snippet?.trim() || citation.title,
     source: `${citation.title} (${citation.url})`,
     sourceDate: null,
-    attribution: citation.sourceQuality?.tier ?? citation.sourceType,
+    // Computed against the card's domain, not read from storage: sources stored before intake typed
+    // hosts correctly label the company's own pages as outside reporting.
+    attribution: sourceQualityForSource(citation, { targetDomain: card.domain }).tier,
     scope: "company"
   }));
   return {
