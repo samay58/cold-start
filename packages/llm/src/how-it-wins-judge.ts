@@ -1,25 +1,16 @@
-import { createHash } from "node:crypto";
-
 import {
   HOW_IT_WINS_STRATEGIES,
   HowItWinsJudgmentClosedError,
   adjudicationPatchSchema,
   assignMaterialBetIds,
-  canonicalJsonString,
-  globalJudgmentTransportSchema,
-  howItWinsEvidenceItemSchema,
   howItWinsJudgeCallTraceSchema,
-  howItWinsJudgmentBodySchema,
   howItWinsJudgmentSchema,
   howItWinsStrategyIdForName,
-  howItWinsStrategyIdSchema,
-  materializeSemanticJudgment,
   mergeAdjudicationPatch,
   repairSemanticJudgment,
   restoreUndisputedCurrentOrder,
   semanticJudgmentForModel,
   semanticJudgmentFromBody,
-  semanticJudgmentSchema,
   stripUnknownNullTransportFields,
   type HowItWinsJudgeCallTrace,
   type HowItWinsJudgment,
@@ -27,22 +18,42 @@ import {
   type HowItWinsStrategy,
   type HowItWinsStrategyId
 } from "@cold-start/core";
-import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import type { z } from "zod";
 
 import {
   HOW_IT_WINS_ADJUDICATION_PROMPT,
   HOW_IT_WINS_CRITIC_PROMPT,
   HOW_IT_WINS_MONOLITH_PROMPT,
-  HOW_IT_WINS_JUDGE_PROMPTS,
   HOW_IT_WINS_SCOPED_JUDGE_ADDENDUM
 } from "./how-it-wins-judge-prompts";
 import {
-  completeScopedJudgment,
   runHowItWinsCitationCheck,
   type HowItWinsCitationCheck,
   type HowItWinsJudgeScope
 } from "./how-it-wins-judge-scope";
+import {
+  criticOutputSchema,
+  evidencePacketSchema,
+  hashHowItWinsJudgeValue,
+  howItWinsJudgePromptHash,
+  type criticFindingSchema,
+  type HowItWinsJudgeRules,
+  type HowItWinsPrimaryJudgment
+} from "./how-it-wins-judge-schema";
+import {
+  assertExactRules,
+  assertExactVocabulary,
+  assertFrozenEvidence,
+  assertRequiredSiblingResolutions,
+  betRevisionOverride,
+  contractViolationMessage,
+  correctionCandidate,
+  materializeFromPacket,
+  parseGlobalJudgment,
+  refinementNote,
+  validatedPrimaryJudgment,
+  type DecidingQuestionLookup
+} from "./how-it-wins-judge-validate";
 import { isTransientLlmError } from "./transient-error";
 import {
   howItWinsCorrectionFeedback,
@@ -52,106 +63,15 @@ import {
 
 export type { HowItWinsJudgeCallTrace } from "@cold-start/core";
 export { HowItWinsJudgmentClosedError as HowItWinsJudgeClosedError };
-
-export function hashHowItWinsJudgeValue(value: unknown) {
-  return createHash("sha256").update(canonicalJsonString(value)).digest("hex");
-}
-
-export const HOW_IT_WINS_JUDGE_PROMPT_HASH = hashHowItWinsJudgeValue(HOW_IT_WINS_JUDGE_PROMPTS);
-
-export type HowItWinsJudgeStrategyRule = {
-  strategyId: HowItWinsStrategyId;
-  name: string;
-  canonicalMeaning: string;
-  positiveEvidence: string;
-  falsePositives: string;
-  nearestSiblings: string[];
-  decidingQuestion: string;
-  disqualifyingEvidence: string;
-};
-
-export type HowItWinsJudgeRules = {
-  standard: string;
-  actualBetStandard: string;
-  strategyRubric: HowItWinsJudgeStrategyRule[];
-};
-
-// Refinement changes what the judge does with the same rules, so a verdict judged under one
-// setting must never replay for a run under the other. Folded into the prompt hash, not a
-// separate cache column: default true when the caller omits the option, matching
-// createHowItWinsJudge's own default. A scoped judge folds in the screen's identity, never its
-// scope, so a re-file over unchanged evidence replays the scoped verdict. The key is absent on
-// unscoped calls, so every unscoped hash, and every verdict already filed under one, is unchanged.
-export function howItWinsJudgePromptHash(
-  rules: HowItWinsJudgeRules,
-  options?: { refinement: boolean | undefined; screenIdentity?: string | undefined }
-) {
-  return hashHowItWinsJudgeValue({
-    prompts: HOW_IT_WINS_JUDGE_PROMPTS,
-    rules,
-    refinement: options?.refinement ?? true,
-    ...(options?.screenIdentity ? { scope: { addendum: HOW_IT_WINS_SCOPED_JUDGE_ADDENDUM, screen: options.screenIdentity } } : {})
-  });
-}
-
-const evidencePacketSchema = z.object({
-  cutoff: z.string().datetime(),
-  evidence: z.array(howItWinsEvidenceItemSchema).min(1),
-  context: z.unknown()
-});
-
-const criticFindingSchema = z.object({
-  kind: z.enum(["bet", "strategy", "pair", "not_yet", "evidence"]),
-  material: z.boolean(),
-  summary: z.string().min(1),
-  strategyIds: z.array(howItWinsStrategyIdSchema),
-  evidenceIds: z.array(z.string().min(1))
-}).strict();
-
-const criticOutputSchema = z.object({ findings: z.array(criticFindingSchema) }).strict();
-
-// A scoped call's row count is the company's Round 1 count. The schema stays one fixed range
-// rather than that count, because the tool schema leads Anthropic's cache prefix; code checks
-// the exact rows on the way back.
-function modelFacingJudgmentSchema(scoped: boolean) {
-  return semanticJudgmentSchema.extend({
-    strategyEvaluations: scoped
-      ? semanticJudgmentSchema.shape.strategyEvaluations.min(1).max(80)
-      : semanticJudgmentSchema.shape.strategyEvaluations.min(80).max(80)
-  });
-}
-
-function howItWinsJudgeStageSchema(stage: HowItWinsJudgeCallTrace["stage"], scoped: boolean) {
-  switch (stage) {
-    case "critic":
-      return criticOutputSchema;
-    case "global_judge":
-      return modelFacingJudgmentSchema(scoped).required({ materialBets: true });
-    case "adjudication":
-      return adjudicationPatchSchema;
-  }
-}
-
-function jsonSchema202012(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(jsonSchema202012);
-  if (value === null || typeof value !== "object") return value;
-  const converted = Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([key, child]) => [key, jsonSchema202012(child)])
-  ) as Record<string, unknown>;
-  if (converted.type === "array" && Array.isArray(converted.items)) {
-    converted.prefixItems = converted.items;
-    converted.items = false;
-  }
-  return converted;
-}
-
-export function howItWinsJudgeToolJsonSchema(stage: HowItWinsJudgeCallTrace["stage"], options?: { scoped?: boolean }) {
-  const { $schema: _schema, ...json } = zodToJsonSchema(howItWinsJudgeStageSchema(stage, options?.scoped === true), {
-    $refStrategy: "none",
-    target: "jsonSchema7"
-  });
-  return jsonSchema202012(json);
-}
+export {
+  HOW_IT_WINS_JUDGE_PROMPT_HASH,
+  hashHowItWinsJudgeValue,
+  howItWinsJudgePromptHash,
+  howItWinsJudgeToolJsonSchema,
+  type HowItWinsJudgeRules,
+  type HowItWinsJudgeStrategyRule,
+  type HowItWinsPrimaryJudgment
+} from "./how-it-wins-judge-schema";
 
 const settledCrossGroupSiblings: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>> = {
   usership: ["reliability"],
@@ -215,17 +135,6 @@ export type HowItWinsJudgeValidationSink = (
   event: HowItWinsJudgeValidationEvent
 ) => void | Promise<void>;
 
-export type HowItWinsPrimaryJudgment = {
-  schemaVersion: 1;
-  hashes: {
-    evidencePacket: string;
-    prompt: string;
-    vocabulary: string;
-  };
-  body: HowItWinsJudgmentBody;
-  calls: HowItWinsJudgeCallTrace[];
-  repairs?: string[];
-};
 
 export type HowItWinsPrimaryJudgmentSink = (
   primary: HowItWinsPrimaryJudgment
@@ -239,152 +148,12 @@ export type HowItWinsJudgeInput = {
   promptHash: string;
 };
 
-function assertExactVocabulary(vocabulary: readonly HowItWinsStrategy[]) {
-  if (vocabulary.length !== HOW_IT_WINS_STRATEGIES.length) {
-    throw new HowItWinsJudgmentClosedError(`expected ${HOW_IT_WINS_STRATEGIES.length} canonical strategies`);
-  }
-  vocabulary.forEach((strategy, index) => {
-    const canonical = HOW_IT_WINS_STRATEGIES[index];
-    if (
-      !canonical ||
-      strategy.id !== canonical.id ||
-      strategy.name !== canonical.name ||
-      strategy.group !== canonical.group ||
-      strategy.meaning !== canonical.meaning
-    ) {
-      throw new HowItWinsJudgmentClosedError(`canonical vocabulary differs at index ${index}`);
-    }
-  });
-}
-
-function assertExactRules(rules: HowItWinsJudgeRules) {
-  if (!rules.standard.trim() || !rules.actualBetStandard.trim()) {
-    throw new HowItWinsJudgmentClosedError("authoritative judgment rules are missing");
-  }
-  if (rules.strategyRubric.length !== HOW_IT_WINS_STRATEGIES.length) {
-    throw new HowItWinsJudgmentClosedError("strategy rubric is incomplete");
-  }
-  rules.strategyRubric.forEach((row, index) => {
-    const strategy = HOW_IT_WINS_STRATEGIES[index];
-    if (!strategy || row.strategyId !== strategy.id || row.name !== strategy.name || row.canonicalMeaning !== strategy.meaning) {
-      throw new HowItWinsJudgmentClosedError(`strategy rubric differs at index ${index}`);
-    }
-  });
-}
-
-function assertFrozenEvidence(body: HowItWinsJudgmentBody, packet: z.infer<typeof evidencePacketSchema>) {
-  if (body.evidenceCutoff !== packet.cutoff) {
-    throw new HowItWinsJudgmentClosedError("the judgment changed the evidence cutoff");
-  }
-  if (hashHowItWinsJudgeValue(body.evidenceRegistry) !== hashHowItWinsJudgeValue(packet.evidence)) {
-    throw new HowItWinsJudgmentClosedError("the judgment changed the frozen evidence registry");
-  }
-}
-
-function assertRequiredSiblingResolutions(
-  body: HowItWinsJudgmentBody,
-  siblingMap: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>>
-) {
-  for (const evaluation of body.strategyEvaluations) {
-    // Only a current strategy owes a discriminating reason against its siblings: that is the
-    // standard's current gate. A compact row has no mechanism to distinguish, and an open
-    // question or not-yet row is by definition not yet claiming the label.
-    if (evaluation.mechanism === null || evaluation.disposition !== "current") continue;
-    const required = siblingMap[evaluation.strategyId] ?? [];
-    const resolved = new Set(evaluation.siblingResolutions.map((entry) => entry.strategyId));
-    for (const siblingId of required) {
-      if (!resolved.has(siblingId)) {
-        throw new HowItWinsJudgmentClosedError(
-          `${evaluation.strategyId} needs a discriminating reason against ${siblingId}`
-        );
-      }
-    }
-  }
-}
-
-// A body-schema rejection is a contract violation like any assert, and its raw zod message is a
-// page of JSON. Both readers of this want the failing path and reason, nothing else.
-function contractViolationMessage(error: unknown) {
-  if (error instanceof z.ZodError) {
-    return error.issues.map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`).join("; ");
-  }
-  return error instanceof Error ? error.message : String(error);
-}
-
-type DecidingQuestionLookup = (strategyId: HowItWinsStrategyId) => string | undefined;
-
-function materializeFromPacket(
-  semantic: z.infer<typeof semanticJudgmentSchema>,
-  materialBets: HowItWinsJudgmentBody["materialBets"],
-  packet: z.infer<typeof evidencePacketSchema>,
-  decidingQuestionFor: DecidingQuestionLookup,
-  retainedOverrides?: HowItWinsJudgmentBody["overrides"]
-) {
-  try {
-    return materializeSemanticJudgment({
-      semantic,
-      materialBets,
-      evidenceCutoff: packet.cutoff,
-      evidenceRegistry: packet.evidence,
-      decidingQuestionFor,
-      ...(retainedOverrides ? { retainedOverrides } : {})
-    });
-  } catch (error) {
-    // A body the repair pass could not settle is a contract violation, not a transport failure.
-    // Naming it as one is what lets the single paid re-ask fire on a contradictory verdict.
-    if (!(error instanceof z.ZodError)) throw error;
-    throw new HowItWinsJudgmentClosedError(`the judgment body is contradictory: ${contractViolationMessage(error)}`);
-  }
-}
-
-function betRevisionOverride(input: {
-  from: HowItWinsJudgmentBody["materialBets"];
-  to: HowItWinsJudgmentBody["materialBets"];
-  reason: string;
-  evidenceIds: string[];
-}): HowItWinsJudgmentBody["overrides"][number] {
-  return {
-    kind: "bet",
-    betId: input.to[0]!.betId,
-    from: hashHowItWinsJudgeValue(input.from),
-    to: hashHowItWinsJudgeValue(input.to),
-    reason: input.reason,
-    evidenceIds: input.evidenceIds
-  };
-}
-
-function parseGlobalJudgment(
-  output: unknown,
-  packet: z.infer<typeof evidencePacketSchema>,
-  decidingQuestionFor: DecidingQuestionLookup,
-  requiredSiblingIds: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>>,
-  scope?: HowItWinsJudgeScope
-) {
-  // The stage contract still names betRevision, which adjudication owns. A judgment that returns
-  // one anyway is read and its revision dropped, rather than costing the one paid re-ask.
-  const { betRevision: _betRevision, ...transport } = globalJudgmentTransportSchema.parse(
-    stripUnknownNullTransportFields(output)
-  );
-  const parsed = scope ? completeScopedJudgment(transport, scope) : transport;
-  const { semantic, repairs } = repairSemanticJudgment(parsed, { requiredSiblingIds });
-  if (!semantic.materialBets) {
-    throw new HowItWinsJudgmentClosedError("monolith judgment requires material bets");
-  }
-  const bets = assignMaterialBetIds(semantic.materialBets);
-  return { body: materializeFromPacket(semantic, bets, packet, decidingQuestionFor), repairs };
-}
-
 type HowItWinsRefinementRecord = {
   critic: "ok" | "failed" | "skipped_same_provider" | "skipped_disabled";
   adjudication: "ok" | "failed" | "not_needed";
   notes: string[];
   repairs: string[];
 };
-
-function refinementNote(label: string, error: unknown) {
-  return `${label}: ${contractViolationMessage(error)}`.slice(0, 300);
-}
-
 export type HowItWinsJudgeConfig = {
   adapters: { strong: HowItWinsJudgeAdapter; critic: HowItWinsJudgeAdapter };
   rules: HowItWinsJudgeRules;
@@ -409,71 +178,6 @@ export type HowItWinsJudgeConfig = {
   signal?: AbortSignal;
   deadlineAt?: number;
 };
-
-const MAX_CORRECTION_CANDIDATE_BYTES = 512 * 1024;
-
-function correctionCandidate(candidate: unknown) {
-  if (candidate === undefined) return {};
-  let serialized: string;
-  try {
-    serialized = JSON.stringify(candidate);
-  } catch {
-    throw new HowItWinsJudgmentClosedError("the prior normalized output cannot be serialized for correction");
-  }
-  if (Buffer.byteLength(serialized, "utf8") > MAX_CORRECTION_CANDIDATE_BYTES) {
-    throw new HowItWinsJudgmentClosedError("the prior normalized output exceeds the correction input limit");
-  }
-  return { previousNormalizedOutput: candidate };
-}
-
-const primaryJudgmentSchema = z.object({
-  schemaVersion: z.literal(1),
-  hashes: z.object({
-    evidencePacket: z.string().min(1),
-    prompt: z.string().min(1),
-    vocabulary: z.string().min(1)
-  }).strict(),
-  body: howItWinsJudgmentBodySchema,
-  calls: z.array(howItWinsJudgeCallTraceSchema).min(1).max(2),
-  repairs: z.array(z.string().min(1).max(300)).max(200).default([])
-}).strict();
-
-function validatedPrimaryJudgment(input: {
-  checkpoint: HowItWinsPrimaryJudgment;
-  expectedHashes: HowItWinsPrimaryJudgment["hashes"];
-  packet: z.infer<typeof evidencePacketSchema>;
-  siblingMap: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>>;
-}) {
-  let checkpoint: HowItWinsPrimaryJudgment;
-  try {
-    checkpoint = primaryJudgmentSchema.parse(input.checkpoint);
-  } catch {
-    throw new HowItWinsJudgmentClosedError("resumed primary judgment failed its stored schema");
-  }
-  if (hashHowItWinsJudgeValue(checkpoint.hashes) !== hashHowItWinsJudgeValue(input.expectedHashes)) {
-    throw new HowItWinsJudgmentClosedError("resumed primary judgment hashes do not match this request");
-  }
-  const expectedCallIds = checkpoint.calls.length === 1
-    ? ["how-it-wins:monolith"]
-    : ["how-it-wins:monolith", "how-it-wins:monolith:2"];
-  checkpoint.calls.forEach((call, index) => {
-    if (
-      call.stage !== "global_judge" ||
-      call.callId !== expectedCallIds[index] ||
-      call.retryCount < index ||
-      (index < checkpoint.calls.length - 1 && call.validationOutcome === "ok")
-    ) {
-      throw new HowItWinsJudgmentClosedError("resumed primary judgment has inconsistent global calls");
-    }
-  });
-  const finalCall = checkpoint.calls[checkpoint.calls.length - 1]!;
-  if (finalCall.outcome !== "ok" || finalCall.validationOutcome !== "ok") {
-    throw new HowItWinsJudgmentClosedError("resumed primary judgment was not fully validated");
-  }
-  assertFrozenEvidence(checkpoint.body, input.packet);
-  assertRequiredSiblingResolutions(checkpoint.body, input.siblingMap);
-  return checkpoint;
-}
 
 export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
   assertExactRules(config.rules);
