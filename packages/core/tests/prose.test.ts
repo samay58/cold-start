@@ -1,21 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { isReadableProse } from "../src/prose";
 
-// Real stored source text, harvested 2026-08-11. Each entry is the leading slice of a
-// sources.raw_text row exactly as the snippet pipeline would hand it to a bubble.
+// Real stored source text, harvested 2026-08-11. Provider JSON records no longer reach this gate:
+// readableSourceText turns them into text first (tests/source-text.test.ts).
 const REAL_OFFENDERS = [
-  // Exa search envelope (cartesia.ai run)
-  '{"requestId":"2f3fbeb69bc7c6b81d1bd35367afafc2","results":[{"id":"https://cartesia.ai/sonic?gad_campaignid=23084431172","title":"Real-time TTS API with AI laughter and emotion | Cartesia Sonic-3","url":"https://cartesia.ai/sonic?gad_campaignid=23084431172","author":null,"score":0.9488493204116821}',
-  // Apollo organization record (cartesia.ai run)
-  '{"organization":{"id":"6578dc4066927303d3b5b396","name":"Cartesia","website_url":"http://www.cartesia.ai","angellist_url":null,"linkedin_url":"http://www.linkedin.com/company/cartesia-ai"',
-  // Content envelope carrying markdown nav junk (legora.com run)
-  '{"url":"https://legora.com/","title":"Legora","content":"Product\\n\\n+\\n\\nSolutions\\n\\n+\\n\\n[Security](https://legora.com/security)\\n\\n[Customers](https://legora.com/customers)',
   // Markdown image/link chain with encoded query params (twelvelabs.io run)
   "[![](https://framerusercontent.com/images/J0k8tAFEkkDowBZmjeWMoRC5ZfI.png?width=200&height=200)",
   // Markdown heading start (flora.ai run)
   "###### Through July 1: Nano Banana 2 + Pro usage is on us. Pro/Max plans only.",
-  // Mid-envelope slice: no leading brace, still JSON
-  '"requestId":"14b1834c467eb39e32c056c091810fca","resolvedSearchType":"","results":[',
   // A bare URL as the whole string
   "https://cartesia.ai/sonic?gad_campaignid=23084431172",
 ];

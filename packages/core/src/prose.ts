@@ -1,16 +1,14 @@
 /*
  * Bubble-text prose gate. The extension shows source titles and snippet
- * sentences inside clippings; the snippet pipeline is a raw slice of
- * sources.raw_text, which for most providers is a JSON envelope, so
- * without a gate a bubble renders JSON. One question, answered
- * conservatively: is this string readable prose? Bias toward rejection.
- * A domain-plus-type bubble is never embarrassing; JSON in a bubble
- * always is. Shared in core because any surface that renders source
- * text needs the same answer.
+ * sentences inside clippings. Snippets arrive as readable text
+ * (source-text.ts), but page text still carries markup, markdown, URLs
+ * and code. One question, answered conservatively: is this string
+ * readable prose? Bias toward rejection. A domain-plus-type bubble is
+ * never embarrassing; a nav menu in a bubble is. Shared in core because
+ * any surface that renders source text needs the same answer.
  */
 
-const STRUCTURAL_OPENER = /^\s*(?:[{[<]|#{2,}\s|!\[|https?:\/\/)/i;
-const JSON_KEY = /"[^"\n]{1,80}"\s*:/;
+const STRUCTURAL_OPENER = /^\s*(?:[[<]|#{2,}\s|!\[|https?:\/\/)/i;
 const MARKUP_TAG = /<\/?[a-z][a-z0-9-]*(?:\s[^>]*)?>/i;
 const MARKDOWN_LINK = /\]\(|!\[/;
 const URL_ENCODED_RUN = /%[0-9a-f]{2}%[0-9a-f]{2}/i;
@@ -24,7 +22,6 @@ export function isReadableProse(value: string): boolean {
   }
   if (
     STRUCTURAL_OPENER.test(text) ||
-    JSON_KEY.test(text) ||
     MARKUP_TAG.test(text) ||
     MARKDOWN_LINK.test(text) ||
     URL_ENCODED_RUN.test(text) ||

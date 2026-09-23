@@ -218,6 +218,26 @@ describe("clippingsFromEvents", () => {
     expect(clipping?.note).toBeNull();
   });
 
+  it("reads an older event's provider record snippet as its page text", () => {
+    const [clipping] = clippingsFromEvents([
+      event({
+        id: "sources",
+        type: "source.found",
+        metadata: {
+          sources: [{
+            url: "https://techcrunch.com/cartesia-sonic",
+            domain: "techcrunch.com",
+            title: "TechCrunch",
+            sourceType: "news",
+            snippet: JSON.stringify({ id: "x", title: "Cartesia", text: "Cartesia launched Sonic-3 for real-time voice agents. More follows." })
+          }]
+        }
+      })
+    ]);
+
+    expect(clipping?.note).toBe("Cartesia launched Sonic-3 for real-time voice agents.");
+  });
+
   it("refuses a junk title outright, even as the last fallback", () => {
     const [clipping] = clippingsFromEvents([
       event({

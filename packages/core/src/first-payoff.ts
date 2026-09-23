@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { ColdStartCard, Citation } from "./card";
 import { newsworthyTitlePattern, titleMentionsCompany } from "./headline";
 import { isReadableProse } from "./prose";
+import { readableSourceText } from "./source-text";
 import { splitIntoSentences } from "./sentences";
 import { textLooksLikeCustomerProof, textLooksLikeDocs, textLooksLikeFunding } from "./source-class";
 import { sourceQualityForSource, type SourceQualityTier } from "./source-quality";
@@ -83,7 +84,6 @@ export type FirstPayoffSource = {
 
 const marketingFillerPattern = /\b(ai-native|agentic|next[-\s]?generation|transforming|revolutionizing|all-in-one|end-to-end|unlocking|emerging leader)\b/i;
 const investmentLanguagePattern = /\b(attractive|compelling|could matter|bull case|bear case|risk|winner|underwrite|invest)\b/i;
-const rawPayloadPattern = /(^\s*(?:\[|{))|(?:["']?[a-zA-Z0-9_-]+["']?\s*:\s*(?:["'{]|\[))|(?:\\[nrt])/;
 const directoryCategoryPattern = /\bis an?\s+[A-Z][A-Za-z]+(?:\s+(?:and|&)?\s*[A-Z][A-Za-z]+)*\s+company\b/;
 const directoryDescriptionPattern = /\bis an?\s+[^.]{0,100}\bcompany\.$/i;
 const earlyReadFillerPattern = /\b(?:bringing intelligence|cutting[-\s]?edge|future of|industry[-\s]?leading|innovative|leading|modern|next[-\s]?generation|powerful|seamless|world[-\s]?class|world(?:'s|s)? leading)\b/i;
@@ -104,7 +104,7 @@ function sourceIdFor(source: FirstPayoffSource, index: number) {
 }
 
 function normalizeSentence(value: string) {
-  const normalized = value.replace(/\\[nrt]/g, " ").replace(/\s+/g, " ").trim();
+  const normalized = value.replace(/\s+/g, " ").trim();
   if (!normalized) {
     return null;
   }
@@ -112,37 +112,7 @@ function normalizeSentence(value: string) {
 }
 
 function sourceText(source: FirstPayoffSource) {
-  return readableSourceText(source.rawText) ?? readableSourceText(source.snippet) ?? source.title;
-}
-
-function readableSourceText(value: string | undefined) {
-  if (!value) {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!looksLikeJsonObject(trimmed)) {
-    return trimmed;
-  }
-  try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return trimmed;
-    }
-    const record = parsed as Record<string, unknown>;
-    const text = stringField(record, "text") ?? stringField(record, "summary") ?? stringField(record, "description");
-    return text?.trim() || trimmed;
-  } catch {
-    return trimmed;
-  }
-}
-
-function looksLikeJsonObject(value: string) {
-  return value.startsWith("{") && value.endsWith("}");
-}
-
-function stringField(record: Record<string, unknown>, key: string) {
-  const value = record[key];
-  return typeof value === "string" ? value : null;
+  return readableSourceText(source.rawText) || readableSourceText(source.snippet) || source.title;
 }
 
 function evidenceQuality(tier: SourceQualityTier): FirstPayoffEvidence["quality"] {
@@ -206,7 +176,6 @@ function citationIdsForSource(source: FirstPayoffSource, card?: ColdStartCard): 
 function firstUsefulLine(rawText: string, domain: string, skipTexts: string[] = []) {
   const skipped = new Set(skipTexts.map((text) => normalizeComparableText(text)).filter(Boolean));
   return rawText
-    .replace(/\\[nrt]/g, " ")
     // Newlines stay a hard boundary (raw scraped text, one candidate line per visual line);
     // splitIntoSentences (abbreviation-aware) breaks each line further at real sentence ends,
     // replacing the old (?<=[.!?])\s+ lookbehind that truncated on "Inc.", "D.C.", etc.
@@ -220,7 +189,6 @@ function firstUsefulLine(rawText: string, domain: string, skipTexts: string[] = 
         line.length >= 28 &&
         line.length <= 220 &&
         !skipped.has(comparable) &&
-        !rawPayloadPattern.test(line) &&
         !directoryCategoryPattern.test(line) &&
         !lower.includes("cookie") &&
         !lower.includes("javascript") &&
@@ -235,9 +203,6 @@ function normalizeComparableText(value: string) {
 }
 
 function isBadClaimText(text: string) {
-  if (rawPayloadPattern.test(text)) {
-    return "claim_not_source_supported" as const;
-  }
   if (directoryCategoryPattern.test(text) || directoryDescriptionPattern.test(text)) {
     return "marketing_filler" as const;
   }
@@ -496,9 +461,6 @@ function buildWhatItDoesClaim({
 }): { claim?: FirstPayoffClaim; reason?: FirstPayoffSuppressionReason } {
   if (source.sourceType !== "company_site" || !evidence.entityMatched) {
     return {};
-  }
-  if (rawPayloadPattern.test(sourceText(source))) {
-    return { reason: "claim_not_source_supported" };
   }
   const line = firstUsefulLine(sourceText(source), domain);
   const text = line ? normalizeSentence(line) : null;

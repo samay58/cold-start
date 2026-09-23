@@ -1,6 +1,7 @@
 import {
   firstSentence,
   isReadableProse,
+  readableSourceText,
   textLooksLikeCustomerProof,
   textLooksLikeDocs,
   textLooksLikeFunding,
@@ -87,11 +88,10 @@ function clippingNote(
   if (proseTitle && clippingHasUsefulTitle({ title: proseTitle, domain, sourceClass })) {
     return proseTitle;
   }
-  // Gate the string that would render: the first sentence of the snippet.
-  // Most snippets are raw provider JSON (a slice of sources.raw_text), so
-  // rejection is the common case, and the bubble falls back to domain+type.
-  const rawSnippet = snippet?.replace(/\s+/g, " ").trim() ?? "";
-  const cleanSnippet = firstSentence(rawSnippet);
+  // Gate the string that would render: the first sentence of the snippet. Snippets are page
+  // text, and events stored before that change read through readableSourceText.
+  const rawSnippet = snippet?.trim() ?? "";
+  const cleanSnippet = firstSentence(readableSourceText(rawSnippet).replace(/\s+/g, " "));
   if (
     cleanSnippet &&
     isReadableProse(cleanSnippet) &&

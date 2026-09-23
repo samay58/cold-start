@@ -363,7 +363,7 @@ describe("buildFirstPayoff", () => {
     expect(earlyReadClaimForDisplay(payoff)).toBeNull();
   });
 
-  it("does not turn raw provider payload text into a First Read claim", () => {
+  it("reads a provider record with no page text as its title, never as a First Read claim", () => {
     const payoff = buildFirstPayoff({
       domain: "getfreed.ai",
       slug: "getfreed",
@@ -388,7 +388,7 @@ describe("buildFirstPayoff", () => {
     expect(payoff.status).toBe("receipt");
     expect(payoff.whatItDoes).toBeUndefined();
     expect(payoff.proofHeadline).toBeUndefined();
-    expect(payoff.suppressionReasons).toContain("claim_not_source_supported");
+    expect(JSON.stringify(payoff)).not.toContain("Freed Feed Inc.");
   });
 
   it("dedupes repeated receipt entries for the same source URL and class", () => {

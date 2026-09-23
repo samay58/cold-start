@@ -1,3 +1,4 @@
+import { readableSourceText } from "@cold-start/core";
 import { fetchDirectExaRequests } from "../direct-exa";
 import { exaPageTextContents } from "../exa-contents";
 import type { DirectExaRequest } from "../direct-exa";
@@ -44,7 +45,7 @@ export async function fetchExaWebLane(input: {
     const dereferenceableSources = result.sources.filter((source: ProviderSource) => source.url.startsWith("http"));
 
     const items: FounderVoiceItem[] = dereferenceableSources.map((source) => {
-      const text = capText(textFromRawRecord(source.rawText) || source.title);
+      const text = capText(readableSourceText(source.rawText, source.title));
       return {
         lane: LANE,
         url: source.url,
@@ -125,25 +126,4 @@ function fetchJsonFromFetchFn(fetchFn: typeof fetch): (request: DirectExaRequest
     }
     return response.json();
   };
-}
-
-// source.rawText is JSON.stringify(record) of the original Exa result (see
-// providerSourcesFromDirectExa in direct-exa.ts); reparse it to recover clean prose
-// instead of showing the caller a raw JSON blob as "text".
-function textFromRawRecord(rawText: string): string {
-  try {
-    const record = JSON.parse(rawText) as Record<string, unknown>;
-    if (typeof record.text === "string" && record.text.trim().length > 0) {
-      return record.text;
-    }
-    if (Array.isArray(record.highlights)) {
-      const joined = record.highlights.filter((part): part is string => typeof part === "string").join(" ");
-      if (joined.trim().length > 0) {
-        return joined;
-      }
-    }
-    return "";
-  } catch {
-    return "";
-  }
 }

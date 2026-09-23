@@ -39,6 +39,17 @@ describe("readableSourceText", () => {
     expect(readableSourceText("", "Title only")).toBe("Title only");
   });
 
+  it("reads real stored provider records, whole or cut off, as their title", () => {
+    const records = [
+      '{"requestId":"2f3fbeb69bc7c6b81d1bd35367afafc2","results":[{"id":"https://cartesia.ai/sonic","title":"Cartesia Sonic-3","url":"https://cartesia.ai/sonic","author":null,"score":0.9488493204116821}]}',
+      '{"organization":{"id":"6578dc4066927303d3b5b396","name":"Cartesia","website_url":"http://www.cartesia.ai","angellist_url":null,"linkedin_url":"http://www.linkedin.com/company/cartesia-ai"',
+      '{"url":"https://legora.com/","title":"Legora","content":"Product\\n\\n+\\n\\nSolutions\\n\\n[Security](https://legora.com/security)'
+    ];
+    for (const record of records) {
+      expect(readableSourceText(record, "Stored title")).toBe("Stored title");
+    }
+  });
+
   it("never returns text that starts like JSON", () => {
     expect(readableSourceText(exaRecord({ text: '{"api": "response"}' }), "API docs")).toBe("API docs");
   });

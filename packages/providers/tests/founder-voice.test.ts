@@ -717,6 +717,7 @@ describe("fetchExaWebLane", () => {
     expect(result.items).toHaveLength(2);
     expect(result.items.find((item) => item.url.includes("acme.com"))?.authorship).toBe("company");
     expect(result.items.find((item) => item.url.includes("techcrunch"))?.authorship).toBe("third_party");
+    expect(result.items.find((item) => item.url.includes("acme.com"))?.text).toBe("The Acme founder talks about building the company.");
     expect(result.estimatedCostUsd).toBeCloseTo(2 * 0.007, 6);
   });
 
