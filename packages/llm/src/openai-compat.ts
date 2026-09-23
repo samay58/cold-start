@@ -126,12 +126,19 @@ export function openAiCompatBodyFromAnthropicParams(
     });
   }
 
-  if (params.tool_choice?.type === "tool") {
+  // Every stage sends one tool with tool_choice auto, because Opus 5.5 rejects a forced tool on
+  // the Anthropic API. OpenAI-compatible providers still honor forcing, so a lone tool under auto
+  // is forced here and these requests stay what they were before the Anthropic change.
+  const onlyToolName = params.tools?.length === 1 ? params.tools[0]!.name : undefined;
+  const forcedToolName = params.tool_choice?.type === "tool"
+    ? params.tool_choice.name
+    : params.tool_choice?.type === "auto" ? onlyToolName : undefined;
+  if (forcedToolName) {
     // Thinking-locked models reject naming the function; "required" forces a tool call and the
     // request always carries exactly one tool, so the same function gets called either way.
     body.tool_choice = quirks.forceToolChoiceRequired
       ? "required"
-      : { type: "function", function: { name: params.tool_choice.name } };
+      : { type: "function", function: { name: forcedToolName } };
   } else if (params.tool_choice?.type === "auto") {
     body.tool_choice = "auto";
   }

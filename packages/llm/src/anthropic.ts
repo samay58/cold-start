@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import type { GenerationLlmCallTrace } from "@cold-start/core";
 import { buildLlmCallTrace, type AnthropicTelemetrySink, type AnthropicUsage } from "./call-trace";
-import { parseModelString, type LlmRequestOptions } from "./llm-provider";
+import { parseModelString, quirksForModel, type LlmRequestOptions } from "./llm-provider";
 import { createTracedOpenAiCompatMessage } from "./openai-compat";
 import { ANTHROPIC_CACHE_RATE_MULTIPLIERS, pricingFor } from "./pricing";
 
@@ -104,6 +104,14 @@ function callTrace(input: {
 // "provider/model" strings (e.g. "deepseek/deepseek-v4-flash") route to the OpenAI-compat
 // adapter, which translates the same Anthropic-native params. The `client` argument is unused on
 // non-Anthropic routes; keeping the signature avoids churn at every call site.
+// Opus 5 and later reject temperature with HTTP 400. The judge adapter and the OpenAI-compatible
+// path already drop it by model; every other stage goes through here.
+function anthropicParamsForModel(params: Parameters<Anthropic["messages"]["create"]>[0], model: string) {
+  if (!quirksForModel(model).omitSamplingParams) return { ...params, model };
+  const { temperature: _temperature, top_p: _topP, top_k: _topK, ...rest } = params;
+  return { ...rest, model };
+}
+
 export async function createTracedAnthropicMessage(input: {
   client: Anthropic;
   label: string;
@@ -129,7 +137,7 @@ export async function createTracedAnthropicMessage(input: {
   const cacheOptions = anthropicCacheRequestOptions();
   const requestOptions = input.requestOptions ? { ...cacheOptions, ...input.requestOptions } : cacheOptions;
   try {
-    const response = (await input.client.messages.create({ ...input.params, model: resolved.model }, requestOptions)) as Message & {
+    const response = (await input.client.messages.create(anthropicParamsForModel(input.params, resolved.model), requestOptions)) as Message & {
       usage?: AnthropicUsage;
     };
     input.telemetry?.(

@@ -13,7 +13,7 @@ import {
   sourcedTextToolSchema,
   visibleCitationMarkers
 } from "./tool-schema-fragments";
-import { parseToolUse, type ToolUseLike } from "./tool-use";
+import { SINGLE_TOOL_CHOICE, parseToolUse, type ToolUseLike } from "./tool-use";
 
 const SYNTHESIS_TOOL_NAME = "emit_investor_synthesis";
 const questionCategoryValues = questionCategorySchema.options;
@@ -326,7 +326,7 @@ export async function synthesizeCard(input: {
           { role: "user", content: styleIssues ? `${JSON.stringify(input.card)}\n\n${styleRetryNote(styleIssues)}` : JSON.stringify(input.card) }
         ],
         tools: [synthesisTool],
-        tool_choice: { type: "tool", name: SYNTHESIS_TOOL_NAME }
+        tool_choice: SINGLE_TOOL_CHOICE
       },
     });
 

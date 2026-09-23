@@ -5,7 +5,7 @@ import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { investorTasteKernel } from "./investor-taste-kernel";
 import { withProviderFallback, withSchemaRetry } from "./llm-provider";
-import { parseToolUse, type ToolUseLike } from "./tool-use";
+import { SINGLE_TOOL_CHOICE, parseToolUse, type ToolUseLike } from "./tool-use";
 
 const PERSON_READ_TOOL_NAME = "emit_person_reads";
 const maxReadSentences = 2;
@@ -185,7 +185,7 @@ export async function synthesizePersonReads(input: {
             max_tokens: maxTokensForPersonReadBatch(eligible.length),
             temperature: 0,
             system: [{ type: "text", text: personReadSystemPrompt, cache_control: anthropicSystemCacheControl() }],
-            tool_choice: { type: "tool", name: PERSON_READ_TOOL_NAME },
+            tool_choice: SINGLE_TOOL_CHOICE,
             tools: [personReadTool],
             messages: [
               {

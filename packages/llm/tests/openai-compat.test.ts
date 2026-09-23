@@ -114,6 +114,25 @@ describe("openAiCompatBodyFromAnthropicParams", () => {
     expect(body.tool_choice).toBe("required");
   });
 
+  it("forces a lone tool offered under auto, so OpenAI-compatible requests are unchanged by the Anthropic switch", () => {
+    const tools = [{ name: "emit_x", input_schema: { type: "object" } }];
+    const single = openAiCompatBodyFromAnthropicParams(
+      { ...baseParams, tools, tool_choice: { type: "auto" } } as AnthropicParams,
+      "deepseek-v4-flash"
+    );
+    expect(single.tool_choice).toEqual({ type: "function", function: { name: "emit_x" } });
+    const kimi = openAiCompatBodyFromAnthropicParams(
+      { ...baseParams, tools, tool_choice: { type: "auto" } } as AnthropicParams,
+      "moonshotai/kimi-k3"
+    );
+    expect(kimi.tool_choice).toBe("required");
+    const two = openAiCompatBodyFromAnthropicParams(
+      { ...baseParams, tools: [...tools, { name: "emit_y", input_schema: { type: "object" } }], tool_choice: { type: "auto" } } as AnthropicParams,
+      "deepseek-v4-flash"
+    );
+    expect(two.tool_choice).toBe("auto");
+  });
+
   it("keeps the named forced tool_choice for models without the quirk", () => {
     const body = openAiCompatBodyFromAnthropicParams(
       { ...baseParams, tools: [{ name: "emit_x", input_schema: { type: "object" } }], tool_choice: { type: "tool", name: "emit_x" } } as AnthropicParams,

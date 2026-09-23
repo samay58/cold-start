@@ -29,7 +29,7 @@ import {
 } from "./evidence-budget";
 import { investorTasteKernel } from "./investor-taste-kernel";
 import type { ResearchPlan } from "./research-plan";
-import { parseToolUse, type ToolUseLike } from "./tool-use";
+import { SINGLE_TOOL_CHOICE, parseToolUse, type ToolUseLike } from "./tool-use";
 
 const EXTRACTION_TOOL_NAME = "emit_company_claims";
 const BLOCK_EXTRACTION_TOOL_NAME = "emit_block_claims";
@@ -918,7 +918,7 @@ export async function extractCompanyClaims(input: {
             : [])
         ],
         tools: [extractionTool],
-        tool_choice: { type: "tool", name: EXTRACTION_TOOL_NAME }
+        tool_choice: SINGLE_TOOL_CHOICE
       },
     });
 
@@ -988,7 +988,7 @@ export async function extractCompanyBlockClaims(input: {
           }
         ],
         tools: [blockEnrichmentTool],
-        tool_choice: { type: "tool", name: BLOCK_EXTRACTION_TOOL_NAME }
+        tool_choice: SINGLE_TOOL_CHOICE
       },
     });
 

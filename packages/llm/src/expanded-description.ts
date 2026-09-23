@@ -4,7 +4,7 @@ import type { ExpandedDescription } from "@cold-start/core";
 import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { withProviderFallback, withSchemaRetry } from "./llm-provider";
-import { parseToolUse, type ToolUseLike } from "./tool-use";
+import { SINGLE_TOOL_CHOICE, parseToolUse, type ToolUseLike } from "./tool-use";
 
 const EXPANDED_DESCRIPTION_TOOL_NAME = "emit_expanded_description";
 
@@ -189,7 +189,7 @@ export async function synthesizeExpandedDescription(input: {
             max_tokens: MAX_TOKENS,
             temperature: 0,
             system: [{ type: "text", text: expandedDescriptionSystemPrompt, cache_control: anthropicSystemCacheControl() }],
-            tool_choice: { type: "tool", name: EXPANDED_DESCRIPTION_TOOL_NAME },
+            tool_choice: SINGLE_TOOL_CHOICE,
             tools: [expandedDescriptionTool],
             messages: [evidenceMessage, ...extraMessages]
           }

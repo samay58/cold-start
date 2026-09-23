@@ -11,7 +11,7 @@ import { anthropicSystemCacheControl, createTracedAnthropicMessage, type Anthrop
 import { investorTasteKernel } from "./investor-taste-kernel";
 import { withProviderFallback, withSchemaRetry } from "./llm-provider";
 import { sameCitationMultiset, sourcedTextToolSchema, visibleCitationMarkers } from "./tool-schema-fragments";
-import { parseToolUse, type ToolUseLike } from "./tool-use";
+import { SINGLE_TOOL_CHOICE, parseToolUse, type ToolUseLike } from "./tool-use";
 
 const EMPHASIS_READ_TOOL_NAME = "emit_emphasis_read";
 
@@ -146,7 +146,7 @@ export async function synthesizeEmphasisRead(input: {
           }
         ],
         tools: [emphasisReadTool],
-        tool_choice: { type: "tool", name: EMPHASIS_READ_TOOL_NAME }
+        tool_choice: SINGLE_TOOL_CHOICE
       }
     });
 

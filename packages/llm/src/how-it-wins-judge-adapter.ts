@@ -23,6 +23,8 @@ import {
 import { howItWinsOutputDiagnostics } from "./how-it-wins-output-diagnostics";
 import { parseModelString, quirksForModel } from "./llm-provider";
 import { OpenAiCompatHttpError } from "./openai-compat-error";
+import { OpenAiCompatTruncatedError } from "./openai-compat";
+import { SINGLE_TOOL_CHOICE, toolUseMissingMessage } from "./tool-use";
 import { isTransientLlmError } from "./transient-error";
 
 const TOOL_NAME = "emit_how_it_wins_judgment";
@@ -326,7 +328,7 @@ export function howItWinsJudgeProviderRequest(
         }]
         : [])
     ],
-    tool_choice: { type: "tool" as const, name: TOOL_NAME },
+    tool_choice: SINGLE_TOOL_CHOICE,
     tools: [toolFor(request)],
     messages: [{ role: "user" as const, content: JSON.stringify(benchmarkProviderPayloadForRequest(request)) }]
   };
@@ -336,9 +338,9 @@ export function howItWinsJudgeRequestSize(request: HowItWinsJudgeCallRequest, mo
   return Buffer.byteLength(JSON.stringify(howItWinsJudgeProviderRequest(request, model)), "utf8");
 }
 
-function toolInput(message: { content: Array<{ type: string; name?: string; input?: unknown }> }) {
+function toolInput(message: { content: Array<{ type: string; name?: string; input?: unknown }>; stop_reason?: string | null }) {
   const block = message.content.find((item) => item.type === "tool_use" && item.name === TOOL_NAME);
-  if (!block || block.input === undefined) throw new Error(`No ${TOOL_NAME} tool use returned`);
+  if (!block || block.input === undefined) throw new Error(toolUseMissingMessage(TOOL_NAME, message));
   return block.input;
 }
 
@@ -892,11 +894,14 @@ function createHowItWinsJudgeTransport(input: JudgeTransportInput): HowItWinsJud
         isTransientLlmError(error) &&
         request.attempt >= input.rethrowTransientOnAttempt
       ) throw error;
+      // A reply cut off at max_tokens is incomplete output, not an internal fault, and resending
+      // the same request is cut off at the same place, so it is not retryable.
+      const truncated = error instanceof OpenAiCompatTruncatedError;
       return {
         ok: false,
         error: error instanceof Error ? error.message : String(error),
         retryable: structuredOutputFailure || (isTransientLlmError(error) && !callDeadline.signal.aborted),
-        failureKind: structuredOutputFailure
+        failureKind: structuredOutputFailure || truncated
           ? "structured_output"
           : callDeadline.signal.aborted
             ? "cancellation_deadline"

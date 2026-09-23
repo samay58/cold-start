@@ -202,6 +202,7 @@ describe("the how it wins judge transport", () => {
       if (result.ok) throw new Error("expected a failed call");
       expect(result.error).toBe("response truncated at max_tokens");
       expect(result.retryable).toBe(false);
+      expect(result.failureKind).toBe("structured_output");
       expect(result.trace.outcome).toBe("failed");
       expect(result.trace.error).toBe("response truncated at max_tokens");
     } finally {

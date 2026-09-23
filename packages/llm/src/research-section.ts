@@ -18,6 +18,7 @@ import {
 import { investorTasteKernel } from "./investor-taste-kernel";
 import { withProviderFallback, withSchemaRetry } from "./llm-provider";
 import { researchSectionStyleIssues, styleRetryNote, withStyleRetry } from "./output-style";
+import { SINGLE_TOOL_CHOICE, toolUseMissingMessage } from "./tool-use";
 
 const TOOL_NAME = "emit_research_section";
 const maxEvidenceItems = 18;
@@ -154,11 +155,11 @@ export function evidenceForResearchSectionPrompt(evidence: EvidenceSource[]) {
   });
 }
 
-function parseToolInput(message: { content: unknown[] }): ResearchSectionContent {
+function parseToolInput(message: { content: unknown[]; stop_reason?: string | null }): ResearchSectionContent {
   const blocks = z.array(toolUseSchema).parse(message.content);
   const toolUse = blocks.find((block) => block.type === "tool_use" && block.name === TOOL_NAME);
   if (!toolUse || toolUse.input === undefined) {
-    throw new Error("No research section tool use returned");
+    throw new Error(toolUseMissingMessage(TOOL_NAME, message));
   }
 
   return researchSectionContentSchema.parse(toolUse.input);
@@ -188,7 +189,7 @@ export async function synthesizeResearchSection(input: ResearchSectionSynthesisI
           max_tokens: 1800,
           temperature: 0,
           system: [{ type: "text", text: system, cache_control: anthropicSystemCacheControl() }],
-          tool_choice: { type: "tool", name: TOOL_NAME },
+          tool_choice: SINGLE_TOOL_CHOICE,
           tools: [sectionTool],
           messages: [
             {
