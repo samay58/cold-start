@@ -6,6 +6,7 @@ import {
 } from "@cold-start/core";
 import type { HowItWinsJudgmentInputHashes } from "@cold-start/db";
 import {
+  HOW_IT_WINS_WRITER_PROMPT_HASH,
   hashHowItWinsJudgeValue,
   howItWinsEvidencePacketFromCard,
   howItWinsJudgePromptHash,
@@ -31,6 +32,8 @@ export type HowItWinsEvaluatorConfig = {
   models: HowItWinsModels;
   verifierModel: string;
   refinement?: boolean;
+  // Defaults to the live writer prompt; tests pass another value to prove it reaches the signature.
+  writerPromptHash?: string;
 };
 
 // The complete evaluator identity is durable card metadata. Model routing is intentionally part
@@ -44,6 +47,9 @@ export function howItWinsEvaluatorFor(config: HowItWinsEvaluatorConfig): HowItWi
     signature: hashHowItWinsJudgeValue({
       contractVersion: HOW_IT_WINS_EVALUATOR_CONTRACT_VERSION,
       judgePromptHash: howItWinsJudgePromptHash(rules, { refinement }),
+      // The writer prompt has its own hash since the judge's copy was frozen, so a writer edit
+      // re-writes filed reads from their stored verdicts without re-judging them.
+      writerPromptHash: config.writerPromptHash ?? HOW_IT_WINS_WRITER_PROMPT_HASH,
       vocabularyHash: hashHowItWinsJudgeValue(HOW_IT_WINS_STRATEGIES),
       refinement,
       models: config.models,

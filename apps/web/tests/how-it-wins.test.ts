@@ -111,6 +111,14 @@ describe("how-it-wins evaluator contract", () => {
     );
   });
 
+  it("re-writes filed reads when the writer prompt changes, without touching the judge cache", () => {
+    const current = howItWinsEvaluatorFor({ models, verifierModel: "claude-verify-test", refinement: true });
+    const edited = howItWinsEvaluatorFor({
+      models, verifierModel: "claude-verify-test", refinement: true, writerPromptHash: "edited-writer-prompt"
+    });
+    expect(edited.signature).not.toBe(current.signature);
+  });
+
   it.each(["judge", "editor"] as const)("invalidates the judge cache when the %s changes", (role) => {
     const reroutedModels = { ...models, [role]: "openai/gpt-test" };
 
