@@ -179,6 +179,13 @@ export function correctionCandidate(candidate: unknown) {
   return { previousNormalizedOutput: candidate };
 }
 
+const RESUMABLE_GLOBAL_CALL_SEQUENCES = new Set([
+  "how-it-wins:monolith",
+  "how-it-wins:monolith how-it-wins:monolith:2",
+  "how-it-wins:monolith how-it-wins:monolith:patch",
+  "how-it-wins:monolith how-it-wins:monolith:patch how-it-wins:monolith:2"
+]);
+
 export function validatedPrimaryJudgment(input: {
   checkpoint: HowItWinsPrimaryJudgment;
   expectedHashes: HowItWinsPrimaryJudgment["hashes"];
@@ -194,14 +201,15 @@ export function validatedPrimaryJudgment(input: {
   if (hashHowItWinsJudgeValue(checkpoint.hashes) !== hashHowItWinsJudgeValue(input.expectedHashes)) {
     throw new HowItWinsJudgmentClosedError("resumed primary judgment hashes do not match this request");
   }
-  const expectedCallIds = checkpoint.calls.length === 1
-    ? ["how-it-wins:monolith"]
-    : ["how-it-wins:monolith", "how-it-wins:monolith:2"];
+  // The first answer, then optionally the missing-row patch, then optionally the full re-ask.
+  const callIds = checkpoint.calls.map((call) => call.callId).join(" ");
+  if (!RESUMABLE_GLOBAL_CALL_SEQUENCES.has(callIds)) {
+    throw new HowItWinsJudgmentClosedError("resumed primary judgment has inconsistent global calls");
+  }
   checkpoint.calls.forEach((call, index) => {
     if (
       call.stage !== "global_judge" ||
-      call.callId !== expectedCallIds[index] ||
-      call.retryCount < index ||
+      call.retryCount < Math.min(index, 1) ||
       (index < checkpoint.calls.length - 1 && call.validationOutcome === "ok")
     ) {
       throw new HowItWinsJudgmentClosedError("resumed primary judgment has inconsistent global calls");

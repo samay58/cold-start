@@ -1376,6 +1376,101 @@ describe("createHowItWinsJudge", () => {
     });
   });
 
+  describe("missing strategy rows", () => {
+    const dropped: HowItWinsStrategyId[] = ["rarity", "secrecy", "lure"];
+    const withoutRows = (output: unknown, ids: readonly HowItWinsStrategyId[]) => {
+      const copy = structuredClone(output) as { strategyEvaluations: Array<{ strategyId: HowItWinsStrategyId }> };
+      copy.strategyEvaluations = copy.strategyEvaluations.filter((row) => !ids.includes(row.strategyId));
+      return copy;
+    };
+    const globalCalls = (fake: ReturnType<typeof adapters>) => fake.strong.mock.calls
+      .map(([request]) => request)
+      .filter((request) => request.stage === "global_judge");
+
+    it("asks only for the missing rows, merges them, and skips the full re-ask", async () => {
+      const fake = adapters();
+      const original = fake.strong;
+      fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
+        const result = await original(request);
+        if (!result.ok || request.stage !== "global_judge" || request.attempt > 1) return result;
+        return { ...result, output: withoutRows(result.output, dropped) };
+      });
+      const onPrimaryJudgment = vi.fn<HowItWinsPrimaryJudgmentSink>();
+
+      const result = await makeJudge(fake, { refinement: false, onPrimaryJudgment })(judgeInput({ refinement: false }));
+
+      const requests = globalCalls(fake);
+      expect(requests.map((request) => request.callId)).toEqual(["how-it-wins:monolith", "how-it-wins:monolith:patch"]);
+      expect(requests[1]).toMatchObject({
+        attempt: 2,
+        scoped: true,
+        payload: {
+          missingStrategyIds: ["secrecy", "lure", "rarity"].sort((a, b) =>
+            HOW_IT_WINS_STRATEGIES.findIndex((s) => s.id === a) - HOW_IT_WINS_STRATEGIES.findIndex((s) => s.id === b)),
+          retryCorrection: expect.stringMatching(/left out 3 strategy rows/),
+          previousNormalizedOutput: expect.objectContaining({ strategyEvaluations: expect.any(Array) })
+        }
+      });
+      expect(result.strategyEvaluations.map((row) => row.strategyId)).toEqual(HOW_IT_WINS_STRATEGIES.map((s) => s.id));
+      expect(result.refinement?.notes.join(" ")).toMatch(/patched for 3 missing strategy rows/);
+      expect(result.calls.map((call) => [call.callId, call.validationOutcome])).toEqual([
+        ["how-it-wins:monolith", "failed"],
+        ["how-it-wins:monolith:patch", "ok"]
+      ]);
+
+      // The stored checkpoint of a patched judgment resumes without another provider call.
+      const checkpoint = onPrimaryJudgment.mock.calls[0]![0];
+      const resumed = adapters();
+      const again = await makeJudge(resumed, { refinement: false, resumePrimaryJudgment: checkpoint })(judgeInput({ refinement: false }));
+      expect(resumed.strong).not.toHaveBeenCalled();
+      expect(again.strategyEvaluations).toHaveLength(80);
+    });
+
+    it("falls back to the one full re-ask when the patch still leaves a row out", async () => {
+      const fake = adapters();
+      const original = fake.strong;
+      fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
+        const result = await original(request);
+        if (!result.ok || request.stage !== "global_judge") return result;
+        if (request.callId === "how-it-wins:monolith") return { ...result, output: withoutRows(result.output, dropped) };
+        if (request.callId === "how-it-wins:monolith:patch") return { ...result, output: withoutRows(result.output, ["lure"]) };
+        return result;
+      });
+      const onPrimaryJudgment = vi.fn<HowItWinsPrimaryJudgmentSink>();
+
+      const result = await makeJudge(fake, { refinement: false, onPrimaryJudgment })(judgeInput({ refinement: false }));
+
+      expect(globalCalls(fake).map((request) => request.callId)).toEqual([
+        "how-it-wins:monolith",
+        "how-it-wins:monolith:patch",
+        "how-it-wins:monolith:2"
+      ]);
+      expect(result.strategyEvaluations).toHaveLength(80);
+      expect(result.refinement?.notes.join(" ")).toMatch(/global judgment repaired after/i);
+
+      const checkpoint = onPrimaryJudgment.mock.calls[0]![0];
+      const resumed = adapters();
+      await makeJudge(resumed, { refinement: false, resumePrimaryJudgment: checkpoint })(judgeInput({ refinement: false }));
+      expect(resumed.strong).not.toHaveBeenCalled();
+    });
+
+    it("sends a judgment with a duplicated row straight to the full re-ask", async () => {
+      const fake = adapters();
+      const original = fake.strong;
+      fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
+        const result = await original(request);
+        if (!result.ok || request.stage !== "global_judge" || request.attempt > 1) return result;
+        const output = withoutRows(result.output, ["rarity"]) as { strategyEvaluations: unknown[] };
+        output.strategyEvaluations.push(structuredClone(output.strategyEvaluations[0]));
+        return { ...result, output };
+      });
+
+      await makeJudge(fake, { refinement: false })(judgeInput({ refinement: false }));
+
+      expect(globalCalls(fake).map((request) => request.callId)).toEqual(["how-it-wins:monolith", "how-it-wins:monolith:2"]);
+    });
+  });
+
   it("repairs a contradictory not-yet row in code instead of buying a re-ask", async () => {
     const contradictory = body();
     contradictory.strategyEvaluations = contradictory.strategyEvaluations.map((entry) => entry.strategyId === "aggregation"

@@ -139,6 +139,6 @@ export const primaryJudgmentSchema = z.object({
     vocabulary: z.string().min(1)
   }).strict(),
   body: howItWinsJudgmentBodySchema,
-  calls: z.array(howItWinsJudgeCallTraceSchema).min(1).max(2),
+  calls: z.array(howItWinsJudgeCallTraceSchema).min(1).max(3),
   repairs: z.array(z.string().min(1).max(300)).max(200).default([])
 }).strict();

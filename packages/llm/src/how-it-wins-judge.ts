@@ -27,6 +27,12 @@ import {
   HOW_IT_WINS_SCOPED_JUDGE_ADDENDUM
 } from "./how-it-wins-judge-prompts";
 import {
+  HOW_IT_WINS_PATCH_CALL_SUFFIX,
+  howItWinsMissingRowIds,
+  howItWinsPatchInstruction,
+  mergeHowItWinsPatch
+} from "./how-it-wins-judge-patch";
+import {
   howItWinsCriticJudgmentPayload,
   runHowItWinsCitationCheck,
   type HowItWinsCitationCheck,
@@ -342,6 +348,47 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
       assertRequiredSiblingResolutions(accepted.body, siblingMap);
       return accepted;
     };
+    const patchMissingRows = async (candidate: unknown, missingIds: HowItWinsStrategyId[]) => {
+      const corrected = correctedRequest(
+        globalRequest,
+        howItWinsPatchInstruction(missingIds),
+        HOW_IT_WINS_PATCH_CALL_SUFFIX,
+        candidate
+      );
+      // scoped lets the tool schema and contract accept fewer than 80 rows.
+      const patchRequest: HowItWinsJudgeCallRequest = {
+        ...corrected,
+        scoped: true,
+        payload: { ...(corrected.payload as Record<string, unknown>), missingStrategyIds: missingIds }
+      };
+      const patch = await invoke(config.adapters.strong, patchRequest);
+      if (!patch.ok) {
+        if (patch.failureKind === "structured_output" && patch.trace.providerOutcome === "ok") {
+          await reportValidation({
+            request: patchRequest,
+            trace: patch.trace,
+            outcome: "failed",
+            failureKind: "structured_output",
+            diagnostics: patch.diagnostics ?? []
+          });
+        }
+        return null;
+      }
+      try {
+        const accepted = acceptGlobalJudgment(mergeHowItWinsPatch(candidate, patch.output, missingIds));
+        await reportValidation({ request: patchRequest, trace: patch.trace, outcome: "ok", diagnostics: [] });
+        return { accepted, provider: patch.trace.provider };
+      } catch {
+        await reportValidation({
+          request: patchRequest,
+          trace: patch.trace,
+          outcome: "failed",
+          failureKind: "semantic_contract",
+          diagnostics: []
+        });
+        return null;
+      }
+    };
     const refinement: HowItWinsRefinementRecord = {
       critic: "ok",
       adjudication: "not_needed",
@@ -431,48 +478,62 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
         if (globalResultRequest.attempt >= 2) {
           throw new HowItWinsJudgmentClosedError(`corrected global judgment still failed: ${contractViolationMessage(error)}`);
         }
-        const detail = diagnostics
-          ? howItWinsCorrectionFeedback(diagnostics)
-          : `Return one complete corrected global_judge result. The previous judgment failed a contract check: ${contractViolationMessage(error)}`;
-        const repairRequest = correctedRequest(
-          globalRequest,
-          detail.slice(0, 4096),
-          "2",
-          globalResult.output
-        );
-        const repair = await invoke(config.adapters.strong, repairRequest);
-        if (!repair.ok) throw new HowItWinsJudgmentClosedError("global judgment failed");
-        globalTraceProvider = repair.trace.provider;
-        let accepted: ReturnType<typeof acceptGlobalJudgment>;
-        try {
-          accepted = acceptGlobalJudgment(repair.output);
-          await reportValidation({
-            request: repairRequest,
-            trace: repair.trace,
-            outcome: "ok",
-            diagnostics: []
-          });
-        } catch (repairError) {
-          const repairDiagnostics = howItWinsOutputDiagnostics({
-            stage: "global_judge",
-            error: repairError,
-            candidate: repair.output
-          });
-          if (!(repairError instanceof HowItWinsJudgmentClosedError) && repairDiagnostics === null) throw repairError;
-          await reportValidation({
-            request: repairRequest,
-            trace: repair.trace,
-            outcome: "failed",
-            failureKind: repairDiagnostics ? "structured_output" : "semantic_contract",
-            diagnostics: repairDiagnostics ?? []
-          });
-          throw new HowItWinsJudgmentClosedError(
-            `corrected global judgment still failed: ${contractViolationMessage(repairError)}`
+        // A judgment that is only short some rows gets a patch call for those rows first; the
+        // full re-ask below stays the fallback when the patch fails. Scoped calls already fill
+        // screened-out rows in code, so only the unscoped judge patches.
+        const missingIds = scope
+          ? null
+          : howItWinsMissingRowIds(globalResult.output, HOW_IT_WINS_STRATEGIES.map((strategy) => strategy.id));
+        const patched = missingIds ? await patchMissingRows(globalResult.output, missingIds) : null;
+        if (patched && missingIds) {
+          globalTraceProvider = patched.provider;
+          globalJudgment = patched.accepted.body;
+          refinement.repairs.push(...patched.accepted.repairs);
+          refinement.notes.push(`global judgment patched for ${missingIds.length} missing strategy rows`);
+        } else {
+          const detail = diagnostics
+            ? howItWinsCorrectionFeedback(diagnostics)
+            : `Return one complete corrected global_judge result. The previous judgment failed a contract check: ${contractViolationMessage(error)}`;
+          const repairRequest = correctedRequest(
+            globalRequest,
+            detail.slice(0, 4096),
+            "2",
+            globalResult.output
           );
+          const repair = await invoke(config.adapters.strong, repairRequest);
+          if (!repair.ok) throw new HowItWinsJudgmentClosedError("global judgment failed");
+          globalTraceProvider = repair.trace.provider;
+          let accepted: ReturnType<typeof acceptGlobalJudgment>;
+          try {
+            accepted = acceptGlobalJudgment(repair.output);
+            await reportValidation({
+              request: repairRequest,
+              trace: repair.trace,
+              outcome: "ok",
+              diagnostics: []
+            });
+          } catch (repairError) {
+            const repairDiagnostics = howItWinsOutputDiagnostics({
+              stage: "global_judge",
+              error: repairError,
+              candidate: repair.output
+            });
+            if (!(repairError instanceof HowItWinsJudgmentClosedError) && repairDiagnostics === null) throw repairError;
+            await reportValidation({
+              request: repairRequest,
+              trace: repair.trace,
+              outcome: "failed",
+              failureKind: repairDiagnostics ? "structured_output" : "semantic_contract",
+              diagnostics: repairDiagnostics ?? []
+            });
+            throw new HowItWinsJudgmentClosedError(
+              `corrected global judgment still failed: ${contractViolationMessage(repairError)}`
+            );
+          }
+          globalJudgment = accepted.body;
+          refinement.repairs.push(...accepted.repairs);
+          refinement.notes.push(refinementNote("global judgment repaired after", error));
         }
-        globalJudgment = accepted.body;
-        refinement.repairs.push(...accepted.repairs);
-        refinement.notes.push(refinementNote("global judgment repaired after", error));
       }
       await config.onPrimaryJudgment?.({
         schemaVersion: 1,
