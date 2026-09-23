@@ -296,6 +296,19 @@ describe("styleIssuesForRead", () => {
     expect(styleIssuesForRead(read)).toContain('wrong_if uses the banned phrase "the read would weaken"');
   });
 
+  it("flags notes that close on what a test would show once past one note in three", () => {
+    const read = readFromValidDraft();
+    const total = read.running.length + (read.pair ? 1 : 0) + read.next.length;
+    const withEnding = (note: string) => `${note} A second contract would show whether the pull holds.`;
+    read.running = read.running.map((entry) => ({ ...entry, note: withEnding(entry.note) }));
+    const flagged = styleIssuesForRead(read).find((issue) => issue.includes("would show"));
+    expect(flagged).toBe(`${read.running.length} of ${total} notes end on what a test would show; state what is known and why it falls short, and name a test in at most one note in three, as the subject of a sentence`);
+
+    const once = readFromValidDraft();
+    once.running = once.running.map((entry, index) => index === 0 ? { ...entry, note: withEnding(entry.note) } : entry);
+    if (total >= 3) expect(styleIssuesForRead(once)).toEqual([]);
+  });
+
   it("flags a note that states certainty three times", () => {
     const read = readFromValidDraft();
     read.running = read.running.map((entry, index) =>

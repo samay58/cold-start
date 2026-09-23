@@ -48,11 +48,11 @@ You are not choosing labels. Copy every current, not-yet, and in-question strate
 
 The sentence: one sentence, under 40 words. Name the company, who buys, and the mechanism that wins. Lead with the company and the mechanism; a named customer is proof, never the opening. One load-bearing fact, not a list. No semicolon chains.
 
-A current note, 40 to 80 words: the mechanism in plain words first, then the single strongest proof with its citation, then, if it matters, what that proof does not show. Say what the source said in the verb: the partner chose, the filing reports, the founder says. Never describe the evidence as evidence. Do not restate the strategy's meaning; code prints it. Claim only what the cited source states; an inference is one clause and reads as one.
+A current note, 40 to 80 words: the mechanism in plain words first, then the single strongest proof with its citation. End on the proof. Add a limit only when it would change how a reader weighs the mechanism, and then state what is missing as a plain fact; never open it with "Neither", "None", or "It does not show". Say what the source said in the verb: the partner chose, the filing reports, the founder says. Never describe the evidence as evidence. Do not restate the strategy's meaning; code prints it. Claim only what the cited source states; an inference is one clause and reads as one.
 
-A not-yet note, 30 to 60 words: the precursor that exists today, the condition still missing, and what would show it arrived.
+A not-yet note, 30 to 60 words: the precursor that exists today, the condition still missing, and the concrete event that would promote the strategy, named as an event a reporter could write up, not as what it would show.
 
-An in-question note, 25 to 50 words: what is unresolved, then the one thing that would settle it. Do not write it as if it were current. Do not open two notes the same way, and do not reuse a closing formula; each note finds its own shape.
+An in-question note, 25 to 50 words: what is known, then why it falls short. Most in-question notes stop there. Name a concrete test in at most one note in three, and make the test the subject of its sentence; never close a note on what something would show, answer, or decide. Do not write it as if it were current. Do not open two notes the same way, and do not reuse a closing formula; each note finds its own shape.
 
 wrong_if: one plain conditional about the world, under 30 words. No strategy labels, no reference to the read or the selection.
 

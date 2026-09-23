@@ -7,6 +7,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import {
   howItWinsStrategyById,
+  splitIntoSentences,
   type ColdStartCard,
   type HowItWins,
   type HowItWinsJudgment,
@@ -70,6 +71,9 @@ const BANNED_OUTPUT_PHRASES = [
 // The prompt asks for one sentence under 40 words and at most four handles a note. The checks sit
 // a little wider than the ask so a good sentence at 41 words is not re-asked for its own sake.
 const SENTENCE_MAX_WORDS = 45;
+// 49 of 51 in-question notes once closed on what a test "would show". Naming a test is allowed in
+// one note in three; past that, the closing formula is the writer's habit, not the read.
+const WOULD_TEST_ENDING_PATTERN = /\bwould (show|answer|decide|tell|test|reveal|resolve|separate|measure|establish)\b/i;
 const NOTE_MAX_CITATION_MARKERS = 4;
 
 export class HowItWinsWriterOutputError extends Error {
@@ -114,8 +118,16 @@ function runningLabel(strategy: HowItWinsStrategyId, index: number): string {
   return `running item ${index + 1} ("${howItWinsStrategyById(strategy).name}")`;
 }
 
+function wouldTestEndingIssue(notes: string[]): string[] {
+  const endings = notes.map((note) => splitIntoSentences(note).at(-1) ?? "");
+  const matched = endings.filter((ending) => WOULD_TEST_ENDING_PATTERN.test(ending)).length;
+  if (matched * 3 <= notes.length) return [];
+  return [`${matched} of ${notes.length} notes end on what a test would show; state what is known and why it falls short, and name a test in at most one note in three, as the subject of a sentence`];
+}
+
 export function styleIssuesForRead(read: HowItWins): string[] {
   const issues: string[] = [];
+  const notes: string[] = [];
 
   const checkEmDash = (value: string, where: string) => {
     if (value.includes(EM_DASH)) {
@@ -139,6 +151,7 @@ export function styleIssuesForRead(read: HowItWins): string[] {
     }
   };
   const checkNote = (value: string, where: string, certaintyIssue: string) => {
+    notes.push(value);
     checkEmDash(value, where);
     checkBannedPhrases(value, where);
     if ((value.match(CERTAINTY_PATTERN) ?? []).length >= 3) {
@@ -168,7 +181,7 @@ export function styleIssuesForRead(read: HowItWins): string[] {
         );
       });
     }
-    return issues;
+    return [...issues, ...wouldTestEndingIssue(notes)];
   }
 
   checkEmDash(read.sentence, "the sentence");
@@ -214,7 +227,7 @@ export function styleIssuesForRead(read: HowItWins): string[] {
     );
   });
 
-  return issues;
+  return [...issues, ...wouldTestEndingIssue(notes)];
 }
 
 function withoutEmDashes(value: string): string {
