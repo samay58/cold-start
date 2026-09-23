@@ -14,7 +14,7 @@ describe("readableSourceText", () => {
   it("falls back to the summary, then the highlights", () => {
     expect(readableSourceText(exaRecord({ summary: "A summary." }), "Notion")).toBe("A summary.");
     expect(readableSourceText(exaRecord({ highlights: ["First highlight.\n[...]\nSecond one.", "Third."] }), "Notion")).toBe(
-      "First highlight. Second one. Third."
+      "First highlight.\nSecond one.\nThird."
     );
   });
 
@@ -31,10 +31,10 @@ describe("readableSourceText", () => {
     expect(readableSourceText(slice, "Notion")).toBe("Notion");
   });
 
-  it("reads stored plain text and markdown as they are, tidied", () => {
-    expect(readableSourceText("Plain page text.\n\n  More text.", "Title")).toBe("Plain page text. More text.");
+  it("reads stored plain text and markdown as they are, tidied, one line per line", () => {
+    expect(readableSourceText("Plain page   text.\n\n  More text.", "Title")).toBe("Plain page text.\nMore text.");
     expect(readableSourceText("[home link](https://joinmoxie.com/)\n\n# Grow Your Practice\n\n![logo](https://x.io/a.png) Moxie helps.", "Moxie")).toBe(
-      "home link Grow Your Practice Moxie helps."
+      "home link\nGrow Your Practice\nMoxie helps."
     );
     expect(readableSourceText("", "Title only")).toBe("Title only");
   });

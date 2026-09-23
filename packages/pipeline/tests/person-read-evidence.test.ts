@@ -67,6 +67,17 @@ describe("buildPersonReadEvidence", () => {
     expect(ivan?.evidence[0]?.text.length).toBeLessThanOrEqual(600);
   });
 
+  it("starts the window at the line that names the person", () => {
+    const [ivan] = buildPersonReadEvidence({
+      people: [person({ name: "Ivan Zhao", role: "CEO" })],
+      citations: [{ id: "s1", title: "Team", url: "https://notion.com/about" }],
+      candidates: [],
+      sources: [{ url: "https://notion.com/about", title: "Team", rawText: "# Leadership\n\nIvan Zhao, CEO\n\nAkshay Kothari, COO" }]
+    });
+
+    expect(ivan?.evidence[0]?.text).toBe("Ivan Zhao, CEO Akshay Kothari, COO");
+  });
+
   it("reads a person listed as both founder and executive once", () => {
     const evidence = buildPersonReadEvidence({
       people: [person({ name: "Ivan Zhao", role: "Co-founder" }), person({ name: " ivan zhao ", role: "CEO" })],

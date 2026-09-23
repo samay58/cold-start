@@ -51,13 +51,14 @@ function pageTextFromRecord(raw: string): string {
 }
 
 // Markdown links keep their words, images and heading marks go, and Exa's "[...]" highlight
-// separators go, so the text reads as prose instead of spending length on URLs.
+// separators go, so the text reads as prose instead of spending length on URLs. Line breaks
+// stay, one per non-empty line, because page lines carry meaning (the early read picks a line).
 function tidy(text: string): string {
   return text
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/^[ \t]*#{1,6}[ \t]+/gm, "")
-    .replace(/^[ \t]*(?:\[\.\.\.\]|\.\.\.)[ \t]*$/gm, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*#{1,6}\s+/, "").replace(/^\s*(?:\[\.\.\.\]|\.\.\.)\s*$/, "").replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
 }

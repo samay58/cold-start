@@ -24,8 +24,9 @@ function textAboutPerson(text: string, name: string): string | null {
   const at = needle ? text.toLowerCase().indexOf(needle) : -1;
   if (at < 0) return null;
   const before = text.slice(0, at);
-  let start = Math.max(before.lastIndexOf(". "), before.lastIndexOf("! "), before.lastIndexOf("? ")) + 2;
-  if (start < 2) start = 0;
+  const lineStart = before.lastIndexOf("\n") + 1;
+  const sentenceEnd = Math.max(before.lastIndexOf(". "), before.lastIndexOf("! "), before.lastIndexOf("? "));
+  let start = Math.max(lineStart, sentenceEnd < 0 ? 0 : sentenceEnd + 2);
   if (at - start > maxLeadBeforeName) start = text.lastIndexOf(" ", at - maxLeadBeforeName / 2) + 1;
   return sourceSnippet(text.slice(start));
 }
