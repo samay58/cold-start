@@ -39,7 +39,7 @@ Every one funnels through the chokepoint. All use forced tool choice for structu
 
 | # | Function | File:line | Stage | Label | Max tokens | Temp | Tool | Status |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `planCompanyResearch` | `research-plan.ts:128` | `research_plan` | `research-plan` | 1200 | 0 | `emit_research_plan` | DORMANT |
+| 1 | `planCompanyResearch` | removed September 22, 2026; the `plan-research` step uses `fallbackResearchPlan` | `research_plan` | `research-plan` | n/a | n/a | n/a | REMOVED |
 | 2 | `extractCompanyClaims` | `extraction.ts:778` | `extract_full` | `extract-company-claims` | 4000 | 0 | `emit_company_claims` | live |
 | 3 | `extractCompanyBlockClaims` | `extraction.ts:835` | `extract_block` | `extract-block:{block}` | 1800 | 0 | `emit_block_claims` | live |
 | 4 | `synthesizeCard` | `synthesis.ts:285` | `synthesis` | `synthesize-card` | 2500 | 0.2 | `emit_investor_synthesis` | live |
