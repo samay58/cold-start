@@ -12,7 +12,7 @@ import {
   type StoredHowItWinsJudgment
 } from "@cold-start/db";
 import {
-  createAnthropicClient, createHowItWinsCitationCheck, createJevAsk, hashHowItWinsJudgeValue,
+  createAnthropicClient, createHowItWinsCitationCheck, createJevAsk, hashHowItWinsJudgeValue, HOW_IT_WINS_SCREEN_IDENTITY,
   howItWinsJudgeScopeFromScreen, judgeHowItWinsForAnalysis, synthesizeHowItWins, verifySynthesis,
   HowItWinsJudgeClosedError, type HowItWinsJudgeScope, type HowItWinsPrimaryJudgment, type HowItWinsScreenResult
 } from "@cold-start/llm";
@@ -25,7 +25,7 @@ import { createHowItWinsExecution, howItWinsFailureReason, HowItWinsExecutionErr
 import {
   HOW_IT_WINS_SCREEN_TIMEOUT_MS, howItWinsScreenShadow, howItWinsScreenTrace, runHowItWinsScreen
 } from "./how-it-wins-screen-shadow";
-import { howItWinsEnabled, howItWinsScreenMode } from "./worker-env";
+import { howItWinsEnabled, howItWinsScreenConfig } from "./worker-env";
 
 type HowItWinsTraceBlock = NonNullable<GenerationTrace["howItWins"]>;
 type HowItWinsConfig = ReturnType<typeof howItWinsExecutionConfig>;
@@ -124,7 +124,7 @@ function createHowItWinsOutcome(input: { db: ColdStartDb; job: StoredHowItWinsJo
 // The all-80 verdict for this evidence, replayed from the judgment table when it is already
 // filed and paid for once when it is not. A primary judgment stored by an earlier attempt of the
 // same job resumes from its own checkpoint, so a retried run never re-pays for the global pass.
-// A scoped run's scope is part of its prompt hash, so it never replays an unscoped verdict.
+// A scoped run's hashes carry the screen's identity, so it never replays an unscoped verdict.
 async function resolveJudgment(input: StageInput & {
   step: GenerationStepTools;
   hashes: HowItWinsJudgmentInputHashes;
@@ -242,34 +242,45 @@ export async function howItWinsV2Handler({ event, runId, step }: WorkerEventCont
     if (identity.evaluatorSignature !== job.evaluatorSignature || card.synthesis.howItWinsEvaluator?.signature !== job.evaluatorSignature) return outcome.finish("stale_evaluator");
     const client = createAnthropicClient();
     const thin = howItWinsThinFileReason(card);
-    const screenMode = howItWinsScreenMode();
-    const typesafeApiKey = process.env.TYPESAFE_API_KEY;
-    // Scoped mode screens before the judge, as its own memoized step, so a retried run judges
-    // the same scope. A failed screen falls back to the full judge; the run never waits on Jev.
-    let screened: HowItWinsScreenResult | undefined;
-    if (!thin && screenMode === "scoped" && typesafeApiKey) {
-      const result = await step.run("hiw-v2-screen", () => runHowItWinsScreen({ card, apiKey: typesafeApiKey }));
-      if (result.ok) screened = result.screen as HowItWinsScreenResult;
-      else outcome.judgment.screen = { ...result.trace, mode: "scoped" };
+    const screen = thin ? null : howItWinsScreenConfig();
+    let { hashes } = howItWinsJudgeInputs(card, config.refinement, config.models);
+    // Scoped mode files its verdict under the screen's identity, so a re-file over unchanged
+    // evidence replays it without asking Jev. On a miss the screen runs before the judge, in the
+    // same memoized step as that lookup, so a replay takes the same branch and judges the same
+    // scope. A failed screen falls back to the full judge; the run never waits on Jev.
+    let scoped: { screen: HowItWinsScreenResult; scope: HowItWinsJudgeScope; apiKey: string } | undefined;
+    if (screen?.mode === "scoped") {
+      const scopedHashes = howItWinsJudgeInputs(card, config.refinement, config.models, HOW_IT_WINS_SCREEN_IDENTITY).hashes;
+      const result = await step.run("hiw-v2-screen", async () =>
+        await findHowItWinsJudgment(db, scopedHashes) ? null : runHowItWinsScreen({ card, apiKey: screen.apiKey }));
+      if (!result || result.ok) hashes = scopedHashes;
+      if (result?.ok) {
+        const screened = result.screen as HowItWinsScreenResult;
+        scoped = { screen: screened, scope: howItWinsJudgeScopeFromScreen(screened), apiKey: screen.apiKey };
+      } else if (result) {
+        outcome.judgment.screen = { ...result.trace, mode: "scoped" };
+      }
     }
-    const scope = screened ? howItWinsJudgeScopeFromScreen(screened) : undefined;
-    const { hashes } = howItWinsJudgeInputs(card, config.refinement, config.models, scope);
     outcome.judgment.hashes = hashes;
     const stage: StageInput = { db, job, config, execution, card, client };
     let judgmentId: string | undefined;
     let read: HowItWins = { status: "thin_file" };
     if (!thin) {
-      const judgment = await resolveJudgment({ ...stage, step, hashes,
-        ...(scope && typesafeApiKey ? { scoped: { scope, apiKey: typesafeApiKey } } : {}) });
+      const judgment = await resolveJudgment({ ...stage, step, hashes, ...(scoped ? { scoped } : {}) });
       judgmentId = judgment.judgmentId;
       outcome.judgment.cached = judgment.cached;
-      if (screened) outcome.judgment.screen = howItWinsScreenTrace(screened, judgment.judgment.judgment, "scoped");
+      if (scoped) outcome.judgment.screen = howItWinsScreenTrace(scoped.screen, judgment.judgment.judgment, "scoped");
       // Shadow only: the screen runs after the judge, as its own memoized step, and its result
       // goes to the run trace. It never changes the judgment or the read, and it cannot throw.
-      // It is skipped when the writer and verifier might need the remaining time.
-      if (screenMode === "shadow" && typesafeApiKey && job.deadlineAt.getTime() - Date.now() > SCREEN_SHADOW_MIN_REMAINING_MS) {
-        outcome.judgment.screen = await step.run("hiw-v2-screen-shadow", () =>
-          howItWinsScreenShadow({ card, judgment: judgment.judgment.judgment, apiKey: typesafeApiKey }));
+      // It is skipped when the writer and verifier might need the remaining time. That check runs
+      // inside the step: outside it, a later replay with less time left would skip a step that
+      // already ran and drop its result from the trace.
+      if (screen?.mode === "shadow") {
+        const shadow = await step.run("hiw-v2-screen-shadow", async () =>
+          job.deadlineAt.getTime() - Date.now() > SCREEN_SHADOW_MIN_REMAINING_MS
+            ? howItWinsScreenShadow({ card, judgment: judgment.judgment.judgment, apiKey: screen.apiKey })
+            : null);
+        if (shadow) outcome.judgment.screen = shadow;
       }
       const written = await runWriter({ ...stage, judgmentId: judgment.judgmentId, judgment: judgment.judgment });
       read = written.read.status === "read"

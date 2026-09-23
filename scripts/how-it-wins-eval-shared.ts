@@ -174,11 +174,11 @@ export function judgmentCacheKeyForCard(
   card: ColdStartCard,
   rules: ReturnType<typeof loadHowItWinsJudgeRules>,
   refinement: boolean,
-  scope?: HowItWinsJudgeScope
+  screenIdentity?: string
 ): string {
   const packet = howItWinsEvidencePacketFromCard(card);
   const evidencePacketHash = hashBenchmarkValue(packet);
-  const promptHash = howItWinsJudgePromptHash(rules, { refinement, scope });
+  const promptHash = howItWinsJudgePromptHash(rules, { refinement, screenIdentity });
   const vocabularyHash = hashBenchmarkValue(HOW_IT_WINS_STRATEGIES);
   return judgmentCacheFileName(evidencePacketHash, promptHash, vocabularyHash);
 }
@@ -189,12 +189,12 @@ export async function loadOrRunJudgment(input: {
   models: HowItWinsModels;
   telemetry: (call: GenerationLlmCallTrace) => void;
   refinement: boolean;
-  // Phase 5 of the layered-screen spec: a scoped verdict caches under its own scope-bound hash.
+  // Phase 5 of the layered-screen spec: a scoped verdict caches under the screen's identity.
   scope?: HowItWinsJudgeScope;
   citationCheck?: HowItWinsCitationCheck;
 }): Promise<{ judgment: HowItWinsJudgment; cached: boolean }> {
   const rules = loadHowItWinsJudgeRules();
-  const fileName = judgmentCacheKeyForCard(input.card, rules, input.refinement, input.scope);
+  const fileName = judgmentCacheKeyForCard(input.card, rules, input.refinement, input.scope?.identity);
   const filePath = path.join(HOW_IT_WINS_JUDGMENT_CACHE_DIR, fileName);
   if (existsSync(filePath)) {
     const stored = JSON.parse(await readFile(filePath, "utf8"));

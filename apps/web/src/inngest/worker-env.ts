@@ -101,11 +101,11 @@ export function howItWinsEnabled() {
 // The Jev screen in front of the How it wins judge. "shadow" runs it beside the judge and never
 // changes a read. "scoped" limits the judge to the screen's Round 1 survivors and adds the Jev
 // citation check; it changes reads, so it waits on Samay's blind sitting. Anything else,
-// including unset or a missing key, leaves it off.
-export function howItWinsScreenMode(): "off" | "shadow" | "scoped" {
-  if (!process.env.TYPESAFE_API_KEY) return "off";
+// including unset or a missing key, is off (null).
+export function howItWinsScreenConfig(): { mode: "shadow" | "scoped"; apiKey: string } | null {
+  const apiKey = process.env.TYPESAFE_API_KEY;
   const mode = process.env.HOW_IT_WINS_SCREEN;
-  return mode === "shadow" || mode === "scoped" ? mode : "off";
+  return apiKey && (mode === "shadow" || mode === "scoped") ? { mode, apiKey } : null;
 }
 
 // Manual How it wins retry admission. Off unless the flag is exactly "true": a retry spends real

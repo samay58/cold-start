@@ -79,17 +79,18 @@ export type HowItWinsJudgeRules = {
 // Refinement changes what the judge does with the same rules, so a verdict judged under one
 // setting must never replay for a run under the other. Folded into the prompt hash, not a
 // separate cache column: default true when the caller omits the option, matching
-// createHowItWinsJudge's own default. A scope is folded in only when present, so every unscoped
-// hash, and every verdict already filed under one, is unchanged.
+// createHowItWinsJudge's own default. A scoped judge folds in the screen's identity, never its
+// scope, so a re-file over unchanged evidence replays the scoped verdict. The key is absent on
+// unscoped calls, so every unscoped hash, and every verdict already filed under one, is unchanged.
 export function howItWinsJudgePromptHash(
   rules: HowItWinsJudgeRules,
-  options?: { refinement: boolean | undefined; scope?: HowItWinsJudgeScope | undefined }
+  options?: { refinement: boolean | undefined; screenIdentity?: string | undefined }
 ) {
   return hashHowItWinsJudgeValue({
     prompts: HOW_IT_WINS_JUDGE_PROMPTS,
     rules,
     refinement: options?.refinement ?? true,
-    ...(options?.scope ? { scope: { addendum: HOW_IT_WINS_SCOPED_JUDGE_ADDENDUM, ...options.scope } } : {})
+    ...(options?.screenIdentity ? { scope: { addendum: HOW_IT_WINS_SCOPED_JUDGE_ADDENDUM, screen: options.screenIdentity } } : {})
   });
 }
 
@@ -502,7 +503,7 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
     if (hashHowItWinsJudgeValue(input.vocabulary) !== input.vocabularyHash) {
       throw new HowItWinsJudgmentClosedError("vocabulary hash mismatch");
     }
-    if (input.promptHash !== howItWinsJudgePromptHash(config.rules, { refinement: config.refinement, scope: config.scope })) {
+    if (input.promptHash !== howItWinsJudgePromptHash(config.rules, { refinement: config.refinement, screenIdentity: config.scope?.identity })) {
       throw new HowItWinsJudgmentClosedError("prompt hash mismatch");
     }
 
@@ -777,11 +778,9 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
       });
     }
 
-    const citation = await runHowItWinsCitationCheck(config.citationCheck, globalJudgment);
-    refinement.notes.push(...citation.notes);
-
     // No critic call, no adjudication call: the global judgment is the answer. Whatever the
-    // deterministic repair pass already fixed above stays recorded in refinement.repairs.
+    // deterministic repair pass already fixed above stays recorded in refinement.repairs. The
+    // citation check is skipped too, since its flags only matter to adjudication.
     if (config.refinement === false) {
       refinement.critic = "skipped_disabled";
       refinement.adjudication = "not_needed";
@@ -815,7 +814,13 @@ export function createHowItWinsJudge(config: HowItWinsJudgeConfig) {
     };
     // Everything past the global judgment is refinement. A failure here drops back to the global
     // judgment and records why, rather than throwing away a judgment that already cost the run.
-    const criticTransportCall = await invokeTransport(config.adapters.critic, criticRequest);
+    // The citation check reads the same global judgment and never throws, so it runs beside the
+    // critic rather than after it.
+    const [criticTransportCall, citation] = await Promise.all([
+      invokeTransport(config.adapters.critic, criticRequest),
+      runHowItWinsCitationCheck(config.citationCheck, globalJudgment)
+    ]);
+    refinement.notes.push(...citation.notes);
     const criticResult = criticTransportCall.result;
     let critic: { findings: Array<{ findingId: string } & z.infer<typeof criticFindingSchema>> } = { findings: [] };
     if (!criticResult.ok) {

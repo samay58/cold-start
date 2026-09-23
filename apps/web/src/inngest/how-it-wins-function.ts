@@ -47,7 +47,7 @@ export const howItWinsReconcileHandler = async ({ step }: Pick<WorkerEventContex
     // above only matches queued and running. Re-announcing everything terminal in the last thirty
     // minutes closes that gap; the recorder returns early for a run already carrying the event.
     for (const job of await listRecentlyTerminalHowItWinsJobs(db, { since: new Date(Date.now() - REANNOUNCE_WINDOW_MS) })) {
-      await recordHowItWinsJobOutcome(db, { job });
+      await recordHowItWinsJobOutcome(db, { job, reannounce: true });
     }
     await clearExpiredHowItWinsRecoveryPayloads(db);
     const queued = howItWinsEnabled() ? await listHowItWinsDispatchCandidates(db, { limit: 20 }) : [];

@@ -69,6 +69,6 @@ export async function judgeHowItWinsForAnalysis(input: {
     evidencePacketHash: hashHowItWinsJudgeValue(packet),
     vocabulary: HOW_IT_WINS_STRATEGIES,
     vocabularyHash: hashHowItWinsJudgeValue(HOW_IT_WINS_STRATEGIES),
-    promptHash: howItWinsJudgePromptHash(rules, { refinement: input.refinement, scope: input.scope })
+    promptHash: howItWinsJudgePromptHash(rules, { refinement: input.refinement, screenIdentity: input.scope?.identity })
   });
 }

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   HOW_IT_WINS_JUDGE_PROMPTS,
+  HOW_IT_WINS_SCREEN_IDENTITY,
   HOW_IT_WINS_SCREEN_THRESHOLDS,
   benchmarkToolSchemaForRequest,
   createHowItWinsCitationCheck,
@@ -61,6 +62,7 @@ const dimensions = {
 const scopedIds: HowItWinsStrategyId[] = ["usership", "specialization", "alliance"];
 const scope: HowItWinsJudgeScope = {
   version: "screen-v1",
+  identity: HOW_IT_WINS_SCREEN_IDENTITY,
   strategyIds: scopedIds,
   screenedOut: HOW_IT_WINS_STRATEGIES.filter((strategy) => !scopedIds.includes(strategy.id))
     .map((strategy) => ({ strategyId: strategy.id, roundOne: 0.04 })),
@@ -136,7 +138,7 @@ function judgeInput(options: { refinement?: boolean; scope?: HowItWinsJudgeScope
     evidencePacketHash: hashHowItWinsJudgeValue(evidencePacket),
     vocabulary: HOW_IT_WINS_STRATEGIES,
     vocabularyHash: hashHowItWinsJudgeValue(HOW_IT_WINS_STRATEGIES),
-    promptHash: howItWinsJudgePromptHash(rules, { refinement: options.refinement, scope: options.scope })
+    promptHash: howItWinsJudgePromptHash(rules, { refinement: options.refinement, screenIdentity: options.scope?.identity })
   };
 }
 
@@ -146,7 +148,17 @@ describe("scoped How it wins judge", () => {
       expect(howItWinsJudgePromptHash(rules, { refinement })).toBe(
         hashHowItWinsJudgeValue({ prompts: HOW_IT_WINS_JUDGE_PROMPTS, rules, refinement }));
     }
-    expect(howItWinsJudgePromptHash(rules, { refinement: true, scope })).not.toBe(howItWinsJudgePromptHash(rules, { refinement: true }));
+    expect(howItWinsJudgePromptHash(rules, { refinement: true, screenIdentity: scope.identity }))
+      .not.toBe(howItWinsJudgePromptHash(rules, { refinement: true }));
+  });
+
+  // Jev answers vary between calls, so two screens of unchanged evidence rarely agree exactly. The
+  // verdict is filed under the screen's configuration so the second re-file still replays it.
+  it("keys a scoped verdict by the screen configuration, not by the scope it produced", async () => {
+    const other: HowItWinsJudgeScope = { ...scope, strategyIds: ["specialization"], leads: { unusuallyStrong: [], lookalikeRisk: [], vague: [] } };
+    expect(judgeInput({ scope: other }).promptHash).toBe(judgeInput({ scope }).promptHash);
+    const judge = createHowItWinsJudge({ adapters: fakeAdapters([scopedOutput(["specialization"])]), rules, refinement: false, scope: other });
+    await expect(judge(judgeInput({ refinement: false, scope }))).resolves.toBeDefined();
   });
 
   it("asks only for the scope and files every other strategy as screened out", async () => {
@@ -201,12 +213,20 @@ describe("scoped How it wins judge", () => {
   it("keeps the judgment and notes it when the citation check fails", async () => {
     const fake = fakeAdapters([scopedOutput(scopedIds)]);
     const judge = createHowItWinsJudge({
-      adapters: fake, rules, refinement: false, scope,
-      citationCheck: async () => { throw new Error("jev 503"); }
+      adapters: fake, rules, scope,
+      citationCheck: async () => { throw new Error("jev 503"); },
+      providers: { strong: "anthropic", critic: "deepseek" }
     });
-    const result = await judge(judgeInput({ refinement: false, scope }));
+    const result = await judge(judgeInput({ scope }));
     expect(result.currentStrategyIds).toEqual(["specialization"]);
     expect(result.refinement?.notes.some((note) => note.includes("citation check failed"))).toBe(true);
+  });
+
+  it("skips the citation check when refinement is off, since only adjudication reads its flags", async () => {
+    const citationCheck = vi.fn<HowItWinsCitationCheck>(async () => []);
+    const judge = createHowItWinsJudge({ adapters: fakeAdapters([scopedOutput(scopedIds)]), rules, refinement: false, scope, citationCheck });
+    await judge(judgeInput({ refinement: false, scope }));
+    expect(citationCheck).not.toHaveBeenCalled();
   });
 });
 
@@ -240,6 +260,7 @@ describe("screen to scope", () => {
     });
     expect(scoped.strategyIds).toEqual(HOW_IT_WINS_STRATEGIES.map((s) => s.id).filter((id) => id === "usership" || id === "alliance"));
     expect(scoped.screenedOut).toHaveLength(78);
+    expect(scoped.identity).toBe(HOW_IT_WINS_SCREEN_IDENTITY);
     expect(scoped.leads).toEqual({ unusuallyStrong: ["usership"], lookalikeRisk: ["alliance"], vague: ["alliance"] });
   });
 });

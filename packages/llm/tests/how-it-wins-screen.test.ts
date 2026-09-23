@@ -5,8 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { HOW_IT_WINS_STRATEGIES, type ColdStartCard, type HowItWinsStrategyId } from "@cold-start/core";
 
+import { HOW_IT_WINS_SCREEN_CALIBRATION } from "../src/how-it-wins-screen-calibration";
 import {
-  HOW_IT_WINS_SCREEN_CALIBRATION,
   HOW_IT_WINS_SCREEN_MODEL,
   HOW_IT_WINS_SCREEN_THRESHOLDS,
   HOW_IT_WINS_SCREEN_VERSION,

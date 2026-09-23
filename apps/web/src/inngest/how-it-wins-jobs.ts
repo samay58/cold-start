@@ -79,6 +79,9 @@ export async function recordHowItWinsJobOutcome(db: ColdStartDb, input: {
   judgmentRef?: HowItWinsTraceBlock["judgmentRef"] | undefined;
   judgeSummary?: HowItWinsTraceBlock["judgeSummary"] | undefined;
   screen?: HowItWinsTraceBlock["screen"] | undefined;
+  // Set by the reconcile sweep. A job already announced is left alone, because its owner wrote
+  // both surfaces with the judgment details this sweep does not have.
+  reannounce?: boolean;
 }) {
   const { job } = input;
   if (job.status === "queued" || job.status === "running") return;
@@ -89,15 +92,19 @@ export async function recordHowItWinsJobOutcome(db: ColdStartDb, input: {
     const run = await findGenerationRunById(db, job.sourceAnalysisRunId);
     if (run) {
       const recorded = await findResearchRunEventsByRunId(db, job.sourceAnalysisRunId, { limit: 200 });
-      // Announced once means both surfaces were written in that same call, so a re-announce
-      // from the reconcile sweep stops here.
-      if (recorded.some(event => event.type === "how-it-wins.complete" && event.metadata.jobId === job.id)) return;
-      await recordResearchRunEvent(db, {
-        runId: job.sourceAnalysisRunId, slug: job.slug, domain: run.domain, sectionId: null,
-        type: "how-it-wins.complete",
-        message: howItWinsOutcomeMessage(job),
-        metadata: { status, jobId: job.id, ...(job.reasonCode ? { reasonCode: job.reasonCode } : {}) }
-      });
+      const announced = recorded.some(event => event.type === "how-it-wins.complete" && event.metadata.jobId === job.id);
+      // The sweep can reach a succeeded job between its store step and its notify step. Its thin
+      // announcement lands first, so the owner's call below still merges judgmentRef, judgeSummary,
+      // and screen into the trace; only the duplicate event is skipped.
+      if (announced && input.reannounce) return;
+      if (!announced) {
+        await recordResearchRunEvent(db, {
+          runId: job.sourceAnalysisRunId, slug: job.slug, domain: run.domain, sectionId: null,
+          type: "how-it-wins.complete",
+          message: howItWinsOutcomeMessage(job),
+          metadata: { status, jobId: job.id, ...(job.reasonCode ? { reasonCode: job.reasonCode } : {}) }
+        });
+      }
     }
   } catch {
     // The event trail is observability. A lost write must not fail a settled job.

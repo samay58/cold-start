@@ -10,7 +10,6 @@ import {
   howItWinsEvidencePacketFromCard,
   howItWinsJudgePromptHash,
   loadHowItWinsJudgeRules,
-  type HowItWinsJudgeScope,
   type HowItWinsModels
 } from "@cold-start/llm";
 
@@ -59,7 +58,7 @@ export function howItWinsJudgeInputs(
   card: ColdStartCard,
   refinement?: boolean,
   models?: Pick<HowItWinsModels, "judge" | "editor">,
-  scope?: HowItWinsJudgeScope
+  screenIdentity?: string
 ): { hashes: HowItWinsJudgmentInputHashes } {
   const packet = howItWinsEvidencePacketFromCard(card);
   const rules = loadHowItWinsJudgeRules();
@@ -69,7 +68,7 @@ export function howItWinsJudgeInputs(
       // Judge and editor routing changes can change the memoized verdict. Folding them into this
       // hash prevents the cache from replaying a verdict produced by an older evaluator route.
       promptHash: hashHowItWinsJudgeValue({
-        judgePromptHash: howItWinsJudgePromptHash(rules, { refinement, scope }),
+        judgePromptHash: howItWinsJudgePromptHash(rules, { refinement, screenIdentity }),
         ...(models ? { models: { judge: models.judge, editor: models.editor } } : {})
       }),
       vocabularyHash: hashHowItWinsJudgeValue(HOW_IT_WINS_STRATEGIES)

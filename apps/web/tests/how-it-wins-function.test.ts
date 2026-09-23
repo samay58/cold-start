@@ -138,6 +138,9 @@ describe("how-it-wins reconcile sweep", () => {
     expect(Date.now() - since.getTime()).toBeGreaterThanOrEqual(30 * 60 * 1_000 - 1_000);
     expect(mocks.recordHowItWinsJobOutcome.mock.calls.map(([, input]) => (input as { job: { id: string } }).job.id))
       .toEqual(["job-a", "job-z"]);
+    // Only the sweep's re-announce defers to an owner that already announced.
+    expect(mocks.recordHowItWinsJobOutcome.mock.calls.map(([, input]) => (input as { reannounce?: boolean }).reannounce))
+      .toEqual([undefined, true]);
   });
 
   it("still expires and closes trails when the flag is off, and lists no dispatch candidates", async () => {

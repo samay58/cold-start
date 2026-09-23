@@ -14,6 +14,9 @@ import {
 // Leads are hints the judge may use to decide where to look, never evidence.
 export type HowItWinsJudgeScope = {
   version: string;
+  // The screen configuration this scope came from. A scoped verdict is filed under it, not under
+  // the scope itself; see HOW_IT_WINS_SCREEN_IDENTITY.
+  identity: string;
   strategyIds: HowItWinsStrategyId[];
   screenedOut: Array<{ strategyId: HowItWinsStrategyId; roundOne: number }>;
   leads: {
@@ -30,7 +33,7 @@ export type HowItWinsCitationCheck = (body: HowItWinsJudgmentBody) => Promise<Ar
   support: number;
 }>>;
 
-export function howItWinsScreenedOutReason(roundOne: number, version: string) {
+function howItWinsScreenedOutReason(roundOne: number, version: string) {
   return `Screened out before judging: no specific supporting fact (${version}, ${roundOne.toFixed(2)}).`;
 }
 

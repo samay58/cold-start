@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   HOW_IT_WINS_STRATEGIES,
@@ -7,6 +7,7 @@ import {
   type HowItWinsJudgmentBody,
   type HowItWinsRead
 } from "@cold-start/core";
+import { HOW_IT_WINS_SCREEN_IDENTITY } from "@cold-start/llm";
 
 const mocks = vi.hoisted(() => ({
   completeHowItWinsJobWithCard: vi.fn(),
@@ -31,8 +32,9 @@ const mocks = vi.hoisted(() => ({
   howItWinsJobIdentity: vi.fn(),
   howItWinsJudgeInputs: vi.fn(),
   howItWinsEnabled: vi.fn(() => true),
-  howItWinsScreenMode: vi.fn(() => "off"),
+  howItWinsScreenConfig: vi.fn((): { mode: "shadow" | "scoped"; apiKey: string } | null => null),
   runHowItWinsScreen: vi.fn(),
+  howItWinsScreenShadow: vi.fn(),
   createHowItWinsExecution: vi.fn()
 }));
 
@@ -94,16 +96,18 @@ vi.mock("../src/inngest/how-it-wins-execution", async (importOriginal) => ({
 
 vi.mock("../src/inngest/worker-env", () => ({
   howItWinsEnabled: mocks.howItWinsEnabled,
-  howItWinsScreenMode: mocks.howItWinsScreenMode
+  howItWinsScreenConfig: mocks.howItWinsScreenConfig
 }));
 
 vi.mock("../src/inngest/how-it-wins-screen-shadow", async (importOriginal) => ({
   ...await importOriginal<typeof import("../src/inngest/how-it-wins-screen-shadow")>(),
-  runHowItWinsScreen: mocks.runHowItWinsScreen
+  runHowItWinsScreen: mocks.runHowItWinsScreen,
+  howItWinsScreenShadow: mocks.howItWinsScreenShadow
 }));
 
 import { howItWinsV2Handler } from "../src/inngest/how-it-wins-v2";
 import { HowItWinsExecutionError } from "../src/inngest/how-it-wins-execution";
+import { recordHowItWinsJobOutcome } from "../src/inngest/how-it-wins-jobs";
 
 const read: HowItWinsRead = {
   status: "read",
@@ -296,7 +300,7 @@ beforeEach(() => {
   job.leaseExpiresAt = new Date(Date.now() + 300_000);
   currentJob = job;
   mocks.howItWinsEnabled.mockReturnValue(true);
-  mocks.howItWinsScreenMode.mockReturnValue("off");
+  mocks.howItWinsScreenConfig.mockReturnValue(null);
   mocks.findHowItWinsJobById.mockImplementation(async () => currentJob);
   mocks.findCardBySlug.mockResolvedValue(card);
   mocks.howItWinsExecutionConfig.mockReturnValue(config);
@@ -470,7 +474,7 @@ describe("How it wins v2 judgment reuse", () => {
 
     await howItWinsV2Handler(eventContext().context as never);
 
-    expect(mocks.howItWinsJudgeInputs).toHaveBeenCalledWith(card, false, config.models, undefined);
+    expect(mocks.howItWinsJudgeInputs).toHaveBeenCalledWith(card, false, config.models);
     expect(mocks.judgeHowItWinsForAnalysis.mock.calls[0]?.[0]).toMatchObject({ refinement: false });
   });
 });
@@ -633,6 +637,27 @@ describe("How it wins v2 terminal event trail", () => {
     expect(recorded).toHaveLength(1);
   });
 
+  it("lets the owner's notify enrich the trace after the reconcile sweep announced the job first", async () => {
+    const terminal = terminalJob({ status: "succeeded", outcome: "read" });
+    const recorded: Array<Record<string, unknown>> = [];
+    mocks.recordResearchRunEvent.mockImplementation(async (_db: unknown, event: Record<string, unknown>) => {
+      recorded.push(event);
+      return null;
+    });
+    mocks.findResearchRunEventsByRunId.mockImplementation(async () =>
+      recorded.map((event, index) => ({ ...event, id: `event-${index}` })));
+    const judgmentRef = { id: "judgment-id", evidencePacketHash: "a".repeat(64), promptHash: "b".repeat(64), cached: false };
+
+    await recordHowItWinsJobOutcome({} as never, { job: terminal as never, reannounce: true });
+    await recordHowItWinsJobOutcome({} as never, { job: terminal as never, judgmentRef });
+    const traceWrites = mocks.updateGenerationRunTrace.mock.calls.length;
+    await recordHowItWinsJobOutcome({} as never, { job: terminal as never, reannounce: true });
+
+    expect(recorded).toHaveLength(1);
+    expect(parentTrace().howItWins).toMatchObject({ status: "read", judgmentRef });
+    expect(mocks.updateGenerationRunTrace).toHaveBeenCalledTimes(traceWrites);
+  });
+
   it("skips the event but still patches the trace when the source run row is gone", async () => {
     currentJob = terminalJob({ status: "superseded", reasonCode: "stale_evidence" });
     mocks.findGenerationRunById.mockResolvedValue(null);
@@ -665,9 +690,14 @@ describe("How it wins v2 scoped screen", () => {
   };
 
   beforeEach(() => {
-    vi.stubEnv("TYPESAFE_API_KEY", "test-key");
-    mocks.howItWinsScreenMode.mockReturnValue("scoped");
-    mocks.findHowItWinsJudgment.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    mocks.howItWinsScreenConfig.mockReturnValue({ mode: "scoped", apiKey: "test-key" });
+    mocks.howItWinsJudgeInputs.mockImplementation((_card, _refinement, _models, screenIdentity?: string) => ({ hashes: {
+      evidencePacketHash: "a".repeat(64),
+      promptHash: screenIdentity ? "e".repeat(64) : "b".repeat(64),
+      vocabularyHash: "c".repeat(64)
+    } }));
+    // The screen step's lookup, then resolveJudgment's filed and primary lookups, all miss.
+    mocks.findHowItWinsJudgment.mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce(null);
     mocks.judgeHowItWinsForAnalysis.mockResolvedValue(judgment);
     mocks.storeHowItWinsJudgment.mockResolvedValue({ id: "judgment-id", judgment });
     mocks.readHowItWinsStageCheckpoint.mockImplementation(async (_db: unknown, input: { checkpointId: string }) => {
@@ -681,33 +711,74 @@ describe("How it wins v2 scoped screen", () => {
     });
   });
 
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
-  it("screens before the judge and judges only the survivors, under a scope-bound hash", async () => {
+  it("screens before the judge and judges only the survivors, filed under the screen's identity", async () => {
     mocks.runHowItWinsScreen.mockResolvedValue({ ok: true, screen });
     const { names, context } = eventContext();
     await expect(howItWinsV2Handler(context as never)).resolves.toMatchObject({ status: "succeeded" });
 
     expect(names.indexOf("hiw-v2-screen")).toBeLessThan(names.indexOf("hiw-v2-judgment"));
-    const scope = mocks.howItWinsJudgeInputs.mock.calls[0]?.[3];
-    expect(scope).toMatchObject({ strategyIds: ["specialization", "alliance"].sort((a, b) =>
-      HOW_IT_WINS_STRATEGIES.findIndex((s) => s.id === a) - HOW_IT_WINS_STRATEGIES.findIndex((s) => s.id === b)) });
+    expect(mocks.howItWinsJudgeInputs.mock.calls.map((call) => call[3])).toEqual([undefined, HOW_IT_WINS_SCREEN_IDENTITY]);
+    expect(mocks.storeHowItWinsJudgment.mock.calls.at(-1)?.[1]).toMatchObject({ promptHash: "e".repeat(64) });
     const judged = mocks.judgeHowItWinsForAnalysis.mock.calls[0]?.[0];
-    expect(judged.scope).toEqual(scope);
+    expect(judged.scope).toMatchObject({ identity: HOW_IT_WINS_SCREEN_IDENTITY, strategyIds: ["specialization", "alliance"].sort((a, b) =>
+      HOW_IT_WINS_STRATEGIES.findIndex((s) => s.id === a) - HOW_IT_WINS_STRATEGIES.findIndex((s) => s.id === b)) });
     expect(typeof judged.citationCheck).toBe("function");
     expect(parentTrace().howItWins?.screen).toMatchObject({ status: "ok", mode: "scoped", keptCount: 2 });
+  });
+
+  it("replays a filed scoped verdict without asking Jev again", async () => {
+    mocks.findHowItWinsJudgment.mockReset();
+    mocks.findHowItWinsJudgment.mockResolvedValue({ id: "judgment-id", judgment });
+    await expect(howItWinsV2Handler(eventContext().context as never)).resolves.toMatchObject({ status: "succeeded" });
+
+    expect(mocks.runHowItWinsScreen).not.toHaveBeenCalled();
+    expect(mocks.judgeHowItWinsForAnalysis).not.toHaveBeenCalled();
+    expect(mocks.findHowItWinsJudgment.mock.calls.every((call) => (call[1] as { promptHash: string }).promptHash === "e".repeat(64))).toBe(true);
+    expect(parentTrace().howItWins?.screen).toBeUndefined();
   });
 
   it("falls back to the full judge when the screen fails", async () => {
     mocks.runHowItWinsScreen.mockResolvedValue({ ok: false, trace: { status: "failed", reason: "jev 503" } });
     await expect(howItWinsV2Handler(eventContext().context as never)).resolves.toMatchObject({ status: "succeeded" });
 
-    expect(mocks.howItWinsJudgeInputs.mock.calls[0]?.[3]).toBeUndefined();
+    expect(mocks.storeHowItWinsJudgment.mock.calls.at(-1)?.[1]).toMatchObject({ promptHash: "b".repeat(64) });
     const judged = mocks.judgeHowItWinsForAnalysis.mock.calls[0]?.[0];
     expect(judged.scope).toBeUndefined();
     expect(judged.citationCheck).toBeUndefined();
     expect(parentTrace().howItWins?.screen).toEqual({ status: "failed", reason: "jev 503", mode: "scoped" });
+  });
+});
+
+describe("How it wins v2 shadow screen", () => {
+  const shadowTrace = { status: "ok", mode: "shadow", keptCount: 3 };
+
+  beforeEach(() => {
+    mocks.howItWinsScreenConfig.mockReturnValue({ mode: "shadow", apiKey: "test-key" });
+    mocks.howItWinsScreenShadow.mockResolvedValue(shadowTrace);
+    mocks.readHowItWinsStageCheckpoint.mockImplementation(async (_db: unknown, input: { checkpointId: string }) => {
+      if (input.checkpointId === "writer") return { result: read };
+      if (input.checkpointId === "verifier") return { result: verifiedRead };
+      return null;
+    });
+    mocks.completeHowItWinsJobWithCard.mockImplementation(async () => {
+      currentJob = terminalJob({ status: "succeeded", outcome: "read", judgmentId: "judgment-id" });
+      return "succeeded";
+    });
+  });
+
+  it("records the shadow beside the judgment without changing the judge's hashes", async () => {
+    await expect(howItWinsV2Handler(eventContext().context as never)).resolves.toMatchObject({ status: "succeeded" });
+    expect(mocks.howItWinsJudgeInputs.mock.calls.map((call) => call[3])).toEqual([undefined]);
+    expect(parentTrace().howItWins?.screen).toEqual(shadowTrace);
+  });
+
+  // The time check lives inside the step, so every replay reaches the same step list.
+  it("still takes the shadow step when too little time is left, and skips only the Jev calls", async () => {
+    job.deadlineAt = new Date(Date.now() + 30_000);
+    const { names, context } = eventContext();
+    await howItWinsV2Handler(context as never);
+    expect(names).toContain("hiw-v2-screen-shadow");
+    expect(mocks.howItWinsScreenShadow).not.toHaveBeenCalled();
+    expect(parentTrace().howItWins?.screen).toBeUndefined();
   });
 });

@@ -2,6 +2,8 @@
 // (docs/superpowers/specs/2026-09-22-how-it-wins-layered-screen.md). Every question is built from
 // the approved strategy rubric the judge already reads, so the screen applies Cold Start's own
 // tests. Jev returns probabilities, never reasons: the screen narrows and profiles, the judge rules.
+import { createHash } from "node:crypto";
+
 import {
   HOW_IT_WINS_STRATEGIES,
   howItWinsStrategyById,
@@ -37,6 +39,14 @@ export const HOW_IT_WINS_SCREEN_THRESHOLDS = {
   citationFlagBelow: 0.3
 } as const;
 
+// What a scoped verdict is filed under in the judgment table: the screen's configuration, never
+// one screen's output. Jev is not deterministic (repeat calls agree about 91% of the time), so a
+// key built from the scope itself would miss on every re-file and re-pay the judge for unchanged
+// evidence. A version, model, or threshold change still retires every scoped verdict.
+export const HOW_IT_WINS_SCREEN_IDENTITY = createHash("sha256")
+  .update(JSON.stringify({ version: HOW_IT_WINS_SCREEN_VERSION, model: HOW_IT_WINS_SCREEN_MODEL, thresholds: HOW_IT_WINS_SCREEN_THRESHOLDS }))
+  .digest("hex");
+
 type RubricRow = HowItWinsJudgeRules["strategyRubric"][number];
 type NoulQuestion = { type: "noul"; instructions: string; criteria?: { true: string; false: string } };
 export type HowItWinsScreenCheck = "deciding" | "positive" | "lookalike" | "disqualifier";
@@ -56,7 +66,7 @@ export function howItWinsScreenRoundOneQuestion(row: RubricRow): NoulQuestion {
 
 // Four narrow checks per surviving strategy. "deciding" and "positive" are two wordings of one test;
 // their gap marks a strategy that is vague for this company.
-export function howItWinsScreenRoundTwoQuestions(row: RubricRow): Record<HowItWinsScreenCheck, NoulQuestion> {
+function howItWinsScreenRoundTwoQuestions(row: RubricRow): Record<HowItWinsScreenCheck, NoulQuestion> {
   return {
     deciding: {
       type: "noul",
@@ -240,6 +250,7 @@ export function howItWinsJudgeScopeFromScreen(screen: HowItWinsScreenResult): Ho
   const t = HOW_IT_WINS_SCREEN_THRESHOLDS;
   return {
     version: screen.version,
+    identity: HOW_IT_WINS_SCREEN_IDENTITY,
     strategyIds: ids.filter((id) => kept.has(id)),
     screenedOut: ids.filter((id) => !kept.has(id)).map((id) => ({
       strategyId: id,
@@ -258,7 +269,7 @@ export function howItWinsJudgeScopeFromScreen(screen: HowItWinsScreenResult): Ho
   };
 }
 
-export function howItWinsCitationQuestion(): NoulQuestion {
+function howItWinsCitationQuestion(): NoulQuestion {
   return {
     type: "noul",
     instructions: "The cited evidence in `citedEvidence` directly shows the mechanism stated in `ruling.mechanism` at work for this company.",
