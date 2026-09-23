@@ -5,12 +5,15 @@ What is in progress, what comes next, and what shipped recently. Update this pag
 ## In flight
 
 - How it wins Phase 5: the scoped judge is built and off. `HOW_IT_WINS_SCREEN=shadow` runs in production and never changes a read. `scoped` waits on Samay's blind review. See [the layered screen spec](superpowers/specs/2026-09-22-how-it-wins-layered-screen.md).
-- Polish pass follow-ups: re-ask only the missing rows when the full judge drops some (C3), move the judge off the forced tool choice and A/B Opus 5.5 as judge (C5), and a second look at research sections, which still say "the evidence" in 11 of 82 items. See [the plan](superpowers/plans/2026-09-22-polish-pass.md).
 - Friend alpha production readiness. The open gates are the owner rehearsal through the store install, production spend-control and alert readbacks, five fresh current-version company journeys, a clean seven-day `alpha:status --gate`, and a 24-hour owner-only soak. No invitation goes out without approval. See [the plan](superpowers/plans/2026-07-24-alpha-production-readiness.md) and [the evidence record](product/alpha-production-readiness-2026-07-24.md).
 - Firefox: the port shipped through 2026-07-29. The in-sidebar activeTab probe still needs a live check in real Firefox. See [the port plan](archive/plans/2026-07-13-firefox-port.md).
 
 ## Next
 
+- Choose the How it wins judge. Opus 5 stays pinned (`LLM_HOW_IT_WINS_JUDGE_MODEL=claude-opus-5`). Opus 5.5 now runs as judge, costs 36% less and runs 38% faster, but named 2 current strategies across 8 cards to Opus 5's 8 and turned Notion, Cognition and DeepInfra into nothing-stands-out. Read both sets in `eval/curation/how-it-wins-batch/2026-09-22-2154` against `2026-09-22-1734` before switching. See [the polish pass](archive/plans/2026-09-22-polish-pass.md), C5.
+- Check the expanded description's second paragraph live (polish A5). It has no offline runner.
+- Three copy questions for Samay from the polish pass: the landing page's five questions do not match their labels (`page.tsx:79-81`); the "Verified" legend promises two independent sources while the code accepts one outside source plus any second citation; "The alpha is resting".
+- The scripts folder has no typecheck in `npm run typecheck`, so strict errors there only show up by hand.
 - Decide whether to turn on `HOW_IT_WINS_SCREEN=scoped` after the blind review.
 - Send the first friend invitation once every readiness gate passes and Samay approves it.
 - Build the edition timeline, release two of [the re-file design](superpowers/specs/2026-08-11-profile-refresh-and-timeline-design.md). Editions have been saved since 2026-08-12; nothing reads them yet.
@@ -20,7 +23,8 @@ What is in progress, what comes next, and what shipped recently. Update this pag
 
 | Date | Commit | What | Record |
 | --- | --- | --- | --- |
-| 2026-09-22 | `43baec6`..`3bceeb9` | Polish pass: writing prompts, plain tester errors, not-found page, one Investor Lens name, critic cap, cut-off detection, five-minute judge cache, one price table, file splits, one agent guide, 33 docs archived | [plan](superpowers/plans/2026-09-22-polish-pass.md) |
+| 2026-09-22 | `447c657`..`782824e` | Polish follow-ups: wording check with one re-ask for research sections and synthesis, missing-row patch for the judge, no forced tool choice in any stage, truncated replies filed as incomplete output, drag spec fixed, Opus 5.5 judge A/B | [plan](archive/plans/2026-09-22-polish-pass.md) |
+| 2026-09-22 | `43baec6`..`3bceeb9` | Polish pass: writing prompts, plain tester errors, not-found page, one Investor Lens name, critic cap, cut-off detection, five-minute judge cache, one price table, file splits, one agent guide, 33 docs archived | [plan](archive/plans/2026-09-22-polish-pass.md) |
 | 2026-09-22 | `9f323ae` | How it wins writer on Opus 5.5, judge pinned to Opus 5 | [spec](superpowers/specs/2026-09-22-how-it-wins-layered-screen.md) |
 | 2026-09-22 | `88463b6` | Jev screen in shadow mode, and the scoped judge behind an off flag | [spec](superpowers/specs/2026-09-22-how-it-wins-layered-screen.md) |
 | 2026-09-15 | `a88d114` | Review remediation, merged and deployed | [plan](archive/plans/2026-09-15-review-remediation.md) |

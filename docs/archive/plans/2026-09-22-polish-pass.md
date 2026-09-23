@@ -1,6 +1,6 @@
 # Project polish pass
 
-Status: applied September 22, 2026, except C3 and C5, which stay open. Outcomes are recorded under each group. Five read-only reviews (prompts, user-facing copy, code health, reliability and cost, docs and tracking) found these; each was checked against the code before it was listed, and Samay approved every group.
+Status: shipped. Applied September 22, 2026; the follow-ups (A4, C3, C5 and the leftovers below) shipped the same night in `447c657`..`782824e`. Outcomes are recorded under each group. Anything still open lives in `docs/STATUS.md`. Five read-only reviews (prompts, user-facing copy, code health, reliability and cost, docs and tracking) found these; each was checked against the code before it was listed, and Samay approved every group.
 
 Rule for this pass: one change, one check, then stop. Prompt changes get a single before-and-after run on frozen inputs with a stated cap, not a tournament.
 
@@ -18,8 +18,8 @@ Outcome, checked on 8 cached How it wins verdicts and 5 provider-matrix fixtures
 
 - A1, A2: in-question notes ending on "would show / answer / decide" went from 40 of 51 to 0 of 52; current notes ending on a "Neither / None" hedge from 5 of 8 to 0 of 8. New habits: 15 of 52 in-question notes end on a "No customer..." absence sentence, and none names a concrete test. The writer prompt hash is now in the evaluator signature, so filed reads are re-written from stored verdicts on their next refresh; no verdict is re-judged.
 - A3: median open question 33 words to 23; two-part questions 9 to 6; two-sided change lines 14 to 9. "Thesis", "validate" and "bull" still appear 9 times.
-- A4 did not hold: 11 of 82 section items still say "the evidence". Left for a later pass.
-- A5 has no offline runner and was not checked live.
+- A4 did not hold on the prompt alone: 11 of 82 section items still said "the evidence". Follow-up `447c657` added a deterministic check with one re-ask in research sections and synthesis. On the same 5 fixtures ($1.28), "the evidence" went from 11 of 82 items to 0 of 63, and "thesis", "validate", "bull case" and "bear case" in open questions from 13 hits to 1. The re-ask fired on 5 of 5 synthesis cells and 5 of 15 section cells.
+- A5 has no offline runner and was not checked live. Tracked in `docs/STATUS.md`.
 
 ## B. What users see
 
@@ -34,7 +34,7 @@ Outcome, checked on 8 cached How it wins verdicts and 5 provider-matrix fixtures
 
 Flagged for Samay, not changed (his copy): the landing page's five questions do not match the labels shown beside them (`page.tsx:79-81`); the "Verified" legend promises two independent sources while the code accepts one outside source plus any second citation (`SourcesLegend.tsx:15` against `card-face/model.ts:118`); "The alpha is resting".
 
-Outcome: B1 to B6 shipped as listed. B3 went further afterwards: the card route's loading screen streamed a 200 before the page could call `notFound()`, so a missing card answered 200. The loading screen is gone and a missing card now answers 404. Tester errors are plain on any non-local API origin; local builds keep developer text. "Investor Lens" is the one name in UI strings and screen-reader labels. Two Playwright specs in `sidepanel-ui.spec.ts` (domain-receipt overflow at 825, drag attachment at 1471) failed in the worker's run on surfaces these changes do not touch; they are not in the required checks.
+Outcome: B1 to B6 shipped as listed. B3 went further afterwards: the card route's loading screen streamed a 200 before the page could call `notFound()`, so a missing card answered 200. The loading screen is gone and a missing card now answers 404. Tester errors are plain on any non-local API origin; local builds keep developer text. "Investor Lens" is the one name in UI strings and screen-reader labels. Two Playwright specs in `sidepanel-ui.spec.ts` failed in the worker's run. The receipt overflow spec passes on main. The drag spec failed on every run since `1cb2614`: the shared test API answered the How it wins status poll with the card, so a "Couldn't check progress" notice came and went mid-drag and moved the cards 26px. `268a681` answers the poll with no job; all 90 sidepanel-ui specs pass.
 
 ## C. Reliability and cost
 
@@ -46,7 +46,11 @@ Outcome: B1 to B6 shipped as listed. B3 went further afterwards: the card route'
 | C4 | Decision: the one-hour prompt cache costs about twice as much as no cache when reads are hours apart. A five-minute cache on the judge would save about $0.29 a read. It was chosen deliberately and applies to every stage, so this is a trade-off, not a bug. | `anthropic.ts:30-43`, `docs/anthropic-llm-call-map.md:100` |
 | C5 | Later: move the judge off the forced tool choice, then A/B Opus 5.5 as the judge. | spec step 7 |
 
-Outcome: C1, C2 and C4 shipped. C3 and C5 stay open. A truncated reply now surfaces as its own error; the How it wins job still files it under the reason `internal_storage`, which is misleading and left for later.
+Outcome: C1, C2 and C4 shipped with the pass. A truncated reply now surfaces as its own error, and `f66e692` files it under `structured_output` instead of `internal_storage` (a new code would break older extension builds, which check the list strictly).
+
+- C3 (`e246cda`): a judgment short some rows gets a patch call for only those rows, merged and validated; the full re-ask stays as the fallback. Every judge prompt hash is unchanged. It fired live once in the C5 run: DeepInfra's patched judgment cost $0.61 and 100 s, against $1.17 and 281 s for Opus 5's full re-ask on the same card.
+- C5 (`4830c3c`): every stage now offers its one tool under `tool_choice` auto; OpenAI-compatible requests are unchanged. All seven non-judge stages return their tool call and parse on Sonnet 4.6 ($0.58). Opus 5 reaches them now but spends their max_tokens on thinking, so they stay off Opus.
+- C5 A/B, Opus 5.5 against Opus 5 as judge on the 8 cached cards, both at default effort ($4.41 spent): Opus 5.5 used 27% fewer output tokens (84k against 115k), cost 36% less ($3.60 against $5.63, partly Opus 5's two full re-asks) and ran 38% faster (785 s against 1,269 s). The current strategies matched on 3 of 8 cards, all three nothing-stands-out. Opus 5.5 named 2 current strategies across the 8 cards to Opus 5's 8, and turned Cognition, DeepInfra and Notion into nothing-stands-out. Recommendation: keep Opus 5 as judge until Samay reads both sets. Run: `eval/curation/how-it-wins-batch/2026-09-22-2154`.
 
 ## D. Code health
 
@@ -62,7 +66,7 @@ Outcome: C1, C2 and C4 shipped. C3 and C5 stay open. A truncated reply now surfa
 | D8 | Fake timers for the two slow retry tests. | S |
 | D9 | Split `stableenrich/people.ts` (57 lines over) and `scripts/alpha-status.ts`, from the size allowlist. | M |
 
-Outcome: all shipped except the three person-name heuristics in `people.ts`, which are not equivalent and stay separate. Every Anthropic model now needs an exact row in `pricing.ts`; an unpriced model gets no cost estimate and cannot reserve a How it wins budget. Citation funding labels between $1M and $10M now show one decimal. `researchPlannerSystemPrompt` has no caller left.
+Outcome: all shipped except the three person-name heuristics in `people.ts`, which are not equivalent and stay separate. Every Anthropic model now needs an exact row in `pricing.ts`; an unpriced model gets no cost estimate and cannot reserve a How it wins budget. Citation funding labels between $1M and $10M now show one decimal. `researchPlannerSystemPrompt` had no caller left and `a2e95aa` deleted it. `d65fe34` cleared the 21 strict type errors in the alpha status scripts; `scripts/lib/stats.ts` had none left.
 
 ## E. Organization and tracking
 
