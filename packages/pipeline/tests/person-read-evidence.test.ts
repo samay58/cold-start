@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { PersonReadResult } from "@cold-start/llm";
 import type { ProviderFactCandidate } from "@cold-start/providers";
 
-import { attachPersonReads, buildPersonReadEvidence } from "../src/person-read-evidence";
+import { attachPersonReads, buildPersonReadEvidence, personReadsTraceMessage } from "../src/person-read-evidence";
 import { buildSkeletonCard } from "../src/seed-profile";
 import type { SectionsWithFacts } from "../src/provider-facts";
 
@@ -51,6 +51,31 @@ describe("buildPersonReadEvidence", () => {
     expect(evidence[0]?.evidence).toEqual([
       { citationId: "c1", title: "TechCrunch", url: "https://techcrunch.com/karan", text: "Karan Goel raised a seed round." }
     ]);
+  });
+
+  it("sends the text around the person's name, not the page's opening", () => {
+    const text = `${"Notion ships pages and databases. ".repeat(60)}Ivan Zhao co-founded Notion in 2013 and still leads product. ${"Teams use it daily. ".repeat(60)}`;
+    const [ivan] = buildPersonReadEvidence({
+      people: [person({ name: "Ivan Zhao", role: "CEO" })],
+      citations: [{ id: "s1", title: "Notion profile", url: "https://news.example/notion" }],
+      candidates: [],
+      sources: [{ url: "https://news.example/notion", title: "Notion profile", rawText: JSON.stringify({ id: "x", text }) }]
+    });
+
+    expect(ivan?.evidence).toHaveLength(1);
+    expect(ivan?.evidence[0]?.text).toContain("Ivan Zhao co-founded Notion in 2013");
+    expect(ivan?.evidence[0]?.text.length).toBeLessThanOrEqual(600);
+  });
+
+  it("reads a person listed as both founder and executive once", () => {
+    const evidence = buildPersonReadEvidence({
+      people: [person({ name: "Ivan Zhao", role: "Co-founder" }), person({ name: " ivan zhao ", role: "CEO" })],
+      citations: [{ id: "c1", title: "Profile", url: "https://news.example/ivan", snippet: "Ivan Zhao leads Notion." }],
+      candidates: [],
+      sources: []
+    });
+
+    expect(evidence.map((entry) => entry.name)).toEqual(["Ivan Zhao"]);
   });
 
   it("only produces evidence entries whose citationId exists in the supplied citations", () => {
@@ -188,5 +213,20 @@ describe("attachPersonReads", () => {
     const karan = (next.team.founders.value ?? []).find((founder) => founder.name === "Karan Goel");
     expect("read" in (karan ?? {})).toBe(true);
     expect(karan?.read).toBeNull();
+  });
+});
+
+describe("personReadsTraceMessage", () => {
+  it("names each suppressed person and the reason, not only a count", () => {
+    const reads: PersonReadResult[] = [
+      { name: "Ivan Zhao", read: { text: "Leads product.", citationIds: ["c1"] }, suppressionReason: null },
+      { name: "Akshay Kothari", read: null, suppressionReason: "thin_evidence" },
+      { name: "Simon Last", read: null, suppressionReason: "no_nonobvious_claim" }
+    ];
+
+    expect(personReadsTraceMessage(reads)).toBe(
+      "1 person reads; suppressed: Akshay Kothari (thin_evidence), Simon Last (no_nonobvious_claim)"
+    );
+    expect(personReadsTraceMessage(reads.slice(0, 1))).toBe("1 person reads");
   });
 });

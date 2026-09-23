@@ -1,4 +1,4 @@
-import { readableSourceText, type ColdStartCard } from "@cold-start/core";
+import { readableSourceText, sourceSnippet, type ColdStartCard } from "@cold-start/core";
 import type { PersonReadEvidence, PersonReadResult } from "@cold-start/llm";
 import type { ProviderFactCandidate } from "@cold-start/providers";
 import type { SectionsWithFacts } from "./provider-facts";
@@ -14,14 +14,30 @@ import type { SectionsWithFacts } from "./provider-facts";
 type CardPerson = NonNullable<ColdStartCard["team"]["founders"]["value"]>[number];
 
 const defaultMaxEvidencePerPerson = 8;
-const maxEvidenceTextLength = 700;
+// How far back from the name the window may start, so the sentence that names the person leads.
+const maxLeadBeforeName = 200;
 
-function mentionsName(text: string, name: string): boolean {
+// The text around the person's name, starting at the sentence that names them, or null when the
+// text never names them. The model sees this window, so it always names the person.
+function textAboutPerson(text: string, name: string): string | null {
   const needle = name.trim().toLowerCase();
-  if (!needle) {
-    return false;
-  }
-  return text.toLowerCase().includes(needle);
+  const at = needle ? text.toLowerCase().indexOf(needle) : -1;
+  if (at < 0) return null;
+  const before = text.slice(0, at);
+  let start = Math.max(before.lastIndexOf(". "), before.lastIndexOf("! "), before.lastIndexOf("? ")) + 2;
+  if (start < 2) start = 0;
+  if (at - start > maxLeadBeforeName) start = text.lastIndexOf(" ", at - maxLeadBeforeName / 2) + 1;
+  return sourceSnippet(text.slice(start));
+}
+
+function uniquePeople(people: CardPerson[]): CardPerson[] {
+  const seen = new Set<string>();
+  return people.filter((person) => {
+    const key = person.name.trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function citationIdForUrl(citations: Array<{ id: string; url: string }>, url: string): string | null {
@@ -37,46 +53,32 @@ export function buildPersonReadEvidence(input: {
 }): PersonReadEvidence[] {
   const maxEvidence = input.maxEvidencePerPerson ?? defaultMaxEvidencePerPerson;
 
-  return input.people.map((person) => {
+  return uniquePeople(input.people).map((person) => {
     const evidence: PersonReadEvidence["evidence"] = [];
 
     for (const citation of input.citations) {
       if (evidence.length >= maxEvidence) break;
-      if (!citation.snippet || !mentionsName(citation.snippet, person.name)) continue;
-      evidence.push({
-        citationId: citation.id,
-        title: citation.title,
-        url: citation.url,
-        text: citation.snippet.slice(0, maxEvidenceTextLength)
-      });
+      const text = textAboutPerson(citation.snippet ?? "", person.name);
+      if (!text) continue;
+      evidence.push({ citationId: citation.id, title: citation.title, url: citation.url, text });
     }
 
     for (const candidate of input.candidates) {
       if (evidence.length >= maxEvidence) break;
-      const candidateText = readableSourceText(candidate.rawText);
-      if (!mentionsName(candidateText, person.name)) continue;
+      const text = textAboutPerson(readableSourceText(candidate.rawText), person.name);
+      if (!text) continue;
       const citationId = citationIdForUrl(input.citations, candidate.citationUrl);
       if (!citationId) continue;
-      evidence.push({
-        citationId,
-        title: candidate.citationTitle,
-        url: candidate.citationUrl,
-        text: candidateText.slice(0, maxEvidenceTextLength)
-      });
+      evidence.push({ citationId, title: candidate.citationTitle, url: candidate.citationUrl, text });
     }
 
     for (const source of input.sources) {
       if (evidence.length >= maxEvidence) break;
-      const sourceText = readableSourceText(source.rawText);
-      if (!mentionsName(sourceText, person.name)) continue;
+      const text = textAboutPerson(readableSourceText(source.rawText), person.name);
+      if (!text) continue;
       const citationId = citationIdForUrl(input.citations, source.url);
       if (!citationId) continue;
-      evidence.push({
-        citationId,
-        title: source.title,
-        url: source.url,
-        text: sourceText.slice(0, maxEvidenceTextLength)
-      });
+      evidence.push({ citationId, title: source.title, url: source.url, text });
     }
 
     return {
@@ -90,6 +92,13 @@ export function buildPersonReadEvidence(input: {
       evidence
     };
   });
+}
+
+// The trace line for the person-reads step: how many reads landed, and who was suppressed and why.
+export function personReadsTraceMessage(reads: PersonReadResult[]): string {
+  const landed = `${reads.filter((result) => result.read !== null).length} person reads`;
+  const suppressed = reads.flatMap((result) => (result.suppressionReason ? [`${result.name} (${result.suppressionReason})`] : []));
+  return suppressed.length > 0 ? `${landed}; suppressed: ${suppressed.join(", ")}` : landed;
 }
 
 export function attachPersonReads(sections: SectionsWithFacts, reads: PersonReadResult[]): SectionsWithFacts {

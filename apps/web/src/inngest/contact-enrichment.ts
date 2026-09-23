@@ -31,6 +31,7 @@ import {
   cardWithExtractedSections,
   extractedCardSectionsSchema,
   filterSourcesForDomain,
+  personReadsTraceMessage,
   sourceGateTrace,
   type ExtractedCardSections
 } from "@cold-start/pipeline";
@@ -765,7 +766,7 @@ export const contactEnrichmentHandler = async ({ event, runId, step }: ContactEn
               });
               return {
                 sections: attachPersonReads(contactEnriched.value.sections, reads),
-                message: `${reads.filter((read) => read.read !== null).length} person reads`,
+                message: personReadsTraceMessage(reads),
                 tracePatch: llmTelemetry.tracePatch()
               };
             } catch (error) {

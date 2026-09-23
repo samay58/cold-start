@@ -428,4 +428,17 @@ describe("contact enrichment handler: person-reads gate", () => {
       citationIds: ["c1"]
     });
   });
+
+  it("records who was suppressed and why in the person-reads trace step", async () => {
+    handlerMocks.synthesizePersonReads.mockResolvedValue({
+      reads: [{ name: "Erik Bernhardsson", read: null, suppressionReason: "thin_evidence" }],
+      usage: {}
+    });
+
+    const { step } = await runContactEnrichmentHandler(undefined);
+
+    const index = step.run.mock.calls.findIndex(([name]) => name === "person-reads");
+    const output = (await step.run.mock.results[index]?.value) as { tracePatch: { steps: Record<string, { message?: string }> } };
+    expect(output.tracePatch.steps["person-reads"]?.message).toBe("0 person reads; suppressed: Erik Bernhardsson (thin_evidence)");
+  });
 });
