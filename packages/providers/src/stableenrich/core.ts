@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { agentcashJson, type AgentcashPaymentReceipt, type AgentcashPaymentStatus, type AgentcashSettlement } from "../agentcash";
+import { exaPageTextContents } from "../exa-contents";
 import { providerBudgetForEndpoint } from "../provider-budget";
 import { allSettledLimited, supportedUrl } from "../stableenrich-utils";
 import type { ProviderFactCandidate, ProviderResearchPlan, ProviderSource, RetrievalIntent, StableenrichEnv, StableenrichProbe } from "../types";
@@ -191,6 +192,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       body: {
         query: queries?.funding ?? `${searchSubject} funding raised Series valuation investors led by latest round total raised`,
         numResults: 8,
+        contents: exaPageTextContents,
       },
     },
     {
@@ -199,6 +201,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       body: {
         query: queries?.companyProfile ?? `${searchSubject} what does the company do product customers platform investor profile`,
         numResults: 5,
+        contents: exaPageTextContents,
       },
     },
     {
@@ -207,6 +210,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       body: {
         query: queries?.managementTeam ?? `${searchSubject} founders CEO leadership management team contact email`,
         numResults: 5,
+        contents: exaPageTextContents,
       },
     },
     {
@@ -215,6 +219,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       body: {
         query: queries?.recentSignals ?? `${searchSubject} recent launch customers hiring funding product partnership traction`,
         numResults: 5,
+        contents: exaPageTextContents,
       },
     },
     {
@@ -223,6 +228,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       body: {
         query: queries?.comparables ?? `${searchSubject} competitors alternatives similar companies market map`,
         numResults: 5,
+        contents: exaPageTextContents,
       },
     },
     {
@@ -233,6 +239,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
           queries?.independentAnalysis ??
           `${searchSubject} independent analysis market map deep dive analyst report technical benchmark expert transcript investor research revenue funding traction customers`,
         numResults: 6,
+        contents: exaPageTextContents,
       },
     },
     {
@@ -245,6 +252,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
           queries?.customerProof ??
           `${searchSubject} customer case study deployment results rollout named customer in production`,
         numResults: 5,
+        contents: exaPageTextContents,
       },
     },
     {
@@ -255,12 +263,13 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
           queries?.productProof ??
           `${searchSubject} technical documentation github repository benchmark API architecture how it works`,
         numResults: 5,
+        contents: exaPageTextContents,
       },
     },
     {
       name: "exa_find_similar",
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SIMILAR_URL"),
-      body: { url: `https://${domain}`, numResults: 8 },
+      body: { url: `https://${domain}`, numResults: 8, contents: exaPageTextContents },
     },
     {
       name: "firecrawl_homepage",

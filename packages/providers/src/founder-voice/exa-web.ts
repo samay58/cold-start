@@ -1,4 +1,5 @@
 import { fetchDirectExaRequests } from "../direct-exa";
+import { exaPageTextContents } from "../exa-contents";
 import type { DirectExaRequest } from "../direct-exa";
 import type { DirectExaEnv, ProviderSource } from "../types";
 import { capText } from "./types";
@@ -73,7 +74,7 @@ export async function fetchExaWebLane(input: {
 function founderWebRequests(env: DirectExaEnv, apiKey: string, targets: FounderVoiceTargets): DirectExaRequest[] {
   const url = `${(env.DIRECT_EXA_BASE_URL?.trim() || DEFAULT_EXA_BASE_URL).replace(/\/+$/, "")}/search`;
   const headers = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
-  const contents = { text: true, highlights: { highlightsPerUrl: 2, numSentences: 2 } };
+  const contents = exaPageTextContents;
 
   const requests: DirectExaRequest[] = [
     {

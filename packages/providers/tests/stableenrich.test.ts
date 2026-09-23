@@ -7,6 +7,7 @@ import {
   missingStableenrichConfig,
   runStableenrichProbe,
 } from "../src/index";
+import { exaPageTextContents } from "../src/exa-contents";
 
 describe("fetchStableenrichEmailPatternSources", () => {
   it("uses one Exa probe to recover observed anchors and a domain pattern", async () => {
@@ -164,6 +165,16 @@ describe("buildStableenrichRequests", () => {
     expect(requests[10]?.body).toEqual({ url: "https://cartesia.ai/about" });
     expect(requests[11]?.body).toEqual({ url: "https://cartesia.ai/team" });
     expect(requests.map((request) => request.name)).not.toContain("apollo_people_search");
+  });
+
+  it("asks every Exa search and find-similar call for page text", () => {
+    const exaRequests = buildStableenrichRequests({}, "cartesia.ai").filter((request) => request.name.startsWith("exa_"));
+
+    expect(exaRequests).toHaveLength(9);
+    for (const request of exaRequests) {
+      expect(request.body, request.name).toMatchObject({ contents: exaPageTextContents });
+    }
+    expect(exaPageTextContents).toMatchObject({ text: true });
   });
 
   it("replaces the retired StableEnrich org route with the current route", () => {

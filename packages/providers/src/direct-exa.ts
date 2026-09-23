@@ -1,4 +1,5 @@
 import { isRetryableHttpStatus, retryAfterMs, sourceSearchSubjectForDomain, sourceTypeHintForHost } from "@cold-start/core";
+import { exaPageTextContents } from "./exa-contents";
 import { normalizeNamedPeopleEmailHints, type NamedPeopleEmailHint } from "./people-hints";
 import type { DirectExaEnv, PeopleEmailHint, ProviderFactCandidate, ProviderSource, RetrievalIntent } from "./types";
 
@@ -66,10 +67,7 @@ export function buildDirectExaFundamentalsRequests(env: DirectExaEnv, domain: st
     Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
   };
-  const contents = {
-    text: true,
-    highlights: { highlightsPerUrl: 2, numSentences: 2 },
-  };
+  const contents = exaPageTextContents;
   const searchSubject = sourceSearchSubjectForDomain(domain);
 
   return [
