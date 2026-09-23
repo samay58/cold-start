@@ -100,7 +100,9 @@ describe("synthesisSystemPrompt", () => {
     expect(synthesisSystemPrompt).toContain("the thesis, not a summary");
     expect(synthesisSystemPrompt).toContain("give each fact one job");
     expect(synthesisSystemPrompt).toContain("actual decision hinge");
-    expect(synthesisSystemPrompt).toContain("move conviction in either direction");
+    expect(synthesisSystemPrompt).toContain("Each question asks one thing in under 25 words");
+    expect(synthesisSystemPrompt).toContain("name the answer that would move the read most and say which way it moves");
+    expect(synthesisSystemPrompt).not.toContain("move conviction in either direction");
     expect(synthesisSystemPrompt).toContain("narrow side panel");
   });
 });

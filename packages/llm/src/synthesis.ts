@@ -241,6 +241,7 @@ export const synthesisSystemPrompt = [
   "Bull claims must name a buyer, workflow, mechanism, proof, or missing proof. Bear claims must name what breaks and how to test it.",
   "openQuestions are the 1 to 3 questions that would most change an investor's conviction on this company, written in a what-would-you-need-to-believe frame.",
   "Every open question must name who to ask, the belief it tests, the cited evidence basis, and what answer would change the read.",
+  "Each question asks one thing in under 25 words. The belief it tests goes in testsBelief and the basis goes in evidenceBasis, not in the question.",
   "Every open question must reference something concrete on this card: a named buyer, product, competitor, number, or claim. Reject generic diligence that could be pasted onto any startup.",
   "Do not ask to request financials or verify ARR as a question. If economics matter, ask about retention, pricing power, margin, or customer concentration with a specific reason.",
   "Give each open question exactly one category from this fixed set, chosen by what the question tests: buyer_budget, adoption_proof, durability, unit_economics, technical_edge, market_timing, trust_regulation.",
@@ -251,7 +252,7 @@ export const synthesisSystemPrompt = [
   "whyItMatters is the thesis, not a summary of the rest of the packet. Explain the wedge and why it matters, then give each fact one job; do not repeat the same proof in whyItMatters and a bull or bear claim.",
   "A strong whyItMatters usually makes one conclusion and supports it with the few facts needed to understand why. Bull, bear, and timing claims should each carry one distinct idea rather than several loosely related observations.",
   "Open questions must be tailored to this opportunity's actual decision hinge. Name the relevant buyer, workflow, product, competitor, metric, threshold, cohort, or time window whenever the card supports one.",
-  "wouldChangeReadIf must explain how plausible answers move conviction in either direction. Do not restate the question or ask for generic proof.",
+  "wouldChangeReadIf is one sentence under 30 words: name the answer that would move the read most and say which way it moves. Add the opposite case only when it is not the plain negation. Do not restate the question or ask for generic proof. Never write thesis, validate, bull case, or bear case in an open question.",
   "Never use an em dash anywhere. Use a period or a semicolon instead."
 ].join(" ");
 
