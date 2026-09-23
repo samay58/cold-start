@@ -3,8 +3,10 @@ import {
   type ColdStartCard,
   coldStartCardSchema,
   materializeFundingFromCitations,
+  readableSourceText,
   type ResolvedFact,
   sanitizeCardTrust,
+  sourceSnippet,
   stripUnsupportedSynthesis
 } from "@cold-start/core";
 import { extractedCardSectionsSchema, type ExtractedCardSections } from "@cold-start/llm";
@@ -137,7 +139,7 @@ export function fallbackSectionsFromEvidence(
     title: entry.title,
     fetchedAt: entry.fetchedAt,
     sourceType: entry.sourceType as CitationSourceType,
-    snippet: entry.supportingSnippets[0] ?? entry.rawText.slice(0, 280)
+    snippet: entry.supportingSnippets[0] ?? sourceSnippet(entry.rawText)
   }));
   const firstCitation = citations[0];
 
@@ -260,7 +262,7 @@ function sourceCitation(source: ProviderSource): ColdStartCard["citations"][numb
     title: source.title || source.url,
     fetchedAt: source.fetchedAt,
     sourceType: source.sourceType,
-    snippet: source.rawText.replace(/\s+/g, " ").trim().slice(0, 280)
+    snippet: sourceSnippet(readableSourceText(source.rawText))
   };
 }
 

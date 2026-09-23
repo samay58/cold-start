@@ -1,5 +1,5 @@
 import type { ProviderSource, RetrievalIntent } from "@cold-start/providers";
-import { sourceQualityRank, splitIntoSentences } from "@cold-start/core";
+import { readableSourceText, sourceQualityRank, splitIntoSentences } from "@cold-start/core";
 
 export type EvidenceLedgerEntry = {
   id: string;
@@ -9,6 +9,7 @@ export type EvidenceLedgerEntry = {
   fetchedAt: string;
   intents: RetrievalIntent[];
   authorityScore: number;
+  // The readable page text of every stored row for this URL, never the provider JSON.
   rawText: string;
   supportingSnippets: string[];
 };
@@ -20,7 +21,8 @@ export function buildEvidenceLedger(input: { domain: string; sources: ProviderSo
     const key = canonicalSourceKey(source.url);
     const existing = entries.get(key);
     const intents = mergeIntents(existing?.intents ?? [], source.intent);
-    const rawText = existing?.rawText ? `${existing.rawText}\n\n${source.rawText}` : source.rawText;
+    const text = readableSourceText(source.rawText);
+    const rawText = [existing?.rawText, text].filter(Boolean).join("\n\n");
 
     entries.set(key, {
       url: source.url,

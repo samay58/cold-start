@@ -1,4 +1,4 @@
-import type { ColdStartCard } from "@cold-start/core";
+import { readableSourceText, type ColdStartCard } from "@cold-start/core";
 import type { PersonReadEvidence, PersonReadResult } from "@cold-start/llm";
 import type { ProviderFactCandidate } from "@cold-start/providers";
 import type { SectionsWithFacts } from "./provider-facts";
@@ -53,27 +53,29 @@ export function buildPersonReadEvidence(input: {
 
     for (const candidate of input.candidates) {
       if (evidence.length >= maxEvidence) break;
-      if (!candidate.rawText || !mentionsName(candidate.rawText, person.name)) continue;
+      const candidateText = readableSourceText(candidate.rawText);
+      if (!mentionsName(candidateText, person.name)) continue;
       const citationId = citationIdForUrl(input.citations, candidate.citationUrl);
       if (!citationId) continue;
       evidence.push({
         citationId,
         title: candidate.citationTitle,
         url: candidate.citationUrl,
-        text: candidate.rawText.slice(0, maxEvidenceTextLength)
+        text: candidateText.slice(0, maxEvidenceTextLength)
       });
     }
 
     for (const source of input.sources) {
       if (evidence.length >= maxEvidence) break;
-      if (!mentionsName(source.rawText, person.name)) continue;
+      const sourceText = readableSourceText(source.rawText);
+      if (!mentionsName(sourceText, person.name)) continue;
       const citationId = citationIdForUrl(input.citations, source.url);
       if (!citationId) continue;
       evidence.push({
         citationId,
         title: source.title,
         url: source.url,
-        text: source.rawText.slice(0, maxEvidenceTextLength)
+        text: sourceText.slice(0, maxEvidenceTextLength)
       });
     }
 

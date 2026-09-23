@@ -1,4 +1,4 @@
-import type { ColdStartCard } from "@cold-start/core";
+import { readableSourceText, type ColdStartCard } from "@cold-start/core";
 
 // Evidence and card-fact payloads for the expanded company description. Mirrors
 // person-read-evidence: citation ids come from the card so every id the model can cite
@@ -24,12 +24,12 @@ export function buildExpandedDescriptionEvidence(input: {
   maxItems?: number;
 }): ExpandedDescriptionSourceEvidence[] {
   const maxItems = input.maxItems ?? defaultMaxEvidenceItems;
-  const textByUrl = new Map(input.sources.map((source) => [normalizedUrl(source.url), source.rawText]));
+  const textByUrl = new Map(input.sources.map((source) => [normalizedUrl(source.url), readableSourceText(source.rawText)]));
   const evidence: ExpandedDescriptionSourceEvidence[] = [];
 
   for (const citation of input.card.citations) {
     if (evidence.length >= maxItems) break;
-    const text = textByUrl.get(normalizedUrl(citation.url)) ?? citation.snippet ?? "";
+    const text = textByUrl.get(normalizedUrl(citation.url)) || citation.snippet || "";
     if (!text.trim()) continue;
     evidence.push({
       citationId: citation.id,

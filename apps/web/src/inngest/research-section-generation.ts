@@ -1,6 +1,7 @@
 import {
   emptyResearchSectionForCard,
   hasUsablePublicProfile,
+  readableSourceText,
   RESEARCH_SECTION_DEFINITIONS_BY_ID,
   researchSectionCitationIssues,
   researchSectionHasReaderFacingEvidence,
@@ -51,7 +52,7 @@ export function evidenceForSection(card: ColdStartCard, storedSources: Awaited<R
 
   return card.citations.flatMap((citation) => {
     const source = sourcesByUrl.get(normalizedUrlKey(citation.url));
-    const text = source?.rawText || citation.snippet || "";
+    const text = readableSourceText(source?.rawText) || citation.snippet || "";
     if (!text.trim()) {
       return [];
     }

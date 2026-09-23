@@ -5,7 +5,9 @@ import {
   descriptionSentences,
   firstDescriptionSentence,
   isWeakDescriptionLabel,
+  readableSourceText,
   safePublicImageUrl,
+  sourceSnippet,
   type ColdStartCard,
   type ResolvedFact
 } from "@cold-start/core";
@@ -204,13 +206,14 @@ function providerCitationBuilder(sections: SectionsWithFacts) {
       providerIndex += 1;
     }
 
+    const snippet = sourceSnippet(readableSourceText(candidate.rawText));
     citations.push({
       id,
       url: candidate.citationUrl,
       title: citationTitle(candidate),
       fetchedAt: candidate.fetchedAt,
       sourceType: candidate.sourceType,
-      ...(candidate.rawText ? { snippet: candidate.rawText.slice(0, 280) } : {}),
+      ...(snippet ? { snippet } : {}),
     });
     idsByKey.set(candidate.citationUrl, id);
     idsByKey.set(candidateKey(candidate), id);

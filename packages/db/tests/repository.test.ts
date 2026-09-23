@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { type ColdStartCard } from "@cold-start/core";
+import { SOURCE_SNIPPET_MAX_LENGTH, type ColdStartCard } from "@cold-start/core";
 import type { GenerationTrace } from "@cold-start/core";
 
 import type { ColdStartDb } from "../src/client";
@@ -1755,7 +1755,7 @@ describe("research run evidence summaries", () => {
     await expect(findResearchRunEventsByRunId(db, "run-basics", { limit: 5 })).resolves.toEqual(expected);
   });
 
-  it("returns compact source summaries with snippets capped for extension bootstrap", async () => {
+  it("returns source summaries whose snippets are readable page text within the shared cap", async () => {
     const db = {
       select: () => ({
         from: () => ({
@@ -1778,7 +1778,7 @@ describe("research run evidence summaries", () => {
                     title: "Cartesia raises funding",
                     sourceType: "news",
                     fetchedAt: new Date("2026-05-26T20:02:00.000Z"),
-                    rawText: "Cartesia announced new funding.",
+                    rawText: JSON.stringify({ id: "https://example.com/cartesia-news", title: "Cartesia raises funding", text: "Cartesia announced new funding." }),
                     imageUrl: null
                   }
                 ]
@@ -1797,7 +1797,7 @@ describe("research run evidence summaries", () => {
         domain: "cartesia.ai",
         sourceType: "company_site",
         fetchedAt: "2026-05-26T20:01:00.000Z",
-        snippet: `${"A".repeat(360)}...`,
+        snippet: "A".repeat(SOURCE_SNIPPET_MAX_LENGTH),
         imageUrl: "https://cartesia.ai/og.png"
       },
       {

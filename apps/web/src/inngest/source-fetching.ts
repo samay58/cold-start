@@ -1,4 +1,4 @@
-import type { ColdStartCard, GenerationTrace } from "@cold-start/core";
+import { readableSourceText, sourceSnippet, type ColdStartCard, type GenerationTrace } from "@cold-start/core";
 import {
   filterSourcesForDomain,
   sourceGateTrace,
@@ -93,13 +93,14 @@ export function sectionsWithSourceCitations(card: ColdStartCard, sources: Provid
       sourceIndex += 1;
     }
 
+    const snippet = sourceSnippet(readableSourceText(source.rawText));
     citations.push({
       id,
       url: source.url,
       title: source.title,
       fetchedAt: source.fetchedAt,
       sourceType: source.sourceType,
-      ...(source.rawText ? { snippet: source.rawText.slice(0, 700) } : {})
+      ...(snippet ? { snippet } : {})
     });
     existingUrls.add(source.url);
   }

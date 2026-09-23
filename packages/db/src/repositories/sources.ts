@@ -1,3 +1,4 @@
+import { readableSourceText, sourceSnippet } from "@cold-start/core";
 import { desc, eq } from "drizzle-orm";
 
 import type { ColdStartDb } from "../client";
@@ -54,15 +55,6 @@ function sourceDomain(url: string) {
   }
 }
 
-function compactSnippet(rawText: string, maxLength = 360) {
-  const normalized = rawText.replace(/\s+/g, " ").trim();
-  if (normalized.length <= maxLength) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, maxLength).trimEnd()}...`;
-}
-
 export async function findSourceSummariesBySlug(
   db: ColdStartDb,
   slug: string,
@@ -91,7 +83,7 @@ export async function findSourceSummariesBySlug(
     domain: sourceDomain(row.url),
     sourceType: row.sourceType,
     fetchedAt: row.fetchedAt.toISOString(),
-    snippet: compactSnippet(row.rawText),
+    snippet: sourceSnippet(readableSourceText(row.rawText)),
     imageUrl: row.imageUrl
   }));
 }
