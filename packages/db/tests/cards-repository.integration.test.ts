@@ -78,6 +78,42 @@ describeDatabase("card writes against Postgres", () => {
     expect(stored["https://news.example/c"]).toMatchObject({ rawText: withText, publishedAt: "2026-04-01T00:00:00.000Z" });
   });
 
+  it("never replaces a stored row that already has page text, whatever shape it is stored in", async () => {
+    const card = cardFixture();
+    const { id } = await upsertCard(db, card);
+    const base = { cardId: id, title: "Source", sourceType: "news" as const, fetchedAt: "2026-09-01T00:00:00.000Z" };
+    const refetch = JSON.stringify({ id: "r", title: "Source", text: "A newer fetch of the page." });
+    const kept = {
+      "https://news.example/record": JSON.stringify({ id: "x", title: "Source", text: "The page's own text." }),
+      "https://news.example/summary": JSON.stringify({ id: "x", title: "Source", summary: "A summary." }),
+      "https://news.example/highlights": JSON.stringify({ id: "x", title: "Source", highlights: ["A highlight."] }),
+      "https://news.example/markdown-link": "[Home](https://news.example/)\n\nMarkdown page text.",
+      "https://news.example/markdown-bullet": "* A bulleted page.",
+      "https://news.example/starts-with-s": "some page text that starts with s.",
+    };
+    for (const [url, rawText] of Object.entries(kept)) {
+      await recordSource(db, { ...base, url, rawText });
+      await recordSource(db, { ...base, url, rawText: refetch, fetchedAt: "2026-09-02T00:00:00.000Z" });
+    }
+
+    const stored = Object.fromEntries((await findSourcesBySlug(db, card.slug)).map((row) => [row.url, row]));
+    for (const [url, rawText] of Object.entries(kept)) {
+      expect(stored[url], url).toMatchObject({ rawText, fetchedAt: "2026-09-01T00:00:00.000Z" });
+    }
+  });
+
+  it("fills a stored JSON array of records, which carries no page text", async () => {
+    const card = cardFixture();
+    const { id } = await upsertCard(db, card);
+    const base = { cardId: id, url: "https://news.example/list", title: "List", sourceType: "news" as const, fetchedAt: "2026-09-01T00:00:00.000Z" };
+    const withText = JSON.stringify({ id: "r", title: "List", text: "The page's own text." });
+    await recordSource(db, { ...base, rawText: JSON.stringify([{ id: "a", title: "A" }]) });
+    await recordSource(db, { ...base, rawText: withText });
+
+    const [row] = await findSourcesBySlug(db, card.slug);
+    expect(row?.rawText).toBe(withText);
+  });
+
   it("mutates a card whose stored timestamp carries microseconds", async () => {
     // The production failure mode: a fresh insert leaves updated_at to the column default,
     // which Postgres stamps with microsecond precision. A JS Date holds only milliseconds, so

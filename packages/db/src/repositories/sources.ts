@@ -138,17 +138,24 @@ export async function recordSource(
   });
 }
 
-// The stored row carries no page text: it is empty, a JSON array of records, or a JSON record
-// with no text, summary or highlights (readableSourceText gives nothing but the title). This
-// matches on text instead of parsing JSON, so it runs on any Postgres version and a malformed
-// row can never fail the insert. A record whose text sits under a nested key reads as having
-// text here, so the row is kept rather than replaced; that errs toward keeping what is stored.
+// Postgres regular expressions for a stored row that carries no page text: an empty value, a JSON
+// array of records, or a JSON record with no text, summary or highlights (readableSourceText gives
+// nothing but the title). They are bound as parameters: written inside the sql template, each
+// backslash was dropped, so "^\s*\{" reached Postgres as "^s*{" and matched rows with page text.
+// Matching text instead of parsing JSON runs on any Postgres version, and a malformed row can never
+// fail the insert. A record whose text sits under a nested key reads as having text, so that row is
+// kept rather than replaced; the rule errs toward keeping what is stored.
+const jsonArrayPattern = String.raw`^\s*\[\s*[{"]`;
+const jsonRecordPattern = String.raw`^\s*\{`;
+const textFieldPattern = String.raw`"(text|summary)"\s*:\s*"\s*[^"\s]`;
+const highlightsPattern = String.raw`"highlights"\s*:\s*\[\s*"`;
+
 const storedRowHasNoPageText = sql`(
   btrim(${sources.rawText}) = ''
-  OR ${sources.rawText} ~ '^\s*\[\s*[{"]'
+  OR ${sources.rawText} ~ ${jsonArrayPattern}
   OR (
-    ${sources.rawText} ~ '^\s*\{'
-    AND ${sources.rawText} !~ '"(text|summary)"\s*:\s*"\s*[^"\s]'
-    AND ${sources.rawText} !~ '"highlights"\s*:\s*\[\s*"'
+    ${sources.rawText} ~ ${jsonRecordPattern}
+    AND ${sources.rawText} !~ ${textFieldPattern}
+    AND ${sources.rawText} !~ ${highlightsPattern}
   )
 )`;
