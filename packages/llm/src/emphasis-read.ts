@@ -53,9 +53,10 @@ export const emphasisReadSystemPrompt = [
 
 const quietPrefixPattern = /^Nothing filed shows/;
 
-// loud/read visible-marker multisets must equal their citationIds, same discipline as
-// synthesis claims (packages/llm/src/synthesis.ts); quiet must open with the fixed absence
-// phrase so it can never be read as a claim about what the company lacks.
+// quiet must open with the fixed absence phrase so it can never be read as a claim about what the
+// company lacks. The loud/read marker check runs after normalizeEmphasisReadCitations has
+// rewritten the markers from citationIds, so the model's own markers can no longer fail it; it
+// stays, as in synthesis, to catch a normalizer that stops keeping text and citationIds in step.
 const citedEmphasisReadFiledSchema = emphasisReadFiledSchema.superRefine((value, ctx) => {
   if (!quietPrefixPattern.test(value.quiet)) {
     ctx.addIssue({
