@@ -1,5 +1,5 @@
 // Real-data counts for the September 24 review remediation. Run from the repo root:
-//   npx tsx eval/curation/remediation-2026-09/measure.mts <label>
+//   npm run qa:measure-remediation -- <label>
 // It reads the gitignored cards/ and sources/ beside it and writes to .cold-start/measure/<label>/.
 // Dumps every model stage for the 12 rebuilt cards (stubbed, free), then counts person-read
 // fragments, judge attribution disagreements, JSON-looking text in model inputs and card

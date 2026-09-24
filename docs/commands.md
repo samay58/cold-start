@@ -24,6 +24,7 @@ npm run dev:fresh                       # wipe apps/web/.next + .cold-start, the
 npm run trace:generation                # tsx scripts/trace-generation.ts (single-run debug)
 npm run qa:generation                   # tsx scripts/qa-generation-suite.ts (multi-company QA)
 npm run qa:model-inputs -- --slug <slug> # tsx scripts/dump-model-inputs.ts (exact request each model stage would send; no model call; --card and --sources read files instead of the database)
+npm run qa:measure-remediation -- <label> # tsx eval/curation/remediation-2026-09/measure.mts (free; dumps every model stage for the 12 rebuilt cards with a stub client and counts person-read fragments, judge tier disagreements, JSON-looking text and source bytes; writes .cold-start/measure/<label>/)
 npm run seed:web-gallery                # tsx scripts/seed-web-gallery.ts (writes the three gallery fixture cards to local Postgres)
 npm run qa:web:gallery                  # Playwright capture of landing, /catalog, and /c/{slug} at desktop and mobile widths, into ~/Downloads/cold-start-qa/{timestamp}/web/
 npm run export:recorded-build           # tsx scripts/export-recorded-build.ts (freeze one hand-reviewed prod card and its trace into the landing page's recorded-build-data.ts; --slug required, read-only)

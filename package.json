@@ -60,6 +60,7 @@
     "evo:ux-gate": "tsx scripts/evo-ux-benchmark.ts --gate",
     "qa:generation": "tsx scripts/qa-generation-suite.ts",
     "qa:model-inputs": "tsx scripts/dump-model-inputs.ts",
+    "qa:measure-remediation": "tsx eval/curation/remediation-2026-09/measure.mts",
     "repair:card-domains": "tsx scripts/repair-card-domains.ts",
     "repair:sections": "tsx scripts/repair-research-sections.ts",
     "repair:signal-clusters": "tsx scripts/repair-signal-clusters.ts",
