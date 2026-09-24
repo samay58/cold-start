@@ -8,6 +8,7 @@ import {
   type FirstPayoff,
   type GenerationTrace,
   type HowItWins,
+  defaultSourceSearchQueries,
   deriveLegacyResearchSectionsFromCard,
   RESEARCH_SECTION_DEFINITIONS_BY_ID,
   researchSectionJobKind,
@@ -453,7 +454,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
       override: runtimeEnv.PER_RUN_AGENTCASH_BUDGET_USD
     });
     const researchPlanResult = await step.run("plan-research", async () => {
-      const result = await timed(async () => fallbackResearchPlan(domain));
+      const result = await timed(async () => fallbackResearchPlan());
       return {
         value: result.value,
         tracePatch: {
@@ -466,7 +467,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     mergeTracePatch(trace, researchPlanResult.tracePatch);
     const researchPlan = researchPlanResult.value;
     await recordEvent("research-plan-ready", "plan.ready", "Research plan ready", {
-      queryCount: Object.keys(researchPlan.searchQueries).length
+      queryCount: Object.keys(defaultSourceSearchQueries(domain)).length
     }, null);
     const existingCard = await step.run("load-existing-card", () => findCardBySlug(db, slug, { allowStale: true }));
     analysisStateAtRunStart = analysisStateSignature(existingCard);
@@ -497,7 +498,6 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         fetchInitialSourcesForGeneration({
           mode,
           domain,
-          researchPlan,
           runtimeEnv,
           stableEnv,
           directExaEnv,
@@ -1255,7 +1255,6 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
             });
             return fetchLateEnrichmentSources({
               domain,
-              researchPlan,
               acceptedSources,
               stableEnv,
               remainingBudgetUsd,

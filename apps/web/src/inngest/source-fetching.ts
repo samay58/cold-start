@@ -12,7 +12,6 @@ import {
   fetchStableenrichSources,
   type DirectExaEnv,
   type ProviderFactCandidate,
-  type ProviderResearchPlan,
   type ProviderSource,
   type StableenrichEnv,
   type StableenrichProbeName,
@@ -221,7 +220,6 @@ async function stableenrichSourcesForAnalysisPlan(input: {
   plan: AnalysisSourceFetchPlan;
   env: StableenrichEnv;
   domain: string;
-  researchPlan: ProviderResearchPlan;
   skipProbeNames: StableenrichProbeName[];
   maxBudgetUsd: number | undefined;
   loadStoredSourcesForSkip: (() => Promise<ProviderSource[]>) | undefined;
@@ -230,7 +228,6 @@ async function stableenrichSourcesForAnalysisPlan(input: {
     return fetchStableenrichFastSources({
       env: input.env,
       domain: input.domain,
-      researchPlan: input.researchPlan,
       skipProbeNames: input.skipProbeNames,
       maxBudgetUsd: input.maxBudgetUsd
     });
@@ -245,7 +242,6 @@ async function stableenrichSourcesForAnalysisPlan(input: {
     return fetchStableenrichEnrichmentSources({
       env: input.env,
       domain: input.domain,
-      researchPlan: input.researchPlan,
       skipProbeNames: stableenrichLateEnrichmentSkipsForBlocks(["signals"]),
       maxBudgetUsd: input.maxBudgetUsd
     });
@@ -254,7 +250,6 @@ async function stableenrichSourcesForAnalysisPlan(input: {
   return fetchStableenrichSources({
     env: input.env,
     domain: input.domain,
-    researchPlan: input.researchPlan,
     skipProbeNames: input.skipProbeNames,
     maxBudgetUsd: input.maxBudgetUsd
   });
@@ -263,7 +258,6 @@ async function stableenrichSourcesForAnalysisPlan(input: {
 export async function fetchInitialSourcesForGeneration(input: {
   mode: GenerationMode;
   domain: string;
-  researchPlan: ProviderResearchPlan;
   runtimeEnv: ReturnType<typeof webEnv>;
   stableEnv: StableenrichEnv;
   directExaEnv: DirectExaEnv;
@@ -302,7 +296,6 @@ export async function fetchInitialSourcesForGeneration(input: {
       plan: analysisSourceFetch,
       env: input.stableEnv,
       domain: input.domain,
-      researchPlan: input.researchPlan,
       skipProbeNames: stableSkipProbeNames,
       maxBudgetUsd,
       loadStoredSourcesForSkip: input.loadStoredSourcesForSkip
@@ -318,7 +311,6 @@ export async function fetchInitialSourcesForGeneration(input: {
         plan: analysisSourceFetch,
         env: input.stableEnv,
         domain: input.domain,
-        researchPlan: input.researchPlan,
         skipProbeNames: [],
         maxBudgetUsd,
         loadStoredSourcesForSkip: input.loadStoredSourcesForSkip
@@ -448,7 +440,6 @@ export async function fetchInitialSourcesForGeneration(input: {
 
 export async function fetchLateEnrichmentSources(input: {
   domain: string;
-  researchPlan: ProviderResearchPlan;
   acceptedSources: ProviderSource[];
   stableEnv: StableenrichEnv;
   remainingBudgetUsd: number | null;
@@ -465,7 +456,6 @@ export async function fetchLateEnrichmentSources(input: {
   const stableResult = await fetchStableenrichEnrichmentSources({
     env: input.stableEnv,
     domain: input.domain,
-    researchPlan: input.researchPlan,
     maxBudgetUsd,
     ...(lateEnrichmentSkipProbeNames.length > 0 ? { skipProbeNames: lateEnrichmentSkipProbeNames } : {})
   });

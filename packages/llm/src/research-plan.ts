@@ -1,83 +1,13 @@
-import type { Tool } from "@anthropic-ai/sdk/resources/messages";
-import { defaultSourceSearchQueries } from "@cold-start/core";
-import { z } from "zod";
-
-const RESEARCH_PLAN_TOOL_NAME = "emit_research_plan";
-
-const nonEmptyStringSchema = { type: "string", minLength: 1 } as const;
-
-const priorityQuestionSchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    question: nonEmptyStringSchema,
-    why: nonEmptyStringSchema,
-    sourceHint: nonEmptyStringSchema,
-  },
-  required: ["question", "why", "sourceHint"],
-} as const;
-
-const searchQueriesSchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    funding: nonEmptyStringSchema,
-    companyProfile: nonEmptyStringSchema,
-    managementTeam: nonEmptyStringSchema,
-    recentSignals: nonEmptyStringSchema,
-    comparables: nonEmptyStringSchema,
-    independentAnalysis: nonEmptyStringSchema,
-    customerProof: nonEmptyStringSchema,
-    productProof: nonEmptyStringSchema,
-  },
-  required: ["funding", "companyProfile", "managementTeam", "recentSignals", "comparables", "independentAnalysis", "customerProof", "productProof"],
-} as const;
-
-const researchPlanZodSchema = z.object({
-  companyArchetype: z.string().min(1),
-  priorityQuestions: z.array(z.object({
-    question: z.string().min(1),
-    why: z.string().min(1),
-    sourceHint: z.string().min(1),
-  })).min(3).max(6),
-  searchQueries: z.object({
-    funding: z.string().min(1),
-    companyProfile: z.string().min(1),
-    managementTeam: z.string().min(1),
-    recentSignals: z.string().min(1),
-    comparables: z.string().min(1),
-    independentAnalysis: z.string().min(1),
-    customerProof: z.string().min(1),
-    productProof: z.string().min(1),
-  }),
-  presentationFocus: z.array(z.string().min(1)).min(2).max(5),
-});
-
-export type ResearchPlan = z.infer<typeof researchPlanZodSchema>;
-
-export const researchPlanTool = {
-  name: RESEARCH_PLAN_TOOL_NAME,
-  description: "Emit a compact investor research plan for one company domain.",
-  input_schema: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      companyArchetype: nonEmptyStringSchema,
-      priorityQuestions: { type: "array", minItems: 3, maxItems: 6, items: priorityQuestionSchema },
-      searchQueries: searchQueriesSchema,
-      presentationFocus: { type: "array", minItems: 2, maxItems: 5, items: nonEmptyStringSchema },
-    },
-    required: ["companyArchetype", "priorityQuestions", "searchQueries", "presentationFocus"],
-  },
-} satisfies Tool;
-
-type ToolUseLike = {
-  type: string;
-  name?: string;
-  input?: unknown;
+// The research plan extraction reads: the company archetype, the questions an investor asks
+// first, and what the profile should put forward. Search queries are not part of it; every
+// evidence search reads defaultSourceSearchQueries in core.
+export type ResearchPlan = {
+  companyArchetype: string;
+  priorityQuestions: Array<{ question: string; why: string; sourceHint: string }>;
+  presentationFocus: string[];
 };
 
-export function fallbackResearchPlan(domain: string): ResearchPlan {
+export function fallbackResearchPlan(): ResearchPlan {
   return {
     companyArchetype: "private technology company",
     priorityQuestions: [
@@ -102,20 +32,6 @@ export function fallbackResearchPlan(domain: string): ResearchPlan {
         sourceHint: "Recent funding coverage, company announcements, investor posts, and data enrichment.",
       },
     ],
-    searchQueries: defaultSourceSearchQueries(domain),
     presentationFocus: ["product and technology", "buyer and use case", "market structure and timing", "source quality", "funding cadence", "public proof gaps"],
   };
-}
-
-export function parseResearchPlanToolUse(message: { content: ToolUseLike[] }): ResearchPlan {
-  const toolUse = message.content.find((block) => block.type === "tool_use" && block.name === RESEARCH_PLAN_TOOL_NAME);
-  if (!toolUse) {
-    throw new Error("No emit_research_plan tool use returned");
-  }
-
-  if (toolUse.input === undefined) {
-    throw new Error("emit_research_plan tool use returned no input");
-  }
-
-  return researchPlanZodSchema.parse(toolUse.input);
 }

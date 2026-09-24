@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fallbackResearchPlan } from "@cold-start/llm";
 import {
   buildSeedProfileCard,
   buildSkeletonCard,
@@ -872,24 +873,14 @@ describe("generateCardForDomain", () => {
     expect(ledgerLength).toBe(1);
   });
 
-  it("passes the research plan into source fetching and extraction", async () => {
+  it("passes the research plan into extraction", async () => {
     const skeleton = buildSkeletonCard("harvey.ai");
-    const researchPlan = {
-      searchQueries: {
-        funding: "harvey funding",
-        companyProfile: "harvey product",
-        independentAnalysis: "harvey analysis",
-      },
-    };
-    let fetchSawPlan = false;
+    const researchPlan = fallbackResearchPlan();
     let extractionSawPlan = false;
 
     await generateCardForDomain("harvey.ai", {
       researchPlan,
-      fetchSources: async (_domain, plan) => {
-        fetchSawPlan = plan === researchPlan;
-        return [];
-      },
+      fetchSources: async () => [],
       extractSections: async ({ researchPlan: plan }) => {
         extractionSawPlan = plan === researchPlan;
         return {
@@ -903,7 +894,6 @@ describe("generateCardForDomain", () => {
       },
     } as GenerateCardDeps);
 
-    expect(fetchSawPlan).toBe(true);
     expect(extractionSawPlan).toBe(true);
   });
 

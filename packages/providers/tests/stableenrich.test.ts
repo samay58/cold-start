@@ -196,30 +196,6 @@ describe("buildStableenrichRequests", () => {
     );
   });
 
-  it("uses research-plan search queries when present", () => {
-    const requests = buildStableenrichRequests({}, "harvey.ai", {
-      searchQueries: {
-        funding: "harvey latest round valuation Sequoia",
-        companyProfile: "harvey legal AI workflow buyer",
-        managementTeam: "harvey founders executives email",
-        recentSignals: "harvey recent customer launch",
-        comparables: "harvey legal AI competitors",
-        independentAnalysis: "harvey Sacra ARR analysis",
-        customerProof: "harvey law firm case study deployment",
-        productProof: "harvey technical architecture documentation",
-      },
-    });
-
-    expect(requests[0]?.body).toMatchObject({ query: "harvey latest round valuation Sequoia" });
-    expect(requests[1]?.body).toMatchObject({ query: "harvey legal AI workflow buyer" });
-    expect(requests[2]?.body).toMatchObject({ query: "harvey founders executives email" });
-    expect(requests[3]?.body).toMatchObject({ query: "harvey recent customer launch" });
-    expect(requests[4]?.body).toMatchObject({ query: "harvey legal AI competitors" });
-    expect(requests[5]?.body).toMatchObject({ query: "harvey Sacra ARR analysis" });
-    expect(requests[6]?.body).toMatchObject({ query: "harvey law firm case study deployment" });
-    expect(requests[7]?.body).toMatchObject({ query: "harvey technical architecture documentation" });
-  });
-
   it("uses readable company-name aliases in default Exa queries", () => {
     const notableRequests = buildStableenrichRequests({}, "notablehealth.com");
     const sailRequests = buildStableenrichRequests({}, "sailresearch.com");

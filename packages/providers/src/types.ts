@@ -76,19 +76,6 @@ export type StableenrichProbe = {
   body: Record<string, unknown>;
 };
 
-export type ProviderResearchPlan = {
-  searchQueries?: {
-    funding?: string;
-    companyProfile?: string;
-    managementTeam?: string;
-    recentSignals?: string;
-    comparables?: string;
-    independentAnalysis?: string;
-    customerProof?: string;
-    productProof?: string;
-  };
-};
-
 export type ProviderSource = {
   url: string;
   title: string;

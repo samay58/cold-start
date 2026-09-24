@@ -26,10 +26,11 @@ import {
   BLOCK_ENRICHMENT_IDS,
   verificationKey,
   type BlockEnrichmentId,
+  type ResearchPlan,
   type VerificationFact,
   type VerificationResult
 } from "@cold-start/llm";
-import type { ProviderFactCandidate, ProviderResearchPlan, ProviderSource } from "@cold-start/providers";
+import type { ProviderFactCandidate, ProviderSource } from "@cold-start/providers";
 import { withResolvedCitationRefs } from "./citation-refs";
 import { type CostLine, totalGenerationCost } from "./cost";
 import { buildEvidenceLedger, type EvidenceLedgerEntry, withSourcePageDetails } from "./evidence-ledger";
@@ -75,20 +76,20 @@ export class GenerateCardTraceError extends Error {
 // as their own Inngest steps (apps/web/src/inngest/functions.ts) via the separately-callable
 // synthesizeCardDraft and verifyCardSynthesisDraft below; this type never carries synthesis deps.
 export type GenerateCardDeps = {
-  researchPlan?: ProviderResearchPlan;
+  researchPlan?: ResearchPlan;
   providerFacts?: ProviderFactCandidate[];
   skipBlockEnrichment?: boolean;
-  fetchSources(domain: string, researchPlan?: ProviderResearchPlan): Promise<ProviderSource[]>;
+  fetchSources(domain: string): Promise<ProviderSource[]>;
   extractSections(input: {
     domain: string;
-    researchPlan?: ProviderResearchPlan;
+    researchPlan?: ResearchPlan;
     sources: ProviderSource[];
     evidenceLedger: EvidenceLedgerEntry[];
   }): Promise<ExtractedCardSections>;
   enrichSections?(input: {
     block: BlockEnrichmentId;
     domain: string;
-    researchPlan?: ProviderResearchPlan;
+    researchPlan?: ResearchPlan;
     sources: ProviderSource[];
     evidenceLedger: EvidenceLedgerEntry[];
     currentSections: ExtractedCardSections;
@@ -813,7 +814,7 @@ async function runBlockEnrichments(
   sections: ExtractedCardSections,
   input: {
     domain: string;
-    researchPlan?: ProviderResearchPlan;
+    researchPlan?: ResearchPlan;
     sources: ProviderSource[];
     enrichSections?: GenerateCardDeps["enrichSections"];
   }
@@ -1127,7 +1128,7 @@ export async function generateCardForDomainWithTrace(
   deps: GenerateCardDeps
 ): Promise<{ card: ColdStartCard; tracePatch: GenerateCardTracePatch; sections: ExtractedCardSections; sources: ProviderSource[] }> {
   const skeleton = buildSkeletonCard(domain);
-  const sources = await deps.fetchSources(skeleton.domain, deps.researchPlan);
+  const sources = await deps.fetchSources(skeleton.domain);
   const evidenceLedger = buildEvidenceLedger({ domain: skeleton.domain, sources });
   let fallbackUsed = false;
   const tracePatch: GenerateCardTracePatch = {};
@@ -1220,7 +1221,7 @@ export async function generateCardForDomainWithTrace(
 
 export async function enrichExtractedSectionsForDomain(input: {
   domain: string;
-  researchPlan?: ProviderResearchPlan;
+  researchPlan?: ResearchPlan;
   sections: ExtractedCardSections;
   sources: ProviderSource[];
   enrichSections?: GenerateCardDeps["enrichSections"];

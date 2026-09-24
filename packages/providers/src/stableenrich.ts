@@ -1,5 +1,5 @@
 import { agentcashJson } from "./agentcash";
-import type { PeopleEmailHint, ProviderResearchPlan, ProviderSource, StableenrichEnv, StableenrichProbe } from "./types";
+import type { PeopleEmailHint, ProviderSource, StableenrichEnv, StableenrichProbe } from "./types";
 import { deriveEmailPattern } from "@cold-start/core";
 import { type AgentcashFetch, type StableenrichEmailPatternResult, type StableenrichProbeFailure, type StableenrichProbeResult, type StableenrichSourcesResult, createAgentcashBudgetState, requireStableenrichConfig, runAgentcashProbeCall, runStableenrichProbe, stableenrichEndpointUrl, stableenrichProbeFailure, stableenrichProbeTimeoutMs, takeAgentcashBudget } from "./stableenrich/core";
 import { MAX_LEADERS_FOR_ENRICHMENT, namedLeadersWithSourceUrl, runApolloPeopleDiscovery, runExaEmailDiscovery, runPeopleFollowupRequests, runSecEdgarDiscovery, runStableenrichPeopleFollowups } from "./stableenrich/discovery";
@@ -37,7 +37,6 @@ function withBudgetState(result: StableenrichSourcesResult, budgetState: ReturnT
 export async function fetchStableenrichSources(input: {
   env: StableenrichEnv;
   domain: string;
-  researchPlan?: ProviderResearchPlan | undefined;
   agentcashFetch?: AgentcashFetch | undefined;
   skipProbeNames?: StableenrichProbe["name"][] | undefined;
   maxBudgetUsd?: number | undefined;
@@ -58,7 +57,6 @@ export async function fetchStableenrichSources(input: {
 export async function fetchStableenrichFastSources(input: {
   env: StableenrichEnv;
   domain: string;
-  researchPlan?: ProviderResearchPlan | undefined;
   agentcashFetch?: AgentcashFetch | undefined;
   skipProbeNames?: StableenrichProbe["name"][] | undefined;
   maxBudgetUsd?: number | undefined;
@@ -72,7 +70,6 @@ export async function fetchStableenrichFastSources(input: {
 export async function fetchStableenrichEnrichmentSources(input: {
   env: StableenrichEnv;
   domain: string;
-  researchPlan?: ProviderResearchPlan | undefined;
   agentcashFetch?: AgentcashFetch | undefined;
   skipProbeNames?: StableenrichProbe["name"][] | undefined;
   maxBudgetUsd?: number | undefined;

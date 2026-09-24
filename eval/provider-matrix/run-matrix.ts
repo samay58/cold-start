@@ -280,7 +280,7 @@ async function main() {
   for (const fixture of fixtures) {
     const providerSources = fixture.sources as ProviderSource[];
     const evidenceLedger = buildEvidenceLedger({ domain: fixture.domain, sources: providerSources });
-    const researchPlan = fallbackResearchPlan(fixture.domain);
+    const researchPlan = fallbackResearchPlan();
     const bundleSourceUrls = fixture.sources.map((source) => source.url);
     const bundleText = fixture.sources.map((source) => source.rawText).join("\n");
     const claims = synthesisClaims(fixture.card.synthesis);

@@ -147,7 +147,7 @@ async function main() {
   const results = [
     await stage("extract_full", () => extractCompanyClaims({
       client, model: STUB_MODEL,
-      evidence: { domain: card.domain, researchPlan: fallbackResearchPlan(card.domain), sources, evidenceLedger }
+      evidence: { domain: card.domain, researchPlan: fallbackResearchPlan(), sources, evidenceLedger }
     })),
     await stage("synthesis", () => synthesizeCard({ client, model: STUB_MODEL, card })),
     await stage("verify", async () => {

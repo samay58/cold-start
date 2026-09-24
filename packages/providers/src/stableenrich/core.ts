@@ -3,7 +3,7 @@ import { agentcashJson, type AgentcashPaymentReceipt, type AgentcashPaymentStatu
 import { exaPageTextContents } from "../exa-contents";
 import { providerBudgetForEndpoint } from "../provider-budget";
 import { allSettledLimited, supportedUrl } from "../stableenrich-utils";
-import type { ProviderFactCandidate, ProviderResearchPlan, ProviderSource, RetrievalIntent, StableenrichEnv, StableenrichProbe } from "../types";
+import type { ProviderFactCandidate, ProviderSource, RetrievalIntent, StableenrichEnv, StableenrichProbe } from "../types";
 import { defaultSourceSearchQueries, type EmailPattern } from "@cold-start/core";
 
 export type StableenrichEmailDiscovery = {
@@ -120,14 +120,13 @@ export function takeAgentcashBudget(state: AgentcashBudgetState | undefined, end
 function selectStableenrichRequests(input: {
   env: StableenrichEnv;
   domain: string;
-  researchPlan?: ProviderResearchPlan | undefined;
   tier?: StableenrichProbeTier | undefined;
   skipProbeNames?: StableenrichProbe["name"][] | undefined;
   budgetState?: AgentcashBudgetState | undefined;
 }) {
   const tier = input.tier ?? "all";
   const skipProbeNames = new Set(input.skipProbeNames ?? []);
-  return buildStableenrichRequests(input.env, input.domain, input.researchPlan).filter((request) => {
+  return buildStableenrichRequests(input.env, input.domain).filter((request) => {
     if (skipProbeNames.has(request.name)) {
       return false;
     }
@@ -180,10 +179,9 @@ export function missingStableenrichConfig(env: StableenrichEnv): string[] {
   });
 }
 
-export function buildStableenrichRequests(env: StableenrichEnv, domain: string, researchPlan?: ProviderResearchPlan): StableenrichProbe[] {
+export function buildStableenrichRequests(env: StableenrichEnv, domain: string): StableenrichProbe[] {
   requireStableenrichConfig(env);
-  const defaults = defaultSourceSearchQueries(domain);
-  const queries = { ...defaults, ...researchPlan?.searchQueries };
+  const queries = defaultSourceSearchQueries(domain);
 
   return [
     {
@@ -326,7 +324,6 @@ export const APOLLO_LEADER_TITLES = [
 export async function runStableenrichProbe(input: {
   env: StableenrichEnv;
   domain: string;
-  researchPlan?: ProviderResearchPlan | undefined;
   agentcashFetch?: AgentcashFetch | undefined;
   tier?: StableenrichProbeTier | undefined;
   skipProbeNames?: StableenrichProbe["name"][] | undefined;
@@ -339,7 +336,6 @@ export async function runStableenrichProbe(input: {
   const requests = input.requests ?? selectStableenrichRequests({
     env: input.env,
     domain: input.domain,
-    researchPlan: input.researchPlan,
     tier: input.tier,
     skipProbeNames: input.skipProbeNames,
     budgetState

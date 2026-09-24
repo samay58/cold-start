@@ -295,7 +295,7 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
 
     const anthropic = createAnthropicClient();
     const blockModel = modelForStage("extract_block", anthropicModel());
-    const researchPlan = fallbackResearchPlan(domain);
+    const researchPlan = fallbackResearchPlan();
     const stableEnv = stableenrichEnvFromProcess();
     const agentcashBudgetCeiling = agentcashBudgetCeilingUsd({ mode: "basics", override: runtimeEnv.PER_RUN_AGENTCASH_BUDGET_USD });
     const lateEnrichmentSkipProbeNames = stableenrichLateEnrichmentSkipsForBlocks(missingBlocks);
@@ -305,7 +305,6 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
       const result = await timed(() =>
         fetchLateEnrichmentSources({
           domain,
-          researchPlan,
           acceptedSources,
           stableEnv,
           remainingBudgetUsd: remainingAgentcashBudgetUsd({ ceilingUsd: agentcashBudgetCeiling, endpoints: [] }),

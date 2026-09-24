@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { defaultSourceSearchQueries } from "@cold-start/core";
 import {
   buildDirectExaContactRequests,
   buildDirectExaFundamentalsRequests,
@@ -28,30 +29,12 @@ describe("buildDirectExaFundamentalsRequests", () => {
     ]);
     expect(requests.every((request) => request.url === "https://api.exa.ai/search")).toBe(true);
     expect(requests.every((request) => request.headers.Authorization === "Bearer exa-key")).toBe(true);
-    expect(requests[0]?.body).toMatchObject({
-      type: "instant",
-      category: "company",
-      query: expect.stringContaining("cartesia.ai"),
-      numResults: 5,
-    });
-    expect(requests[1]?.body).toMatchObject({
-      type: "instant",
-      category: "people",
-      query: expect.stringContaining("founders CEO management team"),
-      numResults: 6,
-    });
-    expect(requests[2]?.body).toMatchObject({
-      type: "fast",
-      category: "news",
-      query: expect.stringContaining("funding rounds investors total raised"),
-      numResults: 8,
-    });
-    expect(requests[3]?.body).toMatchObject({
-      type: "fast",
-      category: "news",
-      query: expect.stringContaining("recent launch hiring customers"),
-      numResults: 6,
-    });
+    // The same queries every other evidence search uses; only the Exa category and size differ.
+    const queries = defaultSourceSearchQueries("cartesia.ai");
+    expect(requests[0]?.body).toMatchObject({ type: "instant", category: "company", query: queries.companyProfile, numResults: 5 });
+    expect(requests[1]?.body).toMatchObject({ type: "instant", category: "people", query: queries.managementTeam, numResults: 6 });
+    expect(requests[2]?.body).toMatchObject({ type: "fast", category: "news", query: queries.funding, numResults: 8 });
+    expect(requests[3]?.body).toMatchObject({ type: "fast", category: "news", query: queries.recentSignals, numResults: 6 });
   });
 });
 

@@ -1,4 +1,4 @@
-import { isRetryableHttpStatus, publishedAtFromRecord, retryAfterMs, sourceSearchSubjectForDomain, sourceTypeHintForHost } from "@cold-start/core";
+import { defaultSourceSearchQueries, isRetryableHttpStatus, publishedAtFromRecord, retryAfterMs, sourceTypeHintForHost } from "@cold-start/core";
 import { exaPageTextContents } from "./exa-contents";
 import { normalizeNamedPeopleEmailHints, type NamedPeopleEmailHint } from "./people-hints";
 import type { DirectExaEnv, PeopleEmailHint, ProviderFactCandidate, ProviderSource, RetrievalIntent } from "./types";
@@ -68,7 +68,8 @@ export function buildDirectExaFundamentalsRequests(env: DirectExaEnv, domain: st
     "Content-Type": "application/json",
   };
   const contents = exaPageTextContents;
-  const searchSubject = sourceSearchSubjectForDomain(domain);
+  // One query catalog for every evidence search, so this lane asks what stableenrich asks.
+  const queries = defaultSourceSearchQueries(domain);
 
   return [
     {
@@ -76,7 +77,7 @@ export function buildDirectExaFundamentalsRequests(env: DirectExaEnv, domain: st
       url,
       headers,
       body: {
-        query: `${searchSubject} company profile domain headquarters founded what does the company do`,
+        query: queries.companyProfile,
         type: "instant",
         category: "company",
         numResults: 5,
@@ -88,7 +89,7 @@ export function buildDirectExaFundamentalsRequests(env: DirectExaEnv, domain: st
       url,
       headers,
       body: {
-        query: `${searchSubject} founders CEO management team executives leadership`,
+        query: queries.managementTeam,
         type: "instant",
         category: "people",
         numResults: 6,
@@ -100,7 +101,7 @@ export function buildDirectExaFundamentalsRequests(env: DirectExaEnv, domain: st
       url,
       headers,
       body: {
-        query: `${searchSubject} funding rounds investors total raised valuation latest round`,
+        query: queries.funding,
         type: "fast",
         category: "news",
         numResults: 8,
@@ -112,7 +113,7 @@ export function buildDirectExaFundamentalsRequests(env: DirectExaEnv, domain: st
       url,
       headers,
       body: {
-        query: `${searchSubject} recent launch hiring customers product news`,
+        query: queries.recentSignals,
         type: "fast",
         category: "news",
         numResults: 6,
