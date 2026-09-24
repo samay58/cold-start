@@ -1,6 +1,6 @@
 # Evidence remediation: fixed comparison set
 
-The companies and baseline numbers for `docs/superpowers/plans/2026-09-23-evidence-and-judgment-remediation.md`. Every later task measures against this set, so results stay comparable.
+The companies and baseline numbers for `docs/archive/plans/2026-09-23-evidence-and-judgment-remediation.md`. Every later task measures against this set, so results stay comparable.
 
 ## The 12 companies
 
@@ -136,7 +136,7 @@ Timed-out calls are not in the batch's cost record; each is bounded at about $0.
 
 ## Task 3 results, September 23, 2026
 
-The new wording adds one line to the shared investor rules: private companies rarely publish revenue, margins, contract values or head-to-head results, so their absence is not a finding. Six sentences that invited absence lines got shorter. The emphasis read's Quiet line stays. Commit `09931cd`.
+The new wording adds one line to the shared investor rules: private companies rarely publish revenue, margins, contract values or head-to-head results, so their absence is not a finding. Six sentences that invited absence lines got shorter. The emphasis read's Quiet line stays. Commit `09931cd`. The kernel also reaches extraction, person reads and the emphasis read.
 
 Both wordings ran on the same rebuilt cards with the production models (Sonnet 4.6 writing, deepseek-v4-flash checking): synthesis, the longer description, and the Market and Risks sections. Market and Risks hold 151 of the roughly 190 absence lines in stored research sections. Ten companies ran under both wordings, one run each. Cost about $4.85.
 
@@ -150,10 +150,17 @@ Lines that name missing information, counting only parts that worked under both 
 | Longer description | 2 | 2 |
 | **Total** | **32** | **20** |
 
+- The emphasis read, which the main check did not cover, on all 12 companies once per wording ($0.39): 5 finished reads under each wording, and every finished Quiet line still begins "Nothing filed shows" and names what the record lacks, so the new line does not suppress Quiet. The other 14 runs failed the same citation-marker check under both wordings (see STATUS).
 - Known gap: casaphq claims automation of "up to 30%" of disputes with only its own pages behind it. The new wording still flags that nothing independent backs the figure.
 - Failures, under both wordings: the Market section left out its required confidence field 3 times in 21 runs; the longer description and synthesis each failed a parse once.
 - Samay's blind read (four companies, unlabeled): he picked the new wording for both companies he chose between, Doppel and Neko Health, and called its market sizing and questions more nuanced. Cognition and Kalshi differed only in emphasis.
 - Two more runs of each wording for Neko Health and Doppel ($1.52): under the new wording, Neko's market sizing starts from its cited 300,000-person waitlist in 3 of 3 runs. The old wording invented a buyer pool in 2 of 3 (5 million buyers for $1.85B; 500,000 for £150M). Neko's sharper questions came from one good run, not every run. Doppel showed no consistent difference. Absence lines across these six runs: 18 old, 11 new.
+
+## Judge choice, September 24, 2026
+
+Samay dropped the full three-arm comparison (about $35 to $50) as not worth it once the evidence, the rules and the timeout were fixed. Instead, Opus 5 and Opus 5.5 judged four known cases once each (DeepInfra, Notion, Cognition, Neko Health) on the rebuilt cards, under the new rules, with the production writer and no refinement. Cost $5.43. No call timed out.
+
+Samay read the finished reads blind and picked Opus 5 for DeepInfra, Notion and Cognition (Opus 5 was Read 2 for Cognition, so position did not decide it) and Opus 5.5 for Neko Health. He found Opus 5's analysis more nuanced. Opus 5 stays the judge, which production already runs. The screen's scoped mode was not tested and stays off.
 
 ## Files
 

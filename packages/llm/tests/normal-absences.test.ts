@@ -10,7 +10,7 @@ const principle =
   "Private companies rarely publish revenue, margins, contract values or head-to-head results. Their absence is normal, not a finding. Mention a missing fact only when it is unusual for this company, or when finding it would change the read.";
 
 describe("normal private-company absences", () => {
-  it("are stated once, in the shared kernel that synthesis and research sections read", () => {
+  it("are stated once, in the shared kernel every writing stage reads", () => {
     expect(investorTasteKernel).toContain(principle);
     expect(synthesisSystemPrompt).toContain(principle);
     expect(researchSectionSystemPrompt).toContain(principle);

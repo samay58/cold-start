@@ -1,6 +1,22 @@
 # Model input audit, September 2026
 
-Task 1 of `docs/superpowers/plans/2026-09-23-evidence-and-judgment-remediation.md`. It covers what every model stage actually receives, and where good model output is thrown away.
+Task 1 of `docs/archive/plans/2026-09-23-evidence-and-judgment-remediation.md`. It covers what every model stage actually receives, and where good model output is thrown away.
+
+## What each finding became, September 24, 2026
+
+All deployed on September 24 unless marked otherwise. Numbers are in `eval/curation/remediation-2026-09/README.md`.
+
+1. Page text: every Exa search asks for it (`7db6204`). On the 12 test companies, title-only citations fell from 88 to 18.
+2. JSON as text: every model reads page text through `readableSourceText` and one snippet builder, and the card schema cleans old stored snippets on read. JSON snippets on the 12 fell from 82 to 0.
+3. The verifier: page openings as snippets cut kept claims from about 44 to 22-25 of 74, so snippets keep the extraction model's note and use page text only where it wrote none (43 of 74). The verifier itself is unchanged.
+4. Person reads: evidence is text about the named person, each person is read once, and suppression reasons reach the trace. Open: Ivan Zhao has no person-read evidence once his Apollo record is not read as JSON.
+5. Funding lean: the non-funding queries lost their funding words and the ledger lost its funding preference. Where the extraction model wrote a funding-focused note, the snippet keeps it.
+6. Own pages are labeled as the company speaking.
+7. Dates: sources keep their publish date (migration 0020) and the judge sees it. Rows stored earlier read the date from their stored record.
+8. The judge's context sends each snippet once. The judge timeouts turned out to come from Opus 5 thinking once tool choice was no longer forced (`9e18967`, see `docs/qa/how-it-wins-latency-2026-09-11.md`).
+9. The keyword filter on verified claims is gone.
+10. The four workarounds are gone.
+11. Smaller findings: person-read suppression reasons now reach the trace. The gemini extraction timeouts, the display caps and the trace merge key are unchanged.
 
 ## How this was done
 

@@ -68,6 +68,12 @@ order by started_at desc, stage;
 
 `npm run measure:how-it-wins` gives the aggregate view over more runs.
 
+## September 24, 2026: the judge was thinking
+
+On September 22 every stage stopped forcing its tool call (`4830c3c`), so Opus 5.5 could judge. Without a forced tool choice, Opus 5 thinks before it calls the tool, and the thinking is billed and timed as output. On the stored Notion card the global judgment went from 10.9k output tokens in 79 to 98 s to 19.9k in 217 s, and a card with page text hit the 240 s timeout. A probe on one short prompt wrote 3,742 output tokens with the tool free, 1,182 with thinking disabled and 755 with the tool forced.
+
+`9e18967` sends `thinking: {type: "disabled"}` to Opus 5. The rebuilt Notion card's judgment then took 118 s for 11.4k output tokens. Four known-case cards on Opus 5 took 179 to 193 s per whole read without refinement, all inside the limit. Opus 5.5 rejects the switch and still thinks.
+
 ## Open
 
 - Writer step: what the 52 s is made of (one call or several, token count).

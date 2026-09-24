@@ -1,6 +1,6 @@
 // Rebuilds stored cards' citation snippets from their stored sources with the current builders,
 // without writing to the database. Task 2 E1 and E2 of
-// docs/superpowers/plans/2026-09-23-evidence-and-judgment-remediation.md.
+// docs/archive/plans/2026-09-23-evidence-and-judgment-remediation.md.
 //
 // Reads production (.env.production.migrate.local, then .env.local) and writes, per slug:
 //   <out>/cards/<slug>.json     the card with rebuilt snippets

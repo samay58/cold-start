@@ -147,7 +147,9 @@ Samay's decisions, September 23, 2026: every finding is in scope. A: findings 1,
 
 ---
 
-### Task 2: Give every model the page text
+### Task 2: Give every model the page text (done)
+
+Done September 23, deployed September 24 with migration 0020. Results: `eval/curation/remediation-2026-09/README.md`. The backfill of existing profiles (E7) is still Samay's call. The recommendation is to skip it: their stored snippets already read as text on every card read, and a re-file brings page text.
 
 The biggest single gain. It is a bug, not a judgment call, and it reaches every model stage. It has five parts. Do them in order; each part ends with green tests and its own commits.
 
@@ -209,7 +211,9 @@ The biggest single gain. It is a bug, not a judgment call, and it reaches every 
 
 ---
 
-### Task 2B: Pass publish dates through to the models (finding 7)
+### Task 2B: Pass publish dates through to the models (finding 7) (done)
+
+Done in `3e6a14b`; migration 0020 ran in production on September 24.
 
 Samay chose an optional citation field plus a stored column. A date tells the judge whether a mechanism is live today, which the standard asks.
 
@@ -228,7 +232,9 @@ Samay chose an optional citation field plus a stored column. A date tells the ju
 
 ---
 
-### Task 2C: Remove the keyword filter on verified claims (finding 9)
+### Task 2C: Remove the keyword filter on verified claims (finding 9) (done)
+
+Done in `6e01029`.
 
 - [ ] **Step 1.** Read `packages/pipeline/src/synthesis-quality.ts` and every caller of `applySynthesisUsefulnessGate`. Find out whether any test or eval relies on it.
 - [ ] **Step 2.** Remove the gate, so verifier-approved claims are kept. Keep `usefulnessDroppedClaims` readable on old traces (optional field) but stop writing it, or delete it if nothing reads it. Remove the tests that only exist to test the gate. Keep any test that checks something else.
@@ -241,7 +247,9 @@ The prompt and the verifier carry quality. If generic claims come back, fix the 
 
 ---
 
-### Task 3: Stop pointing out what private companies never publish
+### Task 3: Stop pointing out what private companies never publish (done)
+
+Done in `09931cd`. Samay preferred the new wording blind; absence lines fell from 32 to 20.
 
 **Files:**
 - Modify: `packages/llm/src/expanded-description.ts:78`
@@ -262,7 +270,9 @@ The prompt and the verifier carry quality. If generic claims come back, fix the 
 
 ---
 
-### Task 4: Let the judge accept the proof the rubric already allows
+### Task 4: Let the judge accept the proof the rubric already allows (done)
+
+Done in `441aa70` with Samay's approved wording.
 
 **Files:**
 - Modify: `docs/superpowers/specs/2026-08-21-how-it-wins-strategy-rubric.md` (the Specialization row, line 40)
@@ -285,7 +295,9 @@ Do not add a rule against the one-line shortcut. The structural fix is Task 5's 
 
 ---
 
-### Task 5: Rerun the judge comparison fairly, then choose
+### Task 5: Rerun the judge comparison fairly, then choose (done, abridged)
+
+Samay dropped the full comparison. Opus 5 and Opus 5.5 judged four known cases once each; he picked Opus 5 for three of four blind, so Opus 5 stays. Along the way the judge timeouts were traced to Opus 5 thinking once tool choice was no longer forced, fixed in `9e18967`.
 
 Runs after Tasks 2 through 4, so that both models see the fixed evidence, dates and rules. Audit finding 8 is already fixed: on September 23 Samay chose to drop the repeated snippets from the judge's `context` after the rebuilt cards timed out in Task 2 E4. Every arm runs with each snippet sent once; say so in the sheet.
 
@@ -304,7 +316,9 @@ Runs after Tasks 2 through 4, so that both models see the fixed evidence, dates 
 
 ---
 
-### Task 6: Pilot one richer evidence source: buyers saying why they chose
+### Task 6: Pilot one richer evidence source: buyers saying why they chose (not run)
+
+Not run in this plan. It stays a candidate for the next evidence work.
 
 Runs last, because it only pays off once the evidence text reaches the model (Task 2) and the rules accept this proof (Task 4). One source only, using providers we already pay for. No new vendor.
 
@@ -323,7 +337,9 @@ Runs last, because it only pays off once the evidence text reaches the model (Ta
 
 ---
 
-### Task 7: Record and close
+### Task 7: Record and close (done)
+
+Closed September 24, 2026.
 
 - [ ] Update `docs/STATUS.md`: move this plan to Recently shipped with its commits, and list any open decisions under Next.
 - [ ] Update the How it wins latency and cost notes if Task 5 changed the judge.
