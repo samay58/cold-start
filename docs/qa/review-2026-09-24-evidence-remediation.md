@@ -31,18 +31,18 @@ Measured before any fix with the plan's measure script. The dump stubs every mod
    - The dedupe at :69 keys on `citationId`, so once a fragment claims a citation, that source's fuller text is never tried.
    Fix: find the sentence start with `splitIntoSentences`, end the window at a sentence boundary rather than mid-sentence at the next name, and add a two-names-in-one-sentence test.
    Re-read: reproduced. The 7 fragments include team-page lines ("Sanjay Wadhwa Jennifer Walsh", "Nikola BorisovFounder and CEO"), not only shared sentences.
-   Status: fixed `a0a4cce`. Windows cut inside a sentence went from 51 of 206 to 1; that one is a LinkedIn profile cut at the 600-character cap. The review's count of 7 missed most of the 51. Its measure (the name plus three words or fewer) now reads 18, because list entries such as "Joseph Parker: Co-Founder" stand alone; all 18 are name-and-role entries.
+   Status: fixed `a0a4cce`. Windows cut inside a sentence went from 51 of 206 to 1; that one is a LinkedIn profile cut at the 600-character cap. The independent review found that a list entry lost its role after a bar or hyphen ("Ivan Zhao | CEO") and that an em-dash aside read as a list; both fixed in `f84ca21`. The review's count of 7 missed most of the 51. Its measure (the name plus three words or fewer) now reads 18, because list entries such as "Joseph Parker: Co-Founder" stand alone; all 18 are name-and-role entries.
 
 3. **The judge sees two trust labels for one citation.** (both, checked)
    `packages/llm/src/how-it-wins-judge-rules.ts:96` recomputes `attribution`. `:104` strips only `snippet` from `context.citations`, so the stored `sourceQuality` still reaches the judge. On the 12 cards, 29 of 228 citations disagree. The recompute is not always better (Sacra moved from independent_analysis to independent_report). Every other surface prefers the stored tier (`packages/core/src/trust.ts:138`), so the lens and the judge disagree about the same page.
    Fix: decide once where the tier is owned (recompute on read in `sanitizeCardTrust`, or stop persisting it). At minimum strip `sourceQuality` from the judge context. Note that changing it moves the evidence hash (see 8).
    Re-read: the count is 29 of 253 citations. The stored tier cannot simply stop being persisted: `founder_authored` is stamped by the founder-voice fetcher and cannot be derived from a URL, and `publicCard` filters on it. The Sacra case comes from the classifier: `sacra.com` is listed as a funding database, so it ranks as a report, while `sacrainsights.com` is listed as analysis.
-   Status: fixed `3d335a1`. Decision: `citationSourceQuality` in core owns the tier. A tier the founder-voice fetcher stamps (founder_authored, and primary_company for a company's own accounts) is kept, because no URL shows it; every other tier is derived from the URL and the card's domain when the card is read. Not persisting the tier was rejected, because `publicCard` filters founder_authored citations on the stored stamp. Of the 29 disagreements, 21 were stale stored tiers and 8 were Sacra; `sacra.com` moved to the analysis list, which made the recompute right in all 29. Judge tiers that differ from the card surfaces: 29 of 253 before, 0 after. This moves the evidence hash for nearly every card.
+   Status: fixed `3d335a1`. Decision: `citationSourceQuality` in core owns the tier. A tier the founder-voice fetcher stamps is kept, because no URL shows it (founder_authored on any citation, primary_company only on a founder-voice citation, after the independent review in `957a217`); every other tier is derived from the URL and the card's domain when the card is read. Not persisting the tier was rejected, because `publicCard` filters founder_authored citations on the stored stamp. Of the 29 disagreements, 21 were stale stored tiers and 8 were Sacra; `sacra.com` moved to the analyst-research list, which made the recompute right in all 29 and keeps its stored source type. Judge tiers that differ from the card surfaces: 29 of 253 before, 0 after. This moves the evidence hash for nearly every card.
 
 4. **Stored source rows never gain page text or a publish date.** (checked)
    `packages/db/src/repositories/sources.ts:120` uses `onConflictDoNothing` on `(card_id, url)`, and re-files keep the card id. So the 32-37% of existing rows without page text stay that way when the same URL is fetched again. Enrichment `load-sources`, research sections and analysis runs that reuse stored sources read those rows. This undercuts the STATUS reasoning that a re-file makes a backfill unnecessary.
    Fix: a single-statement `onConflictDoUpdate` that fills `raw_text` and `published_at` when the stored row has no readable text. It works on Neon HTTP.
-   Status: fixed `4e625b6`. One upsert statement; the no-text test agrees with `readableSourceText` on all 1,021 rows of the 12 source sets (168 without text). Production is not backfilled: see the questions below.
+   Status: fixed `4e625b6`, then `dd39be7`. One upsert statement. The independent review found that the guard's regular expressions lost their backslashes inside the sql template, so it would have overwritten stored rows that had page text; the patterns are now bound parameters. Run through `recordSource` against local Postgres, the guard agrees with `readableSourceText` on all 1,021 rows of the 12 source sets (168 without text). Production is not backfilled: see the questions below.
 
 5. **Page text has no size cap.** (checked)
    `packages/providers/src/exa-contents.ts` sends `text: true` with no `maxCharacters`. Rebuilt source sets are 0.5 to 1.7 MB per card; one row is 331 KB. Card and contact enrichment return every stored source from their Inngest `load-sources` step (`card-enrichment.ts:283-285`), and rows accumulate across refreshes. The Inngest step output limit is 4 MB [UNVERIFIED for the current plan]. Models read at most 2,200 characters per source outside person reads.
@@ -72,7 +72,7 @@ Measured before any fix with the plan's measure script. The dump stubs every mod
 
 12. **Two search-query catalogs.** `direct-exa.ts:75-115` keeps its own queries next to `core/src/search-queries.ts`, and the research-plan override path is dead in production.
    Re-read: the override is not unreachable. The `plan-research` step passes `fallbackResearchPlan(domain)`, whose queries are `defaultSourceSearchQueries(domain)`, so the merge in `stableenrich/core.ts:186` always replaces the defaults with themselves. Direct Exa is a live lane in production, so moving its queries changes what it fetches.
-   Status: fixed `368c62f`. The override was dead: a search found no caller of the LLM research-plan tool outside tests, and every plan came from `fallbackResearchPlan`. Direct Exa now reads the core catalog. This changes what direct Exa fetches, which has not been measured.
+   Status: fixed `368c62f`. The override was dead: a search found no caller of the LLM research-plan tool outside tests, and every plan came from `fallbackResearchPlan`. Direct Exa now reads the core catalog. This changes what direct Exa fetches, which has not been measured. The research plan also dropped its query list, so the full and block extraction prompts no longer carry it.
 
 ## Cleanup
 
@@ -82,7 +82,7 @@ Measured before any fix with the plan's measure script. The dump stubs every mod
     Re-read: the shared loader is at `scripts/alpha-common.ts:223`. Eleven older scripts carry their own copy too; this finding covers the two new ones.
     Status: fixed `6df61be`
 15. `AGENTS.md:79` says the schema makes JSON-slice snippets read as text. Cut-off slices are dropped, so old cards read as titles until re-filed.
-    Status: fixed in the docs commit that closes this plan.
+    Status: fixed `fbdfec8`
 16. `evidenceForSection` lives in `apps/web` and is exported for a script; its siblings live in `packages/pipeline`.
     Status: fixed `ec53254`. Now `packages/pipeline/src/research-section-evidence.ts`.
 17. Comments cite plan tasks ("Task 2 E5", "Task 2B") that rot now the plan is archived.
@@ -115,7 +115,21 @@ Measured with the same script after the last fix.
 2. Backfill. Finding 4 lets a refetched URL gain page text, but rows never fetched again keep none. The model-input audit counted 32-37% of production rows without page text. A fresh count needs a read-only production query, which was not run. Recommendation: skip the backfill; re-files now heal rows as their URLs come back.
 3. `EXTRACTION_EVIDENCE_BUDGET_CHARS` in Vercel. If production still sets it to 24000, extraction has run at 24,000 characters instead of 45,000. Recommendation: check the latest production run trace; if it shows 24,000, remove the variable, or set `RESEARCH_SECTION_EVIDENCE_BUDGET_CHARS=24000` if the value was meant for sections.
 4. Direct Exa queries (finding 12). The direct Exa lane now asks the core catalog's wording. Recommendation: before deploy, run the four direct Exa searches for three known companies old and new (about 24 searches, near $0.20) and compare what comes back.
-5. Merge. The branch is local and unpushed. Recommendation: merge after questions 1 and 4.
+5. The StableEnrich search schema. Page text is capped with `text: { maxCharacters }` on nine paid StableEnrich Exa probes. The StableEnrich find-similar schema accepts that shape; a read of the search schema was blocked by the session's auto-mode classifier, so the search endpoint is unconfirmed. If it rejected the object, those probes would fail and the pipeline would carry on without their sources. Recommendation: before deploy, read the search schema (free) or send one probe ($0.01).
+6. Merge. The branch is local and unpushed. Recommendation: merge after questions 1, 4 and 5.
+
+## Independent review
+
+A fresh reviewer read the whole diff after the fixes, without the reasoning behind them. What it found and what happened:
+
+1. The stored-source guard's regular expressions lost their backslashes (finding 4). Confirmed and fixed in `dd39be7`.
+2. List entries lost their role after a bar or hyphen, and an em-dash aside read as a list (finding 2). Confirmed and fixed in `f84ca21`.
+3. A stored `primary_company` written by the old classifier could never be re-derived, and moving Sacra changed its stored source type (finding 3). Both fixed in `957a217`.
+4. Finding 12's status did not mention that extraction prompts lose the plan's query list. Now it does.
+5. The page-text cap's shape is unconfirmed on StableEnrich search. Recorded as question 5; it needs a schema read or a paid probe.
+6. Docs that the fixes made false (`AGENTS.md` on `recordSource` and the tier owner). Corrected.
+
+Nothing it raised was rejected.
 
 ## STATUS minors folded in
 
