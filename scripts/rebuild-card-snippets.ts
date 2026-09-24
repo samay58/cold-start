@@ -13,6 +13,10 @@
 // the page text of every cited page still without it by URL (Exa contents, about $0.001 a page).
 // Every raw response is cached under <out>/raw/<slug>/ so nothing is paid twice. Refetched rows
 // replace stored rows with the same URL. Nothing is written to the database either way.
+//
+// --offline rebuilds from files an earlier run saved (<out>/raw/<slug>/card-before.json and
+// <out>/sources/<slug>.json) without reading the database, for example while production has not
+// yet run a migration the current code reads.
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -42,17 +46,19 @@ function loadEnvFile(file: string) {
 }
 
 function parseArgs(argv: string[]) {
-  const flags = { slugs: [] as string[], out: DEFAULT_OUT, refetch: false, budgetUsd: 0 };
+  const flags = { slugs: [] as string[], out: DEFAULT_OUT, refetch: false, budgetUsd: 0, offline: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--slugs") flags.slugs = (argv[++i] ?? "").split(",").map((slug) => slug.trim()).filter(Boolean);
     else if (arg === "--out") flags.out = path.resolve(argv[++i] ?? "");
     else if (arg === "--refetch") flags.refetch = true;
+    else if (arg === "--offline") flags.offline = true;
     else if (arg === "--budget-usd") flags.budgetUsd = Number.parseFloat(argv[++i] ?? "");
     else throw new Error(`unknown flag: ${arg}`);
   }
   if (flags.slugs.length === 0) throw new Error("usage: rebuild-card-snippets --slugs a,b [--out dir] [--refetch --budget-usd N]");
   if (flags.refetch && !(flags.budgetUsd > 0)) throw new Error("--refetch needs --budget-usd");
+  if (flags.refetch && flags.offline) throw new Error("--offline cannot --refetch");
   return flags;
 }
 
@@ -122,17 +128,20 @@ async function main() {
   const flags = parseArgs(process.argv.slice(2));
   loadEnvFile(path.join(ROOT, ".env.production.migrate.local"));
   if (!process.env.DATABASE_URL) loadEnvFile(path.join(ROOT, ".env.local"));
-  const db = createDb();
+  const db = flags.offline ? null : createDb();
   const ledger = { paidCalls: 0, spentUsd: 0 };
 
   for (const slug of flags.slugs) {
-    const card = await findCardBySlug(db, slug, { allowStale: true });
+    const card = db
+      ? await findCardBySlug(db, slug, { allowStale: true })
+      : coldStartCardSchema.parse(JSON.parse(readFileSync(path.join(flags.out, "raw", slug, "card-before.json"), "utf8")));
     if (!card) {
       console.log(`${slug}: no card`);
       continue;
     }
-    const stored = await findSourcesBySlug(db, slug);
-    let sources = providerSourcesFromStoredSources(stored);
+    let sources: ProviderSource[] = db
+      ? providerSourcesFromStoredSources(await findSourcesBySlug(db, slug))
+      : (JSON.parse(readFileSync(path.join(flags.out, "sources", `${slug}.json`), "utf8")) as ProviderSource[]);
     if (flags.refetch) {
       const exaSearchCount = buildStableenrichRequests({}, card.domain).filter((probe) => probe.name.startsWith("exa_")).length;
       if (ledger.spentUsd + exaSearchCount * EXA_SEARCH_COST_USD + card.citations.length * EXA_CONTENTS_COST_PER_PAGE_USD > flags.budgetUsd) {
