@@ -117,9 +117,10 @@ export function buildDirectExaFundamentalsRequests(env: DirectExaEnv, domain: st
         type: "fast",
         category: "news",
         numResults: 6,
+        // Exa rejects a body that sets both `livecrawl` and `maxAgeHours` (400, livecrawl is
+        // deprecated), so this lane sets only the freshness window.
         contents: {
           ...contents,
-          livecrawl: "fallback",
           maxAgeHours: 24 * 90,
         },
       },

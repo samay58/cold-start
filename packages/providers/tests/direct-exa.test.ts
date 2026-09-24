@@ -36,6 +36,13 @@ describe("buildDirectExaFundamentalsRequests", () => {
     expect(requests[2]?.body).toMatchObject({ type: "fast", category: "news", query: queries.funding, numResults: 8 });
     expect(requests[3]?.body).toMatchObject({ type: "fast", category: "news", query: queries.recentSignals, numResults: 6 });
   });
+
+  it("never sets livecrawl beside maxAgeHours, which Exa rejects with a 400", () => {
+    for (const request of buildDirectExaFundamentalsRequests({ DIRECT_EXA_API_KEY: "exa-key" }, "cartesia.ai")) {
+      const contents = request.body.contents as Record<string, unknown>;
+      expect("livecrawl" in contents && "maxAgeHours" in contents, request.name).toBe(false);
+    }
+  });
 });
 
 describe("fetchDirectExaFundamentalsSources", () => {
