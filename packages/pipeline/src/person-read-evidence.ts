@@ -18,9 +18,13 @@ const defaultMaxEvidencePerPerson = 8;
 const SNIPPET_BUDGET = SOURCE_SNIPPET_MAX_LENGTH;
 // How far back from the name the window may start, so the sentence that names the person leads.
 const maxLeadBeforeName = 200;
-// A list entry's marker: a dash, bullet, bar or semicolon before a name. Page lists flattened onto
-// one line keep these, and they are the only place a sentence may be cut at another person's name.
-const listMarker = /(?:^|\s)(?:[-–—•*|·;])\s*$/;
+// A list entry's marker: a hyphen, bullet, bar or semicolon before a name. Page lists flattened
+// onto one line keep these, and they are the only place a sentence may be cut at another person's
+// name. Em and en dashes are left out: in prose they set off an aside ("The founders — Ivan Zhao
+// and Simon Last — built Notion"), and cutting there loses the sentence.
+const markerChars = "-•*|·;";
+const listMarker = new RegExp(`(?:^|\\s)[${markerChars}]\\s*$`);
+const entrySeparator = new RegExp(`\\s[${markerChars}]\\s`, "g");
 
 function includesName(text: string, lowerName: string): boolean {
   return text.toLowerCase().includes(lowerName);
@@ -53,7 +57,7 @@ function listEntryStart(sentence: string, at: number, others: string[]): number 
     return index < 0 ? -1 : index + other.length;
   }));
   if (lastOther < 0) return 0;
-  const markers = [...lead.slice(lastOther).matchAll(/(?:^|\s)[-–—•*|·;]\s+/g)];
+  const markers = [...lead.slice(lastOther).matchAll(new RegExp(`(?:^|\\s)[${markerChars}]\\s+`, "g"))];
   const last = markers.at(-1);
   return last ? lastOther + last.index + last[0].length : 0;
 }
@@ -83,11 +87,16 @@ function textAboutPerson(text: string, name: string, otherNames: string[] = []):
   if (at - start > maxLeadBeforeName) start = opening.lastIndexOf(" ", at - maxLeadBeforeName / 2) + 1;
   const nameEnd = Math.max(at, 0) + needle.length;
   // A person listed as an entry ("- Blake Layton: Head of Sales - ...") gets that entry alone: an
-  // entry ends where the next one begins, whoever it names.
+  // entry ends where the next one begins, whoever it names. A separator straight after the name
+  // ("Ivan Zhao | CEO", "Ivan Zhao - CEO") joins the name to its role, so the entry ends at the
+  // first separator that follows some text of its own.
   const isListEntry = listMarker.test(opening.slice(0, Math.max(at, 0)));
-  const nextEntry = isListEntry ? opening.slice(nameEnd).search(/\s[-–—•*|·;]\s/) : -1;
+  const afterName = opening.slice(nameEnd);
+  const nextEntry = isListEntry
+    ? ([...afterName.matchAll(entrySeparator)].find((match) => /[\p{L}\p{N}]/u.test(afterName.slice(0, match.index)))?.index ?? -1)
+    : -1;
   const cut = Math.min(listEntryCut(opening, nameEnd, others), nextEntry < 0 ? opening.length : nameEnd + nextEntry);
-  const window = [opening.slice(start, cut).trim().replace(/^[-–—•*|·]\s+/, "")];
+  const window = [opening.slice(start, cut).trim().replace(/^[-•*|·]\s+/, "")];
   if (isListEntry || cut < opening.length) return sourceSnippet(window[0]!);
 
   const following = [...units.slice(1), ...lines.slice(lineIndex + 1).flatMap((line) => splitIntoSentences(line))];

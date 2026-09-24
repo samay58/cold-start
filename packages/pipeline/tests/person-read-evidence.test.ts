@@ -122,6 +122,30 @@ describe("buildPersonReadEvidence", () => {
     expect(rutvik?.evidence[0]?.text).toBe("Rutvik Rau: CEO & Co-Founder");
   });
 
+  it("keeps each list entry's role, whatever separates the name from it", () => {
+    const people = [person({ name: "Ivan Zhao", role: "CEO" }), person({ name: "Simon Last", role: "CTO" })];
+    const windows = (snippet: string) =>
+      buildPersonReadEvidence({ people, citations: [{ id: "c1", title: "Team", url: "https://x.example/team", snippet }], candidates: [], sources: [] })
+        .map((entry) => entry.evidence[0]?.text);
+
+    expect(windows("Team • Ivan Zhao | CEO • Simon Last | CTO")).toEqual(["Team • Ivan Zhao | CEO", "Simon Last | CTO"]);
+    expect(windows("- Ivan Zhao - Co-founder and CEO, previously built Inkling. - Simon Last - CTO")).toEqual([
+      "Ivan Zhao - Co-founder and CEO, previously built Inkling.",
+      "Simon Last - CTO"
+    ]);
+  });
+
+  it("reads a dash aside as part of the sentence, not as a list", () => {
+    const [ivan] = buildPersonReadEvidence({
+      people: [person({ name: "Ivan Zhao", role: "CEO" }), person({ name: "Simon Last", role: "CTO" })],
+      citations: [{ id: "c1", title: "Profile", url: "https://x.example/p", snippet: "The founders — Ivan Zhao and Simon Last — built Notion in 2016." }],
+      candidates: [],
+      sources: []
+    });
+
+    expect(ivan?.evidence[0]?.text).toBe("The founders — Ivan Zhao and Simon Last — built Notion in 2016.");
+  });
+
   it("lets a source's fuller text replace a shorter window from the same citation", () => {
     const [ivan] = buildPersonReadEvidence({
       people: [person({ name: "Ivan Zhao", role: "CEO" })],
