@@ -56,7 +56,7 @@ A current strategy must pass every applicable gate:
 - The mechanism does strategic work in the present.
 - The nearest plausible siblings have been resolved from evidence.
 - The mechanism is not a duplicate of another selected strategy.
-- The mechanism is not a category baseline. Name the reference class; if two comparable companies in it share the trait, the label fails.
+- The mechanism is not a category baseline. Name the reference class. A trait comparable companies share is category baseline. A capability rivals lack, or a customer's stated reason for choosing, shows it is not; a head-to-head result is not required.
 - Removing the strategy would make the account of the company's bet meaningfully less accurate.
 
 A capability may be real and still fail selection because it is peripheral, generic, duplicated, historical only, or immaterial.
@@ -78,7 +78,7 @@ Use these questions:
 | Evidence strength | How directly and comprehensively is the mechanism supported? |
 | Centrality | How much does it explain the company's actual bet and consequential choices? |
 | Materiality | Does it change buyer choice, economics, competitive conduct, or operations? |
-| Distinctiveness | Is it specific to this company or merely a category baseline? Name the reference class. If two comparable companies in it share the trait, it is category baseline. |
+| Distinctiveness | Is it specific to this company or merely a category baseline? Name the reference class. A trait comparable companies share is category baseline. A capability rivals lack, or a customer's stated reason for choosing, shows it is not; a head-to-head result is not required. |
 | Independence | Does it add a causal mechanism not already captured by another selected strategy? |
 
 Order current strategies primarily by centrality. Use evidence strength, materiality, and distinctiveness to explain close calls. No strong dimension can compensate for a failed selection gate.
@@ -168,7 +168,7 @@ The pre-prose audit must retain:
 - not-yet records with precursor, path, missing condition, horizon, and promotion evidence
 - validation that names, evidence references, inferences, judgments, dispositions, and selected sets agree
 
-Strategies that fail the evidence gate do not need empty prose fields. A compact disposition and reason are enough.
+Missing evidence is not evidence against: head-to-head results and financials are rarely public for private companies. Strategies that fail the evidence gate do not need empty prose fields. A compact disposition and reason are enough.
 
 The writer receives the frozen judgment. It may not add, remove, swap, or reorder strategies. It renders the approved verdict and canonical meanings only.
 
