@@ -86,7 +86,7 @@ Numbers only. The read-by-eye notes and the claim-level verifier diffs are in `r
 
 ### Rebuilt cards (E1, E2)
 
-`npm run qa:rebuild-snippets` rebuilt each card's snippets from its stored sources (E1, free) and then fetched page text for the rows stored without it (E2). E2 cost $1.10: 108 Exa searches at $0.01 and about 20 page-text fetches at $0.001. The table is the current state of `cards/`, rebuilt offline under the final snippet rule: the extraction model's note where it wrote one, and the page's own text only where it wrote none.
+A one-off script, `scripts/rebuild-card-snippets.ts` (removed September 24 after the review; it is in git history before `review-2026-09-24-remediation`), rebuilt each card's snippets from its stored sources (E1, free) and then fetched page text for the rows stored without it (E2). E2 cost $1.10: 108 Exa searches at $0.01 and about 20 page-text fetches at $0.001. The table is the current state of `cards/`, rebuilt offline under the final snippet rule: the extraction model's note where it wrote one, and the page's own text only where it wrote none.
 
 | Slug | Citations | JSON | Empty | Median readable (chars) | With a publish date |
 | --- | --- | --- | --- | --- | --- |

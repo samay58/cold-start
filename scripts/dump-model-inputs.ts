@@ -10,7 +10,7 @@
 //   npm run qa:model-inputs -- --slug notion --card <card.json> --sources <sources.json>
 //
 // --card and --sources read a card and its sources from files instead of the database, such as
-// the rebuilt cards `npm run qa:rebuild-snippets` writes.
+// the rebuilt cards in eval/curation/remediation-2026-09/.
 //
 // Stages the dump cannot reproduce from stored rows are written with a `gap` note instead:
 // person reads also draw on provider fact candidates that are never stored, and the emphasis
