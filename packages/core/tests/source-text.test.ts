@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { citationSchema, readableSourceText, snippetFromStoredSource, SOURCE_SNIPPET_MAX_LENGTH, sourcePublishedAt, sourceSnippet } from "../src/index";
+import { citationSchema, normalizePublishedAt, readableSourceText, snippetFromStoredSource, SOURCE_SNIPPET_MAX_LENGTH, sourcePublishedAt, sourceSnippet } from "../src/index";
 
 const exaRecord = (fields: Record<string, unknown>) =>
   JSON.stringify({ id: "https://notion.com/", title: "Notion", url: "https://notion.com/", publishedDate: null, ...fields });
@@ -149,5 +149,24 @@ describe("snippetFromStoredSource", () => {
     const record = JSON.stringify({ id: "x", title: "Acme" });
     expect(snippetFromStoredSource(record)).toBe("");
     expect(snippetFromStoredSource(record, "Acme | Deploy robots")).toBe("Acme | Deploy robots");
+  });
+});
+
+describe("normalizePublishedAt", () => {
+  it("keeps an ISO date or timestamp exactly as the provider gave it", () => {
+    expect(normalizePublishedAt("2026-05-01T00:00:00.000Z")).toBe("2026-05-01T00:00:00.000Z");
+    expect(normalizePublishedAt(" 2026-05-01 ")).toBe("2026-05-01");
+  });
+
+  it("reads anything else as undated, never as a guess", () => {
+    for (const value of ["sometime", "May 1", "2026-13-40", "", null, undefined, 20260501]) {
+      expect(normalizePublishedAt(value), String(value)).toBeNull();
+    }
+  });
+
+  it("drops an unparseable date from a stored citation instead of failing the card", () => {
+    const base = { id: "c1", url: "https://news.example/a", title: "A", fetchedAt: "2026-09-01T00:00:00.000Z", sourceType: "news" };
+    expect(citationSchema.parse({ ...base, publishedAt: "sometime" }).publishedAt).toBeUndefined();
+    expect(citationSchema.parse({ ...base, publishedAt: "2026-05-01T00:00:00.000Z" }).publishedAt).toBe("2026-05-01T00:00:00.000Z");
   });
 });

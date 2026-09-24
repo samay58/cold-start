@@ -1,4 +1,4 @@
-import { isRetryableHttpStatus, retryAfterMs, sourceSearchSubjectForDomain, sourceTypeHintForHost } from "@cold-start/core";
+import { isRetryableHttpStatus, publishedAtFromRecord, retryAfterMs, sourceSearchSubjectForDomain, sourceTypeHintForHost } from "@cold-start/core";
 import { exaPageTextContents } from "./exa-contents";
 import { normalizeNamedPeopleEmailHints, type NamedPeopleEmailHint } from "./people-hints";
 import type { DirectExaEnv, PeopleEmailHint, ProviderFactCandidate, ProviderSource, RetrievalIntent } from "./types";
@@ -372,7 +372,7 @@ function providerSourcesFromDirectExa(request: DirectExaRequest, payload: unknow
 
   return records.map((record) => {
     const url = stringRecordValue(record, "url") ?? `direct-exa:${request.name}`;
-    const publishedAt = stringRecordValue(record, "publishedDate") ?? stringRecordValue(record, "publishedAt");
+    const publishedAt = publishedAtFromRecord(record);
     const imageUrl = stringRecordValue(record, "image");
 
     return providerSourceFromText({

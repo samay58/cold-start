@@ -1,6 +1,6 @@
 import { domainFromUrl, extractUrlRecords, integerValue, objectRecord, stringRecordValue, stringValue, supportedUrl, truncateText, urlFromDomain } from "../stableenrich-utils";
 import type { ProviderFactCandidate, ProviderSource, RetrievalIntent, StableenrichProbe } from "../types";
-import { sourceTypeHintForHost, type SignalCategory } from "@cold-start/core";
+import { publishedAtFromRecord, sourceTypeHintForHost, type SignalCategory } from "@cold-start/core";
 import { type StableenrichProbeResult, type StableenrichSourcesResult, addStringFact, addUrlFact, isExaSearchProbe, providerFact, providerSourceFromText, stableenrichCitationUrl, stableenrichProbeFailure } from "./core";
 import { exaEmailFacts, peopleFacts } from "./people";
 
@@ -214,7 +214,7 @@ function exaResultSources(
         return undefined;
       }
 
-      const publishedAt = stringRecordValue(record, "publishedDate");
+      const publishedAt = publishedAtFromRecord(record);
       const imageUrl = stringRecordValue(record, "image");
       const host = domainFromUrl(url);
       // Every Exa search probe is tagged "news" by sourceTypeForProbe regardless of what
@@ -377,7 +377,12 @@ function signalFacts(result: StableenrichProbeResult): ProviderFactCandidate[] {
     }
 
     const text = stringRecordValue(record, "text") ?? stringRecordValue(record, "summary") ?? title;
-    const publishedAt = stringRecordValue(record, "publishedDate") ?? stringRecordValue(record, "published_at");
+    // A signal says when something happened. With no publish date there is no honest date to give
+    // it: the fetch time would sort a years-old article to the top as today's news.
+    const publishedAt = publishedAtFromRecord(record);
+    if (!publishedAt) {
+      return [];
+    }
     const sourceDomain = domainFromUrl(url) ?? "source";
     return [
       providerFact(
@@ -385,7 +390,7 @@ function signalFacts(result: StableenrichProbeResult): ProviderFactCandidate[] {
         {
           title: truncateText(title, 96),
           url,
-          date: (publishedAt ?? fetchedAt).slice(0, 10),
+          date: publishedAt.slice(0, 10),
           source: sourceDomain,
           category: signalCategory(`${title}\n${text}`),
           citationIds: [],

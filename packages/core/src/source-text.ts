@@ -41,12 +41,25 @@ export function sourceSnippet(text: string): string {
   return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trim();
 }
 
-// The publish date a stored provider record carries (Exa's publishedDate), or null. Never the
-// fetch time: an undated source stays undated.
+// A publish date as a provider gave it, kept exactly when it is an ISO date or timestamp (every
+// date Exa returns is one); anything else reads as undated. The one check for a publish date,
+// applied where provider data enters and again on every stored citation. Never a fetch time, and
+// never a guess read out of free text such as "May 1".
+export function normalizePublishedAt(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return /^\d{4}-\d{2}-\d{2}(?:$|T)/.test(trimmed) && !Number.isNaN(Date.parse(trimmed)) ? trimmed : null;
+}
+
+// The publish date a provider record carries, under any key a provider uses, or null.
+export function publishedAtFromRecord(record: Record<string, unknown>): string | null {
+  return normalizePublishedAt(record.publishedDate) ?? normalizePublishedAt(record.publishedAt) ?? normalizePublishedAt(record.published_at);
+}
+
+// The publish date inside a stored provider record, or null: an undated source stays undated.
 export function sourcePublishedAt(rawText: string | null | undefined): string | null {
   const record = parseRecord((rawText ?? "").trim());
-  const value = record?.publishedDate ?? record?.publishedAt;
-  return typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : null;
+  return record ? publishedAtFromRecord(record) : null;
 }
 
 // A stored JSON array (a provider response listing records) carries no page text. Markdown that

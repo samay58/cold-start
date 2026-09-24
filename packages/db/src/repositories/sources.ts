@@ -1,4 +1,4 @@
-import { readableSourceText, snippetFromStoredSource } from "@cold-start/core";
+import { normalizePublishedAt, readableSourceText, snippetFromStoredSource } from "@cold-start/core";
 import { desc, eq, sql } from "drizzle-orm";
 
 import type { ColdStartDb } from "../client";
@@ -104,8 +104,8 @@ export async function recordSource(
     publishedAt?: string | null;
   }
 ) {
-  const parsedDate = input.publishedAt ? new Date(input.publishedAt) : null;
-  const publishedAt = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : null;
+  const validDate = normalizePublishedAt(input.publishedAt);
+  const publishedAt = validDate ? new Date(validDate) : null;
   const insert = db.insert(sources).values({
     cardId: input.cardId,
     url: input.url,

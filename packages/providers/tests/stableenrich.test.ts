@@ -708,6 +708,32 @@ describe("fetchStableenrichSources", () => {
     );
   });
 
+  it("files no signal without a publish date, and a source's unparseable date as none", async () => {
+    const result = await fetchStableenrichSources({
+      env: stableenrichEnv(),
+      domain: "cognition.ai",
+      agentcashFetch: async ({ url, body }) => {
+        if (url === "https://stable.example/exa/search" && String(body.query).includes("recent launch")) {
+          return {
+            results: [
+              { url: "https://news.example/undated", title: "Cognition hires", text: "Cognition hired a CFO." },
+              { url: "https://news.example/garbled", title: "Cognition ships", text: "Cognition shipped.", publishedDate: "sometime" },
+              { url: "https://news.example/dated", title: "Cognition launches Devin", text: "Devin shipped.", publishedDate: "2026-03-01T00:00:00.000Z" },
+            ],
+          };
+        }
+
+        return { text: "ok" };
+      },
+    });
+
+    const signalUrls = result.facts.filter((fact) => fact.path === "signals").map((fact) => (fact.value as { url: string }).url);
+    expect(signalUrls).toEqual(["https://news.example/dated"]);
+    const dates = Object.fromEntries(result.sources.map((source) => [source.url, source.publishedAt ?? null]));
+    expect(dates["https://news.example/garbled"]).toBeNull();
+    expect(dates["https://news.example/dated"]).toBe("2026-03-01T00:00:00.000Z");
+  });
+
   it("emits exa_find_similar results as comparable-intent sources for the LLM to curate", async () => {
     const result = await fetchStableenrichSources({
       env: stableenrichEnv(),

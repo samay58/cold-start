@@ -2,7 +2,7 @@ import { z } from "zod";
 import { companyDescriptionSchema } from "./intelligence";
 import { safePublicImageUrl, safeWebUrl } from "./external-url";
 import { howItWinsSchema } from "./how-it-wins";
-import { readableSourceText } from "./source-text";
+import { normalizePublishedAt, readableSourceText } from "./source-text";
 
 const webUrlSchema = z.string().max(2_048).refine((value) => safeWebUrl(value) !== null, {
   message: "Expected a safe HTTP(S) URL"
@@ -22,7 +22,9 @@ export const citationSchema = z.object({
   // them into readable text, or drops them, so no reader sees JSON.
   snippet: z.preprocess((value) => (typeof value === "string" ? readableSourceText(value) || undefined : value), z.string().optional()),
   // When the source says it was published. Comes from the source, never from a model.
-  publishedAt: z.string().min(1).optional(),
+  // An unparseable date is dropped rather than failing the card: it would otherwise reach the How
+  // it wins judge as the source's date.
+  publishedAt: z.preprocess((value) => normalizePublishedAt(value) ?? undefined, z.string().min(1).optional()),
   sourceQuality: z.object({
     tier: z.enum([
       "independent_technical",
