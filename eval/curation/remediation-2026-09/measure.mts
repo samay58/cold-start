@@ -16,6 +16,7 @@ mkdirSync(outRoot, { recursive: true });
 
 const { buildPersonReadEvidence, buildSeedProfileCard } = await import(path.join(root, "packages/pipeline/src/index.ts"));
 const { howItWinsEvidencePacketFromCard } = await import(path.join(root, "packages/llm/src/index.ts"));
+const { coldStartCardSchema, sanitizeCardTrust } = await import(path.join(root, "packages/core/src/index.ts"));
 
 // A leaf string that reads like a serialized provider record rather than prose.
 const jsonLike = (value: string) => /^\s*[{[]\s*"/.test(value) || /\{"(id|url|title|text|rawText|publishedDate|highlights)":/.test(value);
@@ -113,14 +114,17 @@ for (const file of readdirSync(path.join(base, "cards")).sort()) {
     }
   }
 
-  // Judge: an evidence attribution that differs from any tier the context still carries.
+  // Judge against every other surface: the judge's attribution for a citation, and the tier the
+  // same citation carries after sanitizeCardTrust, which the public card and the lens read.
   const packet = howItWinsEvidencePacketFromCard(card);
-  for (const citation of packet.context.citations as Array<{ id: string; url: string; sourceQuality?: { tier: string } }>) {
+  const surfaceTier = new Map(sanitizeCardTrust(coldStartCardSchema.parse(card)).citations.map((citation: { id: string; sourceQuality?: { tier: string } }) => [citation.id, citation.sourceQuality?.tier]));
+  for (const item of packet.evidence as Array<{ evidenceId: string; attribution: string; source: string }>) {
     citationsSeen++;
-    const evidence = packet.evidence.find((item: { evidenceId: string }) => item.evidenceId === citation.id);
-    if (citation.sourceQuality && evidence && evidence.attribution !== citation.sourceQuality.tier) {
+    const shown = surfaceTier.get(item.evidenceId);
+    const inContext = (packet.context.citations as Array<{ id: string; sourceQuality?: { tier: string } }>).find((citation) => citation.id === item.evidenceId)?.sourceQuality?.tier;
+    if ((shown && shown !== item.attribution) || (inContext && inContext !== item.attribution)) {
       disagreements++;
-      if (disagreementSamples.length < 8) disagreementSamples.push(`${slug} ${citation.url} stored=${citation.sourceQuality.tier} judge=${evidence.attribution}`);
+      if (disagreementSamples.length < 8) disagreementSamples.push(`${slug} ${item.source.slice(-70)} surface=${shown} context=${inContext ?? "-"} judge=${item.attribution}`);
     }
   }
 
@@ -156,7 +160,7 @@ const report = [
   `label: ${label}`,
   `person-read items: ${totalItems}, cut mid-sentence: ${fragments}, name plus three words or fewer: ${shortItems}, people ${people}, with evidence ${peopleWithEvidence}`,
   ...fragmentSamples.map((s) => `  ${s}`),
-  `judge citations: ${citationsSeen}, attribution disagreements: ${disagreements}`,
+  `judge evidence items: ${citationsSeen}, tier differs from the card surfaces or the judge context: ${disagreements}`,
   ...disagreementSamples.map((s) => `  ${s}`),
   `JSON-looking strings: model inputs ${jsonInputs}, card fields ${jsonCard}`,
   ...jsonSamples.map((s) => `  ${s}`),

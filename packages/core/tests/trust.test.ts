@@ -683,3 +683,23 @@ describe("stripUnsupportedSynthesis", () => {
     });
   });
 });
+
+describe("sanitizeCardTrust source quality", () => {
+  it("replaces a tier stored under an older classifier with the one derived now", () => {
+    const card = sanitizeCardTrust({
+      ...baseCard,
+      citations: [
+        ...baseCard.citations,
+        {
+          id: "own",
+          url: "https://cartesia.ai/blog/launch",
+          title: "Launch",
+          fetchedAt: "2026-05-06T12:00:00.000Z",
+          sourceType: "news",
+          sourceQuality: { tier: "independent_report", label: "Reporting", rationale: "r", incentive: "i" }
+        }
+      ]
+    });
+    expect(card.citations.find((citation) => citation.id === "own")?.sourceQuality?.tier).toBe("primary_company");
+  });
+});

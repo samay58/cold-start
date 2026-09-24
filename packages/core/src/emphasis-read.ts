@@ -4,7 +4,7 @@
  * the LLM stage what each filed source is, says, and leads with, without shipping raw pages.
  */
 import type { Citation, ColdStartCard } from "./card";
-import { sourceQualityForSource } from "./source-quality";
+import { citationSourceQuality } from "./source-quality";
 import { takeSentences } from "./sentences";
 
 export type EmphasisThinFileReason = "too-few-sources" | "no-company-authored";
@@ -29,7 +29,7 @@ function isEnrichmentLike(citation: Citation) {
 }
 
 function tierFor(citation: Citation, targetDomain: string) {
-  return (citation.sourceQuality ?? sourceQualityForSource(citation, { targetDomain })).tier;
+  return citationSourceQuality(citation, { targetDomain }).tier;
 }
 
 export function emphasisSourceClass(citation: Citation, targetDomain: string): EmphasisSourceClass {

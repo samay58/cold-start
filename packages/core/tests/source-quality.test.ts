@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { founderAuthoredQuality, sourceQualityForSource, sourceQualityRank, sourceQualityTierRank } from "../src/index";
+import {
+  citationSourceQuality,
+  companyAuthoredQuality,
+  founderAuthoredQuality,
+  sourceQualityForSource,
+  sourceQualityRank,
+  sourceQualityTierRank
+} from "../src/index";
 
 describe("sourceQualityForSource", () => {
   it("ranks independent technical writing above company press releases", () => {
@@ -225,4 +232,27 @@ it("ranks founder_authored between press_release and primary_company", () => {
 it("founderAuthoredQuality stamps the founder tier", () => {
   expect(founderAuthoredQuality().tier).toBe("founder_authored");
   expect(founderAuthoredQuality().label).toBe("Founder-authored");
+});
+
+it("reads Sacra as analyst research, like its research site", () => {
+  const sacra = { url: "https://sacra.com/research/cognition-revenue-growth-valuation/", title: "Cognition revenue", sourceType: "news" as const };
+  expect(sourceQualityForSource(sacra).tier).toBe("independent_analysis");
+});
+
+describe("citationSourceQuality", () => {
+  const fetchedAt = "2026-09-01T00:00:00.000Z";
+  const stale = { tier: "independent_report" as const, label: "Reporting", rationale: "r", incentive: "i" };
+
+  it("derives the tier from the URL, not from a tier stored under an older classifier", () => {
+    const ownPage = { id: "p1", url: "https://www.notion.com/blog/launch", title: "Launch", fetchedAt, sourceType: "news" as const, sourceQuality: stale };
+    const profile = { id: "e1", url: "https://linkedin.com/in/someone", title: "Someone", fetchedAt, sourceType: "other" as const, sourceQuality: { ...stale, tier: "unknown" as const } };
+    expect(citationSourceQuality(ownPage, { targetDomain: "notion.com" }).tier).toBe("primary_company");
+    expect(citationSourceQuality(profile, { targetDomain: "notion.com" }).tier).toBe("enrichment");
+  });
+
+  it("keeps authorship the founder-voice fetcher stamped, which no URL shows", () => {
+    const post = { id: "fv1", url: "https://x.com/ivanhzhao/status/1", title: "Post", fetchedAt, sourceType: "other" as const };
+    expect(citationSourceQuality({ ...post, sourceQuality: founderAuthoredQuality() }, { targetDomain: "notion.com" }).tier).toBe("founder_authored");
+    expect(citationSourceQuality({ ...post, sourceQuality: companyAuthoredQuality() }, { targetDomain: "notion.com" }).tier).toBe("primary_company");
+  });
 });

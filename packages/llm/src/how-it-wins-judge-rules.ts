@@ -2,7 +2,7 @@ import {
   HOW_IT_WINS_STRATEGIES,
   coldStartCardSchema,
   howItWinsStrategyIdForName,
-  sourceQualityForSource,
+  citationSourceQuality,
   type ColdStartCard,
   type HowItWinsEvidenceItem
 } from "@cold-start/core";
@@ -91,16 +91,20 @@ export function howItWinsEvidencePacketFromCard(cardInput: ColdStartCard) {
     text: citation.snippet?.trim() || citation.title,
     source: `${citation.title} (${citation.url})`,
     sourceDate: citation.publishedAt ?? null,
-    // Computed against the card's domain, not read from storage: sources stored before intake typed
-    // hosts correctly label the company's own pages as outside reporting.
-    attribution: sourceQualityForSource(citation, { targetDomain: card.domain }).tier,
+    // The same owner every surface uses: derived against the card's domain, so a company's own page
+    // stored as outside reporting reads as the company, while a founder-voice stamp is kept.
+    attribution: citationSourceQuality(citation, { targetDomain: card.domain }).tier,
     scope: "company"
   }));
-  // Each snippet reaches the judge once, as its evidence item. The card context keeps the citation's
-  // id, title, URL and type, so the judge can read the card without every snippet repeated in it.
+  // Each snippet and each tier reaches the judge once, in its evidence item. The card context keeps
+  // the citation's id, title, URL and type, so the judge can read the card without a second copy of
+  // the snippet, or a stored tier that could disagree with the attribution.
   return {
     cutoff: card.generatedAt,
     evidence,
-    context: { ...context, citations: context.citations.map(({ snippet: _snippet, ...citation }) => citation) }
+    context: {
+      ...context,
+      citations: context.citations.map(({ snippet: _snippet, sourceQuality: _sourceQuality, ...citation }) => citation)
+    }
   };
 }

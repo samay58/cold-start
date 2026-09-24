@@ -1,11 +1,12 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 
 import {
+  citationSourceQuality,
   coldStartCardObjectSchema,
   coldStartCardSchema,
   hasUsablePublicProfile,
   publicCard,
-  sourceQualityForSource,
+  withResolvedSourceQuality,
   type ColdStartCard,
   type SourceQualityTier
 } from "@cold-start/core";
@@ -93,7 +94,9 @@ function parseCachedCard(row: CardCacheRow, slug: string, options: CardCacheOpti
     return null;
   }
 
-  const card = parsed.data;
+  // Tiers are derived when the card is read (see citationSourceQuality), so every reader of a stored
+  // card sees the current classifier's tier, not the one in effect when the card was stored.
+  const card = withResolvedSourceQuality(parsed.data);
   if (typeof row.domain === "string" && card.domain !== row.domain) {
     throw new Error(`Card domain invariant failed: row=${row.domain} card=${card.domain}`);
   }
@@ -201,7 +204,7 @@ export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCa
       unknown: 0
     };
     for (const citation of citations) {
-      const tier = (citation.sourceQuality ?? sourceQualityForSource(citation)).tier;
+      const tier = citationSourceQuality(citation, { targetDomain: card.domain }).tier;
       sourceQualityCounts[tier] += 1;
     }
 

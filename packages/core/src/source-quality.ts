@@ -20,6 +20,7 @@ type SourceQuality = {
 };
 
 type SourceQualityInput = Pick<Citation, "url" | "title" | "sourceType">;
+type StoredQualityInput = SourceQualityInput & Pick<Citation, "sourceQuality">;
 type SourceQualityOptions = {
   targetDomain?: string;
 };
@@ -184,6 +185,18 @@ export function sourceQualityForSource(source: SourceQualityInput, options: Sour
     rationale: "Source incentive not classified.",
     incentive: "Unknown.",
   };
+}
+
+// The one owner of a citation's tier, used by every surface and the How it wins judge. Authorship
+// the founder-voice fetcher knew at fetch time (founder_authored, and primary_company for the
+// company's own accounts) is stamped on the citation and kept, since no URL shows it. Every other
+// tier is derived from the URL and the card's domain when the card is read, so a stored tier from
+// an older classifier (a company's own page stored as news, a LinkedIn profile stored as unknown)
+// never outvotes the current one.
+export function citationSourceQuality(citation: StoredQualityInput, options: SourceQualityOptions = {}): SourceQuality {
+  const stored = citation.sourceQuality;
+  if (stored && (stored.tier === "founder_authored" || stored.tier === "primary_company")) return stored;
+  return sourceQualityForSource(citation, options);
 }
 
 export function companyAuthoredQuality(): SourceQuality {

@@ -1,5 +1,5 @@
 import type { Citation, ColdStartCard, ResolvedFact, SourcedText } from "./card";
-import { sourceQualityForSource } from "./source-quality";
+import { citationSourceQuality } from "./source-quality";
 
 const verificationSentinel = /\[needs_verification\]/i;
 const forbiddenSynthesisPhrases = /\b(reportedly|industry sources suggest|rumored to|appears to be|is said to)\b/i;
@@ -127,16 +127,25 @@ function supportedMarketStructureAndTiming(
   return Object.values(filtered).some(Boolean) ? filtered : undefined;
 }
 
+// Every citation carries the tier citationSourceQuality gives it for this card. Card reads apply
+// this, so every surface sees one tier per citation whatever the stored card holds.
+export function withResolvedSourceQuality<T extends Pick<ColdStartCard, "domain" | "citations">>(card: T): T {
+  return {
+    ...card,
+    citations: card.citations.map((citation) => ({
+      ...citation,
+      sourceQuality: citationSourceQuality(citation, { targetDomain: card.domain })
+    }))
+  };
+}
+
 export function sanitizeCardTrust(card: ColdStartCard): ColdStartCard {
   const validIds = validCitationIds(card);
   const citations = citationsById(card);
 
   return {
     ...card,
-    citations: card.citations.map((citation) => ({
-      ...citation,
-      sourceQuality: citation.sourceQuality ?? sourceQualityForSource(citation, { targetDomain: card.domain })
-    })),
+    citations: withResolvedSourceQuality(card).citations,
     identity: {
       ...card.identity,
       name: sanitizeFact(card.identity.name, validIds, citations),

@@ -31,6 +31,9 @@ const sourceAuthorityRegistry = {
   ],
   specialistAnalysis: [
     "sacrainsights.com",
+    // Sacra publishes company research reports; its research and chat pages are analysis, not a
+    // funding database entry.
+    "sacra.com",
     "stratechery.com",
     "ben-evans.com",
     "exponentialview.co",
@@ -237,7 +240,6 @@ const sourceAuthorityRegistry = {
     "crunchbase.com",
     "theorg.com",
     "privco.com",
-    "sacra.com",
     "forgeglobal.com",
     "hiive.com",
     "zanbato.com",

@@ -43,6 +43,28 @@ describe("howItWinsEvidencePacketFromCard labels", () => {
     expect(attribution("x2")).toBe("primary_company");
   });
 
+  it("gives the judge one tier per citation: the card context carries no stored tier", () => {
+    expect(packet.context.citations.some((citation) => "sourceQuality" in citation)).toBe(false);
+  });
+
+  it("keeps the tier the founder-voice fetcher stamped", () => {
+    const stamped = howItWinsEvidencePacketFromCard({
+      ...card,
+      citations: [
+        ...card.citations,
+        {
+          id: "fv1",
+          url: "https://x.com/founder/status/1",
+          title: "Founder post",
+          fetchedAt,
+          sourceType: "other",
+          sourceQuality: { tier: "founder_authored", label: "Founder-authored", rationale: "r", incentive: "i" }
+        }
+      ]
+    });
+    expect(stamped.evidence.find((item) => item.evidenceId === "fv1")?.attribution).toBe("founder_authored");
+  });
+
   it("uses the source-quality tier names only, never source types", () => {
     for (const item of packet.evidence) {
       expect(TIERS.has(item.attribution), `${item.evidenceId}: ${item.attribution}`).toBe(true);

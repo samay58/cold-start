@@ -867,6 +867,43 @@ describe("findCardBySlug", () => {
     ).rejects.toThrow("Card domain invariant failed");
   });
 
+  it("gives each citation the tier derived now, not the one stored with the card", async () => {
+    const storedCard: ColdStartCard = {
+      ...card,
+      citations: [
+        ...card.citations,
+        {
+          id: "own",
+          url: "https://cartesia.ai/blog/launch",
+          title: "Launch",
+          fetchedAt: generatedAt,
+          sourceType: "news",
+          sourceQuality: { tier: "independent_report", label: "Reporting", rationale: "r", incentive: "i" }
+        }
+      ]
+    };
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [
+              {
+                cardJson: storedCard,
+                domain: "cartesia.ai",
+                identityExpiresAt: new Date("2026-05-13T12:00:00.000Z"),
+                signalsExpiresAt: new Date("2026-05-06T18:00:00.000Z"),
+                synthesisExpiresAt: new Date("2026-05-07T12:00:00.000Z")
+              }
+            ]
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    const read = await findCardBySlug(db, "cartesia", { now: new Date("2026-05-06T12:00:00.000Z") });
+    expect(read?.citations.find((citation) => citation.id === "own")?.sourceQuality?.tier).toBe("primary_company");
+  });
+
   it("returns null for analysis mode when synthesis is stale", async () => {
     const db = {
       select: () => ({

@@ -28,6 +28,6 @@ const card: ColdStartCard = {
 // When it moves on purpose, update the value here and say in the commit which cards miss their memo.
 describe("How it wins evidence-packet hash", () => {
   it("stays byte-identical for a fixed card", () => {
-    expect(hashHowItWinsJudgeValue(howItWinsEvidencePacketFromCard(card))).toBe("f6b5ab8cb9b4a5d59d97f5cade4587da30d208d9b95aef21433e2a4a06b02b97");
+    expect(hashHowItWinsJudgeValue(howItWinsEvidencePacketFromCard(card))).toBe("005f2d75064428753a442aca38c23c7c6a33bf2b62148c48ce9bd1fab6654a74");
   });
 });
