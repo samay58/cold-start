@@ -15,7 +15,7 @@
 // Stages the dump cannot reproduce from stored rows are written with a `gap` note instead:
 // person reads also draw on provider fact candidates that are never stored, and the emphasis
 // read adds a fresh founder-voice fetch that costs money.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -40,10 +40,12 @@ import {
   buildEvidenceLedger,
   buildExpandedDescriptionEvidence,
   buildPersonReadEvidence,
+  evidenceForSection,
   expandedDescriptionCardFacts,
   verifyCardSynthesisDraft
 } from "@cold-start/pipeline";
-import { evidenceForSection } from "../apps/web/src/inngest/research-section-generation";
+import { providerSourcesFromStoredSources } from "../apps/web/src/inngest/source-fetching";
+import { loadEnvFile } from "./alpha-common";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Any priced Anthropic model: the stub never sends it anywhere.
@@ -53,15 +55,6 @@ const STUB_JUDGE_MODEL = "claude-opus-5";
 class DumpStop extends Error {
   constructor() {
     super("dump-model-inputs stops every call before it is sent");
-  }
-}
-
-function loadEnvFile(file: string) {
-  if (!existsSync(file)) return;
-  for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
-    const match = line.match(/^([A-Z0-9_]+)\s*=\s*(.*)$/);
-    if (!match || process.env[match[1]!]) continue;
-    process.env[match[1]!] = match[2]!.trim().replace(/^['"]|['"]$/g, "");
   }
 }
 
@@ -132,7 +125,7 @@ async function main() {
   const { slug, out } = args;
   const { card, stored } = await loadCardAndSources(args);
   if (!card) throw new Error(`no card for ${slug}`);
-  const sources = stored.map((source) => ({ ...source, sourceType: source.sourceType as never }));
+  const sources = providerSourcesFromStoredSources(stored);
 
   const captured: Captured[] = [];
   let current = "";
