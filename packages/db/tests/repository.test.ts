@@ -1892,7 +1892,7 @@ describe("research run evidence summaries", () => {
       insert: () => ({
         values: (values: Record<string, unknown>) => {
           insertedValues = values;
-          return { onConflictDoNothing: async () => undefined };
+          return { onConflictDoNothing: async () => undefined, onConflictDoUpdate: async () => undefined };
         }
       })
     } as unknown as ColdStartDb;
@@ -1927,7 +1927,7 @@ describe("research run evidence summaries", () => {
       insert: () => ({
         values: (values: Record<string, unknown>) => {
           insertedValues = values;
-          return { onConflictDoNothing: async () => undefined };
+          return { onConflictDoNothing: async () => undefined, onConflictDoUpdate: async () => undefined };
         }
       })
     } as unknown as ColdStartDb;

@@ -1,5 +1,5 @@
 import { readableSourceText, sourceSnippet } from "@cold-start/core";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 
 import type { ColdStartDb } from "../client";
 import { cards, sources } from "../schema";
@@ -104,18 +104,51 @@ export async function recordSource(
     publishedAt?: string | null;
   }
 ) {
-  const publishedAt = input.publishedAt ? new Date(input.publishedAt) : null;
-  await db
-    .insert(sources)
-    .values({
-      cardId: input.cardId,
-      url: input.url,
-      title: input.title,
-      sourceType: input.sourceType,
-      fetchedAt: new Date(input.fetchedAt),
-      rawText: input.rawText,
-      imageUrl: input.imageUrl ?? null,
-      publishedAt: publishedAt && !Number.isNaN(publishedAt.getTime()) ? publishedAt : null
-    })
-    .onConflictDoNothing();
+  const parsedDate = input.publishedAt ? new Date(input.publishedAt) : null;
+  const publishedAt = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : null;
+  const insert = db.insert(sources).values({
+    cardId: input.cardId,
+    url: input.url,
+    title: input.title,
+    sourceType: input.sourceType,
+    fetchedAt: new Date(input.fetchedAt),
+    rawText: input.rawText,
+    imageUrl: input.imageUrl ?? null,
+    publishedAt
+  });
+
+  // A re-file keeps the card id, so the same URL arrives again. A row stored before page text was
+  // requested (a title-only provider record) takes the new page text, and a row stored before
+  // publish dates were kept takes the new date; nothing else about a stored row changes. One
+  // statement, so it needs no transaction on Neon HTTP.
+  const bringsText = readableSourceText(input.rawText) !== "";
+  if (!bringsText && !publishedAt) {
+    await insert.onConflictDoNothing();
+    return;
+  }
+  const takesText = bringsText ? storedRowHasNoPageText : sql`false`;
+  await insert.onConflictDoUpdate({
+    target: [sources.cardId, sources.url],
+    set: {
+      rawText: sql`CASE WHEN ${takesText} THEN excluded.raw_text ELSE ${sources.rawText} END`,
+      fetchedAt: sql`CASE WHEN ${takesText} THEN excluded.fetched_at ELSE ${sources.fetchedAt} END`,
+      publishedAt: sql`COALESCE(${sources.publishedAt}, excluded.published_at)`
+    },
+    setWhere: sql`(${takesText}) OR (${sources.publishedAt} IS NULL AND excluded.published_at IS NOT NULL)`
+  });
 }
+
+// The stored row carries no page text: it is empty, a JSON array of records, or a JSON record
+// with no text, summary or highlights (readableSourceText gives nothing but the title). This
+// matches on text instead of parsing JSON, so it runs on any Postgres version and a malformed
+// row can never fail the insert. A record whose text sits under a nested key reads as having
+// text here, so the row is kept rather than replaced; that errs toward keeping what is stored.
+const storedRowHasNoPageText = sql`(
+  btrim(${sources.rawText}) = ''
+  OR ${sources.rawText} ~ '^\s*\[\s*[{"]'
+  OR (
+    ${sources.rawText} ~ '^\s*\{'
+    AND ${sources.rawText} !~ '"(text|summary)"\s*:\s*"\s*[^"\s]'
+    AND ${sources.rawText} !~ '"highlights"\s*:\s*\[\s*"'
+  )
+)`;

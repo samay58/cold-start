@@ -26,7 +26,7 @@ describe("source publish dates", () => {
       insert: () => ({
         values: (values: Record<string, unknown>) => {
           inserted.push(values);
-          return { onConflictDoNothing: async () => undefined };
+          return { onConflictDoNothing: async () => undefined, onConflictDoUpdate: async () => undefined };
         }
       })
     } as unknown as ColdStartDb;

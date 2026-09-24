@@ -54,6 +54,30 @@ describeDatabase("card writes against Postgres", () => {
     expect(dates).toEqual({ "https://news.example/dated": "2026-05-01T00:00:00.000Z", "https://news.example/undated": null });
   });
 
+  it("fills a stored source's page text and publish date when the same URL comes back with them", async () => {
+    const card = cardFixture();
+    const { id } = await upsertCard(db, card);
+    const base = { cardId: id, title: "Source", sourceType: "news" as const, fetchedAt: "2026-09-01T00:00:00.000Z" };
+    const titleOnly = JSON.stringify({ id: "a", url: "https://news.example/a", title: "Source", publishedDate: null });
+    const withText = JSON.stringify({ id: "a", url: "https://news.example/a", title: "Source", text: "The page's own text." });
+    const readable = "Plain page text stored before.";
+
+    // A row stored before page text was requested, then the same URL fetched with page text.
+    await recordSource(db, { ...base, url: "https://news.example/a", rawText: titleOnly });
+    await recordSource(db, { ...base, url: "https://news.example/a", rawText: withText, fetchedAt: "2026-09-02T00:00:00.000Z", publishedAt: "2026-05-01T00:00:00.000Z" });
+    // A row that already has readable text keeps it, but still gains a date it lacked.
+    await recordSource(db, { ...base, url: "https://news.example/b", rawText: readable });
+    await recordSource(db, { ...base, url: "https://news.example/b", rawText: withText, publishedAt: "2026-06-01T00:00:00.000Z" });
+    // A row with page text is never replaced by one without it, and keeps its date.
+    await recordSource(db, { ...base, url: "https://news.example/c", rawText: withText, publishedAt: "2026-04-01T00:00:00.000Z" });
+    await recordSource(db, { ...base, url: "https://news.example/c", rawText: titleOnly, publishedAt: "2026-07-01T00:00:00.000Z" });
+
+    const stored = Object.fromEntries((await findSourcesBySlug(db, card.slug)).map((row) => [row.url, row]));
+    expect(stored["https://news.example/a"]).toMatchObject({ rawText: withText, fetchedAt: "2026-09-02T00:00:00.000Z", publishedAt: "2026-05-01T00:00:00.000Z" });
+    expect(stored["https://news.example/b"]).toMatchObject({ rawText: readable, publishedAt: "2026-06-01T00:00:00.000Z" });
+    expect(stored["https://news.example/c"]).toMatchObject({ rawText: withText, publishedAt: "2026-04-01T00:00:00.000Z" });
+  });
+
   it("mutates a card whose stored timestamp carries microseconds", async () => {
     // The production failure mode: a fresh insert leaves updated_at to the column default,
     // which Postgres stamps with microsecond precision. A JS Date holds only milliseconds, so
