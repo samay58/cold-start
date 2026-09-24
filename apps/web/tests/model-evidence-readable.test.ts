@@ -8,10 +8,10 @@ import {
   buildPersonReadEvidence,
   buildSeedProfileCard,
   buildSkeletonCard,
+  evidenceForSection,
   verifyCardSynthesisDraft
 } from "@cold-start/pipeline";
 import type { ProviderFactCandidate } from "@cold-start/providers";
-import { evidenceForSection } from "../src/inngest/research-section-generation";
 import { providerSourcesFromStoredSources, sectionsWithSourceCitations } from "../src/inngest/source-fetching";
 
 // The invariant behind the September 2026 evidence remediation: no text a model reads as

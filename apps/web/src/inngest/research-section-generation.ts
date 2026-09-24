@@ -1,7 +1,6 @@
 import {
   emptyResearchSectionForCard,
   hasUsablePublicProfile,
-  readableSourceText,
   RESEARCH_SECTION_DEFINITIONS_BY_ID,
   researchSectionCitationIssues,
   researchSectionHasReaderFacingEvidence,
@@ -21,9 +20,9 @@ import {
 import {
   createAnthropicClient,
   isTransientLlmError,
-  synthesizeResearchSection,
-  type ResearchSectionEvidenceSource
+  synthesizeResearchSection
 } from "@cold-start/llm";
+import { evidenceForSection } from "@cold-start/pipeline";
 import { boundedErrorMessage } from "../lib/errors";
 import type { GenerationStepTools } from "./client";
 import {
@@ -33,39 +32,6 @@ import {
   type GenerationMode
 } from "./generation-helpers";
 import { completedStep, mergeTracePatch } from "./generation-trace";
-
-function normalizedUrlKey(value: string) {
-  try {
-    const url = new URL(value);
-    url.hash = "";
-    url.search = "";
-    url.pathname = url.pathname.replace(/\/+$/, "") || "/";
-    return url.toString().toLowerCase();
-  } catch {
-    return value.toLowerCase();
-  }
-}
-
-// Exported for scripts/dump-model-inputs.ts, which prints what each model stage reads.
-export function evidenceForSection(card: ColdStartCard, storedSources: Awaited<ReturnType<typeof findSourcesBySlug>>): ResearchSectionEvidenceSource[] {
-  const sourcesByUrl = new Map(storedSources.map((source) => [normalizedUrlKey(source.url), source]));
-
-  return card.citations.flatMap((citation) => {
-    const source = sourcesByUrl.get(normalizedUrlKey(citation.url));
-    const text = readableSourceText(source?.rawText) || citation.snippet || "";
-    if (!text.trim()) {
-      return [];
-    }
-
-    return [{
-      citationId: citation.id,
-      url: citation.url,
-      title: citation.title,
-      sourceType: citation.sourceType,
-      text
-    }];
-  });
-}
 
 function citationIdsFromSectionContent(content: NonNullable<ResearchSection["content"]>) {
   return Array.from(new Set([

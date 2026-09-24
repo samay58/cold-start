@@ -6,6 +6,7 @@ export * from "./how-it-wins-verify";
 export * from "./expanded-description-evidence";
 export * from "./person-read-evidence";
 export * from "./provider-facts";
+export * from "./research-section-evidence";
 export * from "./resolve-identity";
 export * from "./seed-profile";
 export * from "./source-gate";
