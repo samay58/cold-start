@@ -1,4 +1,4 @@
-import { readableSourceText, sourcePublishedAt, sourceSnippet, type ColdStartCard, type GenerationTrace } from "@cold-start/core";
+import { snippetFromStoredSource, sourcePublishedAt, type ColdStartCard, type GenerationTrace } from "@cold-start/core";
 import {
   filterSourcesForDomain,
   sourceGateTrace,
@@ -100,7 +100,7 @@ export function sectionsWithSourceCitations(card: ColdStartCard, sources: Provid
       sourceIndex += 1;
     }
 
-    const snippet = sourceSnippet(readableSourceText(source.rawText));
+    const snippet = snippetFromStoredSource(source.rawText);
     citations.push({
       id,
       url: source.url,

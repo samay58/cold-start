@@ -15,7 +15,15 @@ export function readableSourceText(rawText: string | null | undefined, title = "
   return readable && !readable.startsWith("{") ? readable : tidy(title);
 }
 
-// A snippet is the source's own text, cut at a sentence boundary.
+// The snippet for a stored source: its readable text (never JSON), cut to the snippet cap. Any
+// snippet built from `sources.raw_text` or a provider record starts here; the title stands in for
+// a record with no page text only when it is passed.
+export function snippetFromStoredSource(rawText: string | null | undefined, title = ""): string {
+  return sourceSnippet(readableSourceText(rawText, title));
+}
+
+// A snippet is the source's own text, cut at a sentence boundary. The text must already be readable:
+// a stored record goes through snippetFromStoredSource, or its JSON becomes the snippet.
 export function sourceSnippet(text: string): string {
   const normalized = text.replace(/\s+/g, " ").trim();
   if (normalized.length <= SOURCE_SNIPPET_MAX_LENGTH) return normalized;

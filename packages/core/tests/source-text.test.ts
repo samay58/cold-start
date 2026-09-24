@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { citationSchema, readableSourceText, SOURCE_SNIPPET_MAX_LENGTH, sourcePublishedAt, sourceSnippet } from "../src/index";
+import { citationSchema, readableSourceText, snippetFromStoredSource, SOURCE_SNIPPET_MAX_LENGTH, sourcePublishedAt, sourceSnippet } from "../src/index";
 
 const exaRecord = (fields: Record<string, unknown>) =>
   JSON.stringify({ id: "https://notion.com/", title: "Notion", url: "https://notion.com/", publishedDate: null, ...fields });
@@ -134,5 +134,20 @@ describe("citation publish dates", () => {
     });
 
     expect(parsed.publishedAt).toBe("2024-07-06T00:00:00.000Z");
+  });
+});
+
+describe("snippetFromStoredSource", () => {
+  it("turns a stored record into a readable snippet, never its JSON", () => {
+    const record = JSON.stringify({ id: "x", title: "Acme", text: `Acme builds deploy robots. ${"They ship weekly. ".repeat(60)}` });
+    const snippet = snippetFromStoredSource(record);
+    expect(snippet.startsWith("Acme builds deploy robots.")).toBe(true);
+    expect(snippet.length).toBeLessThanOrEqual(600);
+  });
+
+  it("falls back to the title only when it is passed", () => {
+    const record = JSON.stringify({ id: "x", title: "Acme" });
+    expect(snippetFromStoredSource(record)).toBe("");
+    expect(snippetFromStoredSource(record, "Acme | Deploy robots")).toBe("Acme | Deploy robots");
   });
 });

@@ -5,9 +5,8 @@ import {
   descriptionSentences,
   firstDescriptionSentence,
   isWeakDescriptionLabel,
-  readableSourceText,
   safePublicImageUrl,
-  sourceSnippet,
+  snippetFromStoredSource,
   type ColdStartCard,
   type ResolvedFact
 } from "@cold-start/core";
@@ -206,7 +205,7 @@ function providerCitationBuilder(sections: SectionsWithFacts) {
       providerIndex += 1;
     }
 
-    const snippet = sourceSnippet(readableSourceText(candidate.rawText));
+    const snippet = snippetFromStoredSource(candidate.rawText);
     citations.push({
       id,
       url: candidate.citationUrl,

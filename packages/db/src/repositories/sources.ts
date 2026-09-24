@@ -1,4 +1,4 @@
-import { readableSourceText, sourceSnippet } from "@cold-start/core";
+import { readableSourceText, snippetFromStoredSource } from "@cold-start/core";
 import { desc, eq, sql } from "drizzle-orm";
 
 import type { ColdStartDb } from "../client";
@@ -86,7 +86,7 @@ export async function findSourceSummariesBySlug(
     domain: sourceDomain(row.url),
     sourceType: row.sourceType,
     fetchedAt: row.fetchedAt.toISOString(),
-    snippet: sourceSnippet(readableSourceText(row.rawText)),
+    snippet: snippetFromStoredSource(row.rawText),
     imageUrl: row.imageUrl
   }));
 }

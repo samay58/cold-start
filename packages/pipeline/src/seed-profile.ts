@@ -6,6 +6,7 @@ import {
   readableSourceText,
   type ResolvedFact,
   sanitizeCardTrust,
+  snippetFromStoredSource,
   sourceSnippet,
   stripUnsupportedSynthesis
 } from "@cold-start/core";
@@ -264,7 +265,7 @@ function sourceCitation(source: ProviderSource): ColdStartCard["citations"][numb
     fetchedAt: source.fetchedAt,
     sourceType: source.sourceType,
     // The title stands in for a record with no page text, so the seed citation never shows empty.
-    snippet: sourceSnippet(readableSourceText(source.rawText, source.title)),
+    snippet: snippetFromStoredSource(source.rawText, source.title),
     ...(source.publishedAt ? { publishedAt: source.publishedAt } : {})
   };
 }

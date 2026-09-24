@@ -1,9 +1,8 @@
 import {
   companySlugFromDomain,
   isSynthesisOnlySectionId,
-  readableSourceText,
   researchSectionIdSchema,
-  sourceSnippet,
+  snippetFromStoredSource,
   type ColdStartCard,
   type EmphasisReadFiled,
   type GenerationLlmCallTrace,
@@ -267,7 +266,7 @@ export function sourceEventSummaries(sources: ProviderSource[]) {
     domain: sourceEventDomain(source.url),
     title: source.title,
     sourceType: source.sourceType,
-    snippet: sourceSnippet(readableSourceText(source.rawText)),
+    snippet: snippetFromStoredSource(source.rawText),
     imageUrl: source.imageUrl ?? null
   }));
 }
