@@ -2,7 +2,7 @@
 
 Reviewed 2026-09-24. Two read-only reviewers: one for bugs and risk, one for code quality. Neither found a critical issue. Synthesis stays off public routes. Migration 0020 is additive. No new Neon transactions. Prompt-hash pins are updated. 37 core and pipeline tests pass. `check-file-size` passes.
 
-Findings marked (both) were raised by both reviewers. Findings marked (checked) were read in the code during synthesis. Each finding ends with a status line. Every finding is closed: 18 fixed, 3 closed without a behavior change. The fix plan is [the review remediation plan](../superpowers/plans/2026-09-24-review-remediation.md).
+Findings marked (both) were raised by both reviewers. Findings marked (checked) were read in the code during synthesis. Each finding ends with a status line. Every finding is closed: 18 fixed, 3 closed without a behavior change. The fix plan is [the review remediation plan](../archive/plans/2026-09-24-review-remediation.md).
 
 Every finding was re-read against the code on September 24, before any fix. The corrections are in each finding under "Re-read".
 
@@ -42,13 +42,13 @@ Measured before any fix with the plan's measure script. The dump stubs every mod
 4. **Stored source rows never gain page text or a publish date.** (checked)
    `packages/db/src/repositories/sources.ts:120` uses `onConflictDoNothing` on `(card_id, url)`, and re-files keep the card id. So the 32-37% of existing rows without page text stay that way when the same URL is fetched again. Enrichment `load-sources`, research sections and analysis runs that reuse stored sources read those rows. This undercuts the STATUS reasoning that a re-file makes a backfill unnecessary.
    Fix: a single-statement `onConflictDoUpdate` that fills `raw_text` and `published_at` when the stored row has no readable text. It works on Neon HTTP.
-   Status: fixed `4e625b6`, then `dd39be7`. One upsert statement. The independent review found that the guard's regular expressions lost their backslashes inside the sql template, so it would have overwritten stored rows that had page text; the patterns are now bound parameters. Run through `recordSource` against local Postgres, the guard agrees with `readableSourceText` on all 1,021 rows of the 12 source sets (168 without text). Production is not backfilled: see the questions below.
+   Status: fixed `4e625b6`, then `dd39be7`. One upsert statement. The independent review found that the guard's regular expressions lost their backslashes inside the sql template, so it would have overwritten stored rows that had page text; the patterns are now bound parameters. Run through `recordSource` against local Postgres, the guard agrees with `readableSourceText` on all 1,021 rows of the 12 source sets (168 without text). Production is not backfilled, by Samay's call (see the pre-deploy checks).
 
 5. **Page text has no size cap.** (checked)
    `packages/providers/src/exa-contents.ts` sends `text: true` with no `maxCharacters`. Rebuilt source sets are 0.5 to 1.7 MB per card; one row is 331 KB. Card and contact enrichment return every stored source from their Inngest `load-sources` step (`card-enrichment.ts:283-285`), and rows accumulate across refreshes. The Inngest step output limit is 4 MB [UNVERIFIED for the current plan]. Models read at most 2,200 characters per source outside person reads.
    Fix: `text: { maxCharacters: ~15000-20000 }`.
    Re-read: Inngest's limits page gives 4 MiB per step output and 32 MiB per run state, the same on every plan. Exa's `/contents` reference takes `text: { maxCharacters }` (1 to 1,000,000). The same page marks `highlights.highlightsPerUrl` as ignored and `numSentences` as deprecated, so the current highlights setting does nothing it says. The largest row is 336 KB.
-   Status: fixed `dbe80ff`. Cap 20,000 characters. Person reads keep 200 of 206 items identical and lose 5 citation windows; 15,000 loses 6, 10,000 loses 11. Under the cap the largest card's sources fall from 1.63 MB to 1.10 MB and the largest row from 336 KB to 53 KB. Stored rows keep their text until refetched. The highlights settings still use keys Exa has deprecated or ignores; replacing them changes what paid calls return and was left for a measured change.
+   Status: fixed `dbe80ff`. Cap 20,000 characters. Person reads keep 200 of 206 items identical and lose 5 citation windows; 15,000 loses 6, 10,000 loses 11. Under the cap the largest card's sources fall from 1.63 MB to 1.10 MB and the largest row from 336 KB to 53 KB. Stored rows keep their text until refetched. The highlights settings still use keys Exa has deprecated or ignores; replacing them changes what paid calls return and was left for a measured change. Before deploy, one $0.01 StableEnrich search with this body returned three results; the two long pages came back cut at exactly 20,000 characters, so the proxy accepts and applies the cap.
 
 ## Worth doing
 
@@ -72,7 +72,7 @@ Measured before any fix with the plan's measure script. The dump stubs every mod
 
 12. **Two search-query catalogs.** `direct-exa.ts:75-115` keeps its own queries next to `core/src/search-queries.ts`, and the research-plan override path is dead in production.
    Re-read: the override is not unreachable. The `plan-research` step passes `fallbackResearchPlan(domain)`, whose queries are `defaultSourceSearchQueries(domain)`, so the merge in `stableenrich/core.ts:186` always replaces the defaults with themselves. Direct Exa is a live lane in production, so moving its queries changes what it fetches.
-   Status: fixed `368c62f`. The override was dead: a search found no caller of the LLM research-plan tool outside tests, and every plan came from `fallbackResearchPlan`. Direct Exa now reads the core catalog. This changes what direct Exa fetches, which has not been measured. The research plan also dropped its query list, so the full and block extraction prompts no longer carry it.
+   Status: fixed `368c62f`. The override was dead: a search found no caller of the LLM research-plan tool outside tests, and every plan came from `fallbackResearchPlan`. Direct Exa now reads the core catalog. Before deploy, 24 direct Exa searches ($0.168) compared the old and new wording on notion.com, doppel.com and deepinfra.com. Every lane matched: the same result count, page text on every result, own-domain hits 4 and 4 (company), 0 and 0 (people), 7 and 7 (funding), 12 and 11 (news), and card team names found 6 and 6, 9 and 9, 6 and 7, 7 and 6. The new wording stays. The research plan also dropped its query list, so the full and block extraction prompts no longer carry it.
 
 ## Cleanup
 
@@ -109,14 +109,16 @@ Measured with the same script after the last fix.
 - Seed cards: 0 JSON oneLiners and 0 empty snippets; 12 of 12 now carry a line from the page, where 0 did.
 - Source bytes: stored rows are unchanged until refetched. Under the 20,000-character cap the largest card's sources fall from 1.63 MB to 1.10 MB.
 
-## Questions for Samay
+## Pre-deploy checks and decisions
 
-1. Deploy order. Finding 3 moves the How it wins evidence hash for nearly every card, so each memoized verdict misses once (about $1.70 a company) and jobs in flight at deploy end as `stale_evidence`. Recommendation: deploy when no How it wins job is running, and expect one paid judge call per card on its next read.
-2. Backfill. Finding 4 lets a refetched URL gain page text, but rows never fetched again keep none. The model-input audit counted 32-37% of production rows without page text. A fresh count needs a read-only production query, which was not run. Recommendation: skip the backfill; re-files now heal rows as their URLs come back.
-3. `EXTRACTION_EVIDENCE_BUDGET_CHARS` in Vercel. If production still sets it to 24000, extraction has run at 24,000 characters instead of 45,000. Recommendation: check the latest production run trace; if it shows 24,000, remove the variable, or set `RESEARCH_SECTION_EVIDENCE_BUDGET_CHARS=24000` if the value was meant for sections.
-4. Direct Exa queries (finding 12). The direct Exa lane now asks the core catalog's wording. Recommendation: before deploy, run the four direct Exa searches for three known companies old and new (about 24 searches, near $0.20) and compare what comes back.
-5. The StableEnrich search schema. Page text is capped with `text: { maxCharacters }` on nine paid StableEnrich Exa probes. The StableEnrich find-similar schema accepts that shape; a read of the search schema was blocked by the session's auto-mode classifier, so the search endpoint is unconfirmed. If it rejected the object, those probes would fail and the pipeline would carry on without their sources. Recommendation: before deploy, read the search schema (free) or send one probe ($0.01).
-6. Merge. The branch is local and unpushed. Recommendation: merge after questions 1, 4 and 5.
+Checked and decided on September 24, before merging. Paid spend: $0.185 of a $1.00 cap.
+
+1. StableEnrich search accepts the page-text cap. The endpoint schema takes `text` as an object with `maxCharacters`, and one live search applied it (finding 5).
+2. Direct Exa's new wording fetches as well as the old (finding 12). The counts are in finding 12.
+3. The direct Exa news search was failing. Exa now answers 400 when a body sets both `contents.livecrawl` and `contents.maxAgeHours` ("livecrawl is deprecated"). The news lane on main sent both, so it fails on every run today and cards lose direct Exa's recent news; the pipeline carries on without it. When Exa began rejecting the body is not known: the production count of rejected runs was not run. Fixed in `b757332`: the lane keeps only `maxAgeHours`. The contact-email lane sets `livecrawl` alone, and one live search showed Exa still accepts it.
+4. `EXTRACTION_EVIDENCE_BUDGET_CHARS` is not set in any Vercel environment, so extraction has always run at its 45,000-character default and research sections at 24,000. No env change.
+5. Backfill: skipped, Samay's call. Re-files fill an empty stored row as its URL comes back.
+6. Deploy order: Samay approved read-only production checks. The deploy waits until no How it wins job is running. Each card's memoized verdict misses once on its next read (about $1.70 a company).
 
 ## Independent review
 
@@ -126,7 +128,7 @@ A fresh reviewer read the whole diff after the fixes, without the reasoning behi
 2. List entries lost their role after a bar or hyphen, and an em-dash aside read as a list (finding 2). Confirmed and fixed in `f84ca21`.
 3. A stored `primary_company` written by the old classifier could never be re-derived, and moving Sacra changed its stored source type (finding 3). Both fixed in `957a217`.
 4. Finding 12's status did not mention that extraction prompts lose the plan's query list. Now it does.
-5. The page-text cap's shape is unconfirmed on StableEnrich search. Recorded as question 5; it needs a schema read or a paid probe.
+5. The page-text cap's shape was unconfirmed on StableEnrich search. Confirmed before deploy (see the pre-deploy checks).
 6. Docs that the fixes made false (`AGENTS.md` on `recordSource` and the tier owner). Corrected.
 
 Nothing it raised was rejected.

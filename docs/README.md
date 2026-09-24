@@ -52,7 +52,7 @@ Start here before adding or editing docs.
 
 ## Plans, specs, and prompts
 
-- `superpowers/plans/`: active implementation plans, currently the friend-alpha production-readiness build and the 2026-09-24 review remediation. Shipped plans move to `archive/plans/`.
+- `superpowers/plans/`: active implementation plans, currently the friend-alpha production-readiness build. Shipped plans move to `archive/plans/`.
 - `superpowers/specs/`: live specs. The two How it wins rubric files (`2026-08-21-how-it-wins-judgment-standard.md` and `2026-08-21-how-it-wins-strategy-rubric.md`) are read by code and stay here. The layered screen spec, the How it wins recovery spec and its prompt, and the profile re-file design (its timeline is release two) are also live. Shipped specs move to `archive/specs/`.
 - `superpowers/prompts/`: execution prompts saved for fresh sessions.
 
