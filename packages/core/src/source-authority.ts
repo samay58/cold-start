@@ -31,9 +31,6 @@ const sourceAuthorityRegistry = {
   ],
   specialistAnalysis: [
     "sacrainsights.com",
-    // Sacra publishes company research reports; its research and chat pages are analysis, not a
-    // funding database entry.
-    "sacra.com",
     "stratechery.com",
     "ben-evans.com",
     "exponentialview.co",
@@ -57,6 +54,9 @@ const sourceAuthorityRegistry = {
     "platformer.news"
   ],
   analystResearch: [
+    // Sacra publishes company research reports: analysis for the tier, and like other analyst
+    // research, not a news article for the source type.
+    "sacra.com",
     "gartner.com",
     "forrester.com",
     "idc.com",

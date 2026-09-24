@@ -5,7 +5,8 @@ import {
   founderAuthoredQuality,
   sourceQualityForSource,
   sourceQualityRank,
-  sourceQualityTierRank
+  sourceQualityTierRank,
+  sourceTypeHintForHost
 } from "../src/index";
 
 describe("sourceQualityForSource", () => {
@@ -237,6 +238,8 @@ it("founderAuthoredQuality stamps the founder tier", () => {
 it("reads Sacra as analyst research, like its research site", () => {
   const sacra = { url: "https://sacra.com/research/cognition-revenue-growth-valuation/", title: "Cognition revenue", sourceType: "news" as const };
   expect(sourceQualityForSource(sacra).tier).toBe("independent_analysis");
+  // Its stored source type stays what it was when Sacra was listed as a database.
+  expect(sourceTypeHintForHost("sacra.com")).toBe("other");
 });
 
 describe("citationSourceQuality", () => {
@@ -248,6 +251,18 @@ describe("citationSourceQuality", () => {
     const profile = { id: "e1", url: "https://linkedin.com/in/someone", title: "Someone", fetchedAt, sourceType: "other" as const, sourceQuality: { ...stale, tier: "unknown" as const } };
     expect(citationSourceQuality(ownPage, { targetDomain: "notion.com" }).tier).toBe("primary_company");
     expect(citationSourceQuality(profile, { targetDomain: "notion.com" }).tier).toBe("enrichment");
+  });
+
+  it("re-derives a company tier the classifier once stored, such as a page from a card's old domain", () => {
+    const oldDomainPage = {
+      id: "e3",
+      url: "https://old-name.example/about",
+      title: "About",
+      fetchedAt,
+      sourceType: "news" as const,
+      sourceQuality: companyAuthoredQuality()
+    };
+    expect(citationSourceQuality(oldDomainPage, { targetDomain: "new-name.example" }).tier).toBe("independent_report");
   });
 
   it("keeps authorship the founder-voice fetcher stamped, which no URL shows", () => {
