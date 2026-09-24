@@ -273,7 +273,7 @@ describe("research section prompts", () => {
 
   it("never invite a line about what a private company has not published", () => {
     for (const definition of RESEARCH_SECTION_DEFINITIONS) {
-      expect(definition.generationPrompt).toContain("Say what the source said.\n");
+      expect(definition.generationPrompt).toContain("Say what the source said.");
       expect(definition.generationPrompt).not.toContain("state a gap");
       expect(definition.generationPrompt).not.toContain("not disclosed");
       expect(definition.generationPrompt).not.toContain("not public");

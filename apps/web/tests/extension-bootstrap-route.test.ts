@@ -1,4 +1,4 @@
-import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, EXTRACTION_UNAVAILABLE_PREFIX, sourceSnippet } from "@cold-start/core";
+import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, EXTRACTION_UNAVAILABLE_PREFIX } from "@cold-start/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -407,7 +407,9 @@ describe("GET /api/extension/bootstrap", () => {
     const response = await GET(extensionRequest("cartesia.ai", "secret", "extension-test-id"));
     const body = await response.json();
 
-    expect(body.sources[0].snippet).toBe(sourceSnippet(Array.from({ length: 12 }, () => sentence).join(" ")));
+    // Twelve 70-character sentences run 851 characters. The 600-character cap keeps whole
+    // sentences: eight fit (567 characters) and a ninth would pass it.
+    expect(body.sources[0].snippet).toBe(Array.from({ length: 8 }, () => sentence).join(" "));
     expect(body.sources[0].snippet.endsWith("enterprises.")).toBe(true);
   });
 

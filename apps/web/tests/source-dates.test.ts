@@ -3,8 +3,8 @@ import { buildSkeletonCard } from "@cold-start/pipeline";
 import type { ColdStartDb, StoredSource } from "@cold-start/db";
 import { providerSourcesFromStoredSources, recordSourcesForCard, sectionsWithSourceCitations } from "../src/inngest/source-fetching";
 
-// Task 2B of the evidence remediation: a source's publish date survives storage, the round trip
-// back to a provider source, and the citation built from it. A source with no date stays undated;
+// A source's publish date survives storage, the round trip back to a provider source, and the
+// citation built from it. A source with no date stays undated;
 // the fetch time is never a publish date.
 
 const stored = (overrides: Partial<StoredSource> = {}): StoredSource => ({

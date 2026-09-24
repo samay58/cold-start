@@ -4,8 +4,8 @@ import { investorTasteKernel } from "../src/investor-taste-kernel";
 import { researchSectionSystemPrompt } from "../src/research-section";
 import { synthesisSystemPrompt } from "../src/synthesis";
 
-// Samay's approved wording, September 23, 2026 (Task 3 of the evidence remediation plan). The
-// principle lives once, in the shared kernel; the per-prompt sentences it replaced are gone.
+// Samay's approved wording, September 23, 2026. The principle lives once, in the shared kernel;
+// the per-prompt sentences it replaced are gone.
 const principle =
   "Private companies rarely publish revenue, margins, contract values or head-to-head results. Their absence is normal, not a finding. Mention a missing fact only when it is unusual for this company, or when finding it would change the read.";
 
