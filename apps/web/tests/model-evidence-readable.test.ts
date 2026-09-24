@@ -6,6 +6,7 @@ import {
   buildEvidenceLedger,
   buildExpandedDescriptionEvidence,
   buildPersonReadEvidence,
+  buildSeedProfileCard,
   buildSkeletonCard,
   verifyCardSynthesisDraft
 } from "@cold-start/pipeline";
@@ -164,5 +165,23 @@ describe("model evidence is readable text, never provider JSON", () => {
     });
     expectNoJson("extraction sources", evidence.sources.map((source) => source.rawText));
     expectNoJson("extraction ledger", (evidence.evidenceLedger ?? []).flatMap((entry) => entry.supportingSnippets));
+  });
+
+  it("the seed card's oneLiner and snippet", () => {
+    const seedFor = (rawText: string) =>
+      buildSeedProfileCard({
+        domain: "acme.example",
+        providerFacts: [],
+        sources: [{ url: "https://acme.example/", title: "Acme | Deploy robots", sourceType: "company_site", fetchedAt, rawText, intent: "homepage" }]
+      }).card;
+
+    // A short record with no page text once became the oneLiner verbatim.
+    const titleOnly = seedFor(exaRecord({ url: "https://acme.example/", title: "Acme builds deploy robots" }));
+    expectNoJson("seed oneLiner", [titleOnly.identity.oneLiner.value ?? "no oneLiner"]);
+    expect(titleOnly.citations[0]?.snippet).toBe("Acme | Deploy robots");
+
+    // A record with page text is one long JSON line, which the length check rejected outright.
+    const withText = seedFor(exaRecord({ url: "https://acme.example/", title: "Acme", text: "# Acme\n\nAcme builds robots that deploy **software** to factory floors.\n\nRead more at https://acme.example/docs" }));
+    expect(withText.identity.oneLiner.value).toBe("Acme builds robots that deploy software to factory floors.");
   });
 });

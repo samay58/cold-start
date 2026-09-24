@@ -263,7 +263,8 @@ function sourceCitation(source: ProviderSource): ColdStartCard["citations"][numb
     title: source.title || source.url,
     fetchedAt: source.fetchedAt,
     sourceType: source.sourceType,
-    snippet: sourceSnippet(readableSourceText(source.rawText)),
+    // The title stands in for a record with no page text, so the seed citation never shows empty.
+    snippet: sourceSnippet(readableSourceText(source.rawText, source.title)),
     ...(source.publishedAt ? { publishedAt: source.publishedAt } : {})
   };
 }
@@ -277,10 +278,14 @@ function cleanSeedTitle(title: string, domain: string) {
   return normalized.length >= 2 && !normalized.includes("http") ? normalized : readableNameFromDomain(domain);
 }
 
+// The first line of the page's own text that reads like a summary. readableSourceText has already
+// turned the stored record into page text and dropped links, images and heading marks; this drops
+// what it leaves: emphasis and quote marks, and bare URLs. Without page text there is no summary,
+// since a title alone is not one.
 function cleanSeedSummary(rawText: string, domain: string) {
-  const firstLine = rawText
-    .split(/\r?\n/)
-    .map((line) => line.replace(/[#*_`>[\]()]|https?:\/\/\S+/g, " ").replace(/\s+/g, " ").trim())
+  const firstLine = readableSourceText(rawText)
+    .split("\n")
+    .map((line) => line.replace(/[*_`]|^>\s*|https?:\/\/\S+/g, " ").replace(/\s+/g, " ").trim())
     .find((line) => {
       const lower = line.toLowerCase();
       return (
@@ -289,6 +294,10 @@ function cleanSeedSummary(rawText: string, domain: string) {
         !lower.includes("cookie") &&
         !lower.includes("javascript") &&
         !lower.includes("captcha") &&
+        // Page text usually opens with the page title ("Acme | Deploy robots") or a heading in
+        // capitals, neither of which says what the company does.
+        !line.includes(" | ") &&
+        /[a-z]/.test(line) &&
         !isDomainPlaceholderLike(line, domain)
       );
     });
