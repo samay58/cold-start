@@ -25,7 +25,6 @@ npm run trace:generation                # tsx scripts/trace-generation.ts (singl
 npm run qa:generation                   # tsx scripts/qa-generation-suite.ts (multi-company QA)
 npm run qa:model-inputs -- --slug <slug> # tsx scripts/dump-model-inputs.ts (exact request each model stage would send; no model call; --card and --sources read files instead of the database)
 npm run qa:rebuild-snippets -- --slugs a,b # tsx scripts/rebuild-card-snippets.ts (rebuild stored cards' snippets from stored sources; no database write; --refetch --budget-usd N pays for page text; --offline rebuilds from its saved files without the database)
-npm run qa:verifier-snippets -- --slugs a,b --budget-usd N # tsx scripts/compare-verifier-snippets.ts (rerun only the synthesis verifier with stored versus rebuilt snippets; needs the files qa:rebuild-snippets writes)
 npm run seed:web-gallery                # tsx scripts/seed-web-gallery.ts (writes the three gallery fixture cards to local Postgres)
 npm run qa:web:gallery                  # Playwright capture of landing, /catalog, and /c/{slug} at desktop and mobile widths, into ~/Downloads/cold-start-qa/{timestamp}/web/
 npm run export:recorded-build           # tsx scripts/export-recorded-build.ts (freeze one hand-reviewed prod card and its trace into the landing page's recorded-build-data.ts; --slug required, read-only)
