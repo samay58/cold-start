@@ -175,14 +175,14 @@ describe("buildStableenrichRequests", () => {
     ]);
   });
 
-  it("asks every Exa search and find-similar call for page text", () => {
+  it("asks every Exa search and find-similar call for page text, capped per page", () => {
     const exaRequests = buildStableenrichRequests({}, "cartesia.ai").filter((request) => request.name.startsWith("exa_"));
 
     expect(exaRequests).toHaveLength(9);
     for (const request of exaRequests) {
       expect(request.body, request.name).toMatchObject({ contents: exaPageTextContents });
     }
-    expect(exaPageTextContents).toMatchObject({ text: true });
+    expect(exaPageTextContents).toMatchObject({ text: { maxCharacters: 20_000 } });
   });
 
   it("replaces the retired StableEnrich org route with the current route", () => {
