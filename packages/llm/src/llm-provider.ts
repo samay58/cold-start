@@ -209,13 +209,19 @@ export type ModelQuirks = {
   // 'specified' is incompatible with thinking enabled", observed live 2026-07-18). "required" is
   // accepted and equivalent for this codebase: every stage call supplies exactly one tool.
   forceToolChoiceRequired?: boolean;
+  // The Anthropic API accepts `thinking: {type: "disabled"}` for this model, and the model thinks
+  // before a tool call under tool_choice auto unless told not to. Callers that want an answer, not
+  // a long think, send the switch only where it is accepted: Opus 5.5 rejects it with a 400.
+  canDisableThinking?: boolean;
 };
 
 const modelQuirksTable: Array<{ modelIncludes: string; quirks: ModelQuirks }> = [
   { modelIncludes: "kimi-k3", quirks: { omitSamplingParams: true, minMaxTokens: 32768, forceToolChoiceRequired: true } },
   // Opus 5 always reasons and rejects temperature outright, on the Anthropic path and through
   // any gateway that forwards the parameter.
-  { modelIncludes: "opus-5", quirks: { omitSamplingParams: true } },
+  // Matched first so Opus 5.5 never inherits Opus 5's thinking switch, which it rejects.
+  { modelIncludes: "opus-5-5", quirks: { omitSamplingParams: true } },
+  { modelIncludes: "opus-5", quirks: { omitSamplingParams: true, canDisableThinking: true } },
 ];
 
 // Stage-scoped request policy, the counterpart to quirksForModel: these fragments belong to one

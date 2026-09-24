@@ -105,9 +105,13 @@ describe("quirksForModel", () => {
     expect(quirksForModel("moonshotai/Kimi-K3")).toEqual({ omitSamplingParams: true, minMaxTokens: 32768, forceToolChoiceRequired: true });
   });
 
-  it("flags opus-5 as omitting sampling params", () => {
-    expect(quirksForModel("claude-opus-5")).toEqual({ omitSamplingParams: true });
-    expect(quirksForModel("anthropic/claude-opus-5")).toEqual({ omitSamplingParams: true });
+  it("flags opus-5 as omitting sampling params and accepting thinking off", () => {
+    expect(quirksForModel("claude-opus-5")).toEqual({ omitSamplingParams: true, canDisableThinking: true });
+    expect(quirksForModel("anthropic/claude-opus-5")).toEqual({ omitSamplingParams: true, canDisableThinking: true });
+  });
+
+  it("flags opus-5-5 as omitting sampling params without the thinking switch it rejects", () => {
+    expect(quirksForModel("claude-opus-5-5")).toEqual({ omitSamplingParams: true });
   });
 
   it("returns no quirks for deepseek and other anthropic models", () => {

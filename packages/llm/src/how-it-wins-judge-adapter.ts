@@ -318,6 +318,9 @@ export function howItWinsJudgeProviderRequest(
     model,
     max_tokens: maxTokens,
     ...(quirksForModel(model).omitSamplingParams ? {} : { temperature: 0 }),
+    // Under tool_choice auto, Opus 5 thinks before it calls the tool, and the thinking is billed and
+    // timed as output: the global judgment doubled its output and hit its 240 s timeout.
+    ...(quirksForModel(model).canDisableThinking ? { thinking: { type: "disabled" as const } } : {}),
     system: [
       { type: "text" as const, text: `${request.prompt}\n\n${stageContractFor(request)}` },
       ...(cachedSystemText
