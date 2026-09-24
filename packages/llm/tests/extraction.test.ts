@@ -506,10 +506,25 @@ describe("evidenceForExtractionPrompt", () => {
 
     expect(evidence.evidenceLedger).toHaveLength(20);
     expect(evidence.sources.length).toBeLessThanOrEqual(20);
-    expect(evidence.sources.reduce((sum, source) => sum + source.rawText.length, 0)).toBeLessThanOrEqual(24_000);
+    expect(evidence.sources.reduce((sum, source) => sum + source.rawText.length, 0)).toBeLessThanOrEqual(45_000);
     expect(evidence.sources[0]?.rawText.length).toBeLessThanOrEqual(2200);
     expect(evidence.evidenceLedger?.[0]?.supportingSnippets[0]?.length).toBeLessThanOrEqual(420);
     expect(evidence.sources[0]?.url).toBe("https://source.example/0");
+  });
+
+  it("reaches twenty full page-text sources under the default budget", () => {
+    const evidence = evidenceForExtractionPrompt({
+      domain: "notion.so",
+      sources: Array.from({ length: 20 }, (_, index) => ({
+        url: `https://source.example/${index}`,
+        title: `Source ${index}`,
+        sourceType: "news",
+        rawText: `Page ${index}. ${"Notion ships pages, databases and agents for teams. ".repeat(60)}`,
+      })),
+    });
+
+    expect(evidence.sources).toHaveLength(20);
+    expect(evidence.sources.every((source) => source.rawText.length >= 2_000)).toBe(true);
   });
 
   it("sends each source once, as page text, and ledger entries without their stored text", () => {

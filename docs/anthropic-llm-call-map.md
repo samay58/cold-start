@@ -143,7 +143,7 @@ Per-stage provider routing (the `LLM_*_MODEL` env chains) is the only non-Anthro
 | `INNGEST_HOW_IT_WINS_CONCURRENCY` | optional concurrency cap on the `how-it-wins-read` function, same pattern as `INNGEST_CARD_ENRICHMENT_CONCURRENCY` |
 | `LLM_OPENAI_COMPAT_TIMEOUT_MS` | adapter request timeout (default 120000) |
 | `ANTHROPIC_CACHE_TTL` | `1h` (default) or `5m` system-prompt cache, Anthropic path only |
-| `EXTRACTION_EVIDENCE_BUDGET_CHARS` | prompt-size budget for extraction and research-section evidence |
+| `EXTRACTION_EVIDENCE_BUDGET_CHARS` | prompt-size budget for extraction and research-section evidence; unset, extraction uses 45,000 characters and research sections 24,000 |
 
 Rollback from any provider flip = unset the `LLM_*` stage env and redeploy; Vercel env changes only apply to new deployments.
 

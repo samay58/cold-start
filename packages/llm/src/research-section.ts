@@ -12,7 +12,7 @@ import { anthropicSystemCacheControl, createTracedAnthropicMessage, type Anthrop
 import {
   budgetEvidenceSources,
   compactEvidenceText,
-  defaultExtractionEvidenceBudgetChars,
+  defaultResearchEvidenceBudgetChars,
   evidenceBudgetCharsFromEnv
 } from "./evidence-budget";
 import { investorTasteKernel } from "./investor-taste-kernel";
@@ -25,7 +25,7 @@ const maxEvidenceItems = 18;
 const maxEvidenceTextLength = 1400;
 const researchEvidenceBudgetChars = evidenceBudgetCharsFromEnv(
   process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS,
-  defaultExtractionEvidenceBudgetChars
+  defaultResearchEvidenceBudgetChars
 );
 
 type EvidenceSource = {

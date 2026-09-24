@@ -1,6 +1,10 @@
 const ellipsis = "...";
 
-export const defaultExtractionEvidenceBudgetChars = 24_000;
+// Extraction reads page text, which fills each source's cap, so 24,000 characters reached only
+// about 12 sources. 45,000 reaches about 20; the prompt stays near half its size before page text,
+// when every ledger entry also carried its stored JSON uncapped. Research sections keep 24,000.
+export const defaultExtractionEvidenceBudgetChars = 45_000;
+export const defaultResearchEvidenceBudgetChars = 24_000;
 
 type EvidenceBudgetSource = {
   sourceType: string;
