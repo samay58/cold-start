@@ -164,7 +164,8 @@ describe("model evidence is readable text, never provider JSON", () => {
       evidenceLedger: buildEvidenceLedger({ domain: "notion.so", sources })
     });
     expectNoJson("extraction sources", evidence.sources.map((source) => source.rawText));
-    expectNoJson("extraction ledger", (evidence.evidenceLedger ?? []).flatMap((entry) => entry.supportingSnippets));
+    expectNoJson("extraction ledger", buildEvidenceLedger({ domain: "notion.so", sources }).flatMap((entry) => (entry.snippet ? [entry.snippet] : [])));
+    expectNoJson("extraction prompt ledger", (evidence.evidenceLedger ?? []).flatMap((entry) => (entry.snippet ? [entry.snippet] : [])).concat(evidence.sources.map((source) => source.title)));
   });
 
   it("the seed card's oneLiner and snippet", () => {

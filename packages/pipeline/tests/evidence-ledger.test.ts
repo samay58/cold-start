@@ -33,7 +33,7 @@ describe("buildEvidenceLedger", () => {
       sourceType: "news",
       authorityScore: expect.any(Number),
     });
-    expect(ledger[0]?.supportingSnippets.join(" ")).toContain("Series B");
+    expect(ledger[0]?.snippet).toContain("Series B");
   });
 
   it("takes the supporting snippet from the page's lead, not its funding sentence", () => {
@@ -51,7 +51,7 @@ describe("buildEvidenceLedger", () => {
       ],
     });
 
-    expect(entry?.supportingSnippets).toEqual(["Perplexity is a conversational answer engine. It raised $63 million in a Series B led by IVP."]);
+    expect(entry?.snippet).toBe("Perplexity is a conversational answer engine. It raised $63 million in a Series B led by IVP.");
   });
 
   it("carries a source's publish date, never its fetch time", () => {

@@ -60,8 +60,7 @@ describe("buildSkeletonCard", () => {
         fetchedAt: "2026-06-04T00:00:00.000Z",
         intents: ["funding"],
         authorityScore: 12,
-        rawText: "Waabi raised $1 billion and works on autonomous trucking.",
-        supportingSnippets: ["Waabi raised $1 billion and works on autonomous trucking."]
+        snippet: "Waabi raised $1 billion and works on autonomous trucking."
       }
     ]);
 
@@ -378,7 +377,7 @@ describe("generateCardForDomain", () => {
     } as GenerateCardDeps);
 
     const snippetFor = (url: string) => result.card.citations.find((citation) => citation.url === url)?.snippet;
-    // The model's note holds the fact it cited; a page's opening often does not (Task 2 E5).
+    // The model's note holds the fact it cited; a page's opening often does not.
     expect(snippetFor(homepage)).toBe("Gecko raised $73 million from investors.");
     expect(snippetFor(unfetched)).toBe("Analysts cover Gecko's inspection robots.");
     expect(snippetFor(about)).toBe("Gecko Robotics was founded in 2013 in Pittsburgh.");

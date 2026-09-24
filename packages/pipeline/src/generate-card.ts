@@ -421,7 +421,7 @@ function recoverEvidenceCitationRefs<T extends { citations: ColdStartCard["citat
       title: evidence.title,
       fetchedAt: evidence.fetchedAt,
       sourceType: evidence.sourceType,
-      ...(evidence.supportingSnippets[0] ? { snippet: evidence.supportingSnippets[0] } : {}),
+      ...(evidence.snippet ? { snippet: evidence.snippet } : {}),
       ...(evidence.publishedAt ? { publishedAt: evidence.publishedAt } : {}),
     });
     citationIds.add(referencedId);

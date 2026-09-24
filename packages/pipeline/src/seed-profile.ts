@@ -7,7 +7,6 @@ import {
   type ResolvedFact,
   sanitizeCardTrust,
   snippetFromStoredSource,
-  sourceSnippet,
   stripUnsupportedSynthesis
 } from "@cold-start/core";
 import { extractedCardSectionsSchema, type ExtractedCardSections } from "@cold-start/llm";
@@ -140,7 +139,7 @@ export function fallbackSectionsFromEvidence(
     title: entry.title,
     fetchedAt: entry.fetchedAt,
     sourceType: entry.sourceType as CitationSourceType,
-    snippet: entry.supportingSnippets[0] ?? sourceSnippet(entry.rawText),
+    ...(entry.snippet ? { snippet: entry.snippet } : {}),
     ...(entry.publishedAt ? { publishedAt: entry.publishedAt } : {})
   }));
   const firstCitation = citations[0];

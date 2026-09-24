@@ -500,7 +500,7 @@ describe("evidenceForExtractionPrompt", () => {
         sourceType: "news",
         intents: ["funding"],
         authorityScore: 10 - index,
-        supportingSnippets: [`snippet ${index} ${"details ".repeat(200)}`],
+        snippet: `snippet ${index} ${"details ".repeat(200)}`,
       })),
     });
 
@@ -508,8 +508,26 @@ describe("evidenceForExtractionPrompt", () => {
     expect(evidence.sources.length).toBeLessThanOrEqual(20);
     expect(evidence.sources.reduce((sum, source) => sum + source.rawText.length, 0)).toBeLessThanOrEqual(45_000);
     expect(evidence.sources[0]?.rawText.length).toBeLessThanOrEqual(2200);
-    expect(evidence.evidenceLedger?.[0]?.supportingSnippets[0]?.length).toBeLessThanOrEqual(420);
     expect(evidence.sources[0]?.url).toBe("https://source.example/0");
+    // A sent source's opening is already in the prompt; a source the budget left out keeps its snippet.
+    const sent = new Set(evidence.sources.map((source) => source.url));
+    for (const entry of evidence.evidenceLedger ?? []) {
+      if (sent.has(entry.url)) expect(entry.snippet, entry.id).toBeUndefined();
+      else expect(entry.snippet?.length, entry.id).toBeLessThanOrEqual(420);
+    }
+  });
+
+  it("keeps a ledger entry's snippet when its source is not in the prompt", () => {
+    const evidence = evidenceForExtractionPrompt({
+      domain: "notion.so",
+      sources: [{ url: "https://notion.com/", title: "Notion", sourceType: "company_site", rawText: "Notion is a connected workspace." }],
+      evidenceLedger: [
+        { id: "e1", url: "https://news.example/round", title: "Round", sourceType: "news", intents: ["funding"], authorityScore: 9, snippet: "Notion raised a round." },
+      ],
+    });
+
+    expect(evidence.sources.map((source) => source.url)).toEqual(["https://notion.com/"]);
+    expect(evidence.evidenceLedger?.[0]?.snippet).toBe("Notion raised a round.");
   });
 
   it("reaches twenty full page-text sources under the default budget", () => {
@@ -540,7 +558,7 @@ describe("evidenceForExtractionPrompt", () => {
           sourceType: "company_site",
           intents: [],
           authorityScore: 9,
-          supportingSnippets: ["Notion is a connected workspace."],
+          snippet: "Notion is a connected workspace.",
           rawText: record,
         } as NonNullable<Parameters<typeof evidenceForExtractionPrompt>[0]["evidenceLedger"]>[number],
       ],
@@ -548,6 +566,7 @@ describe("evidenceForExtractionPrompt", () => {
 
     expect(evidence.sources[0]?.rawText).toBe("Notion is a connected workspace.");
     expect(evidence.evidenceLedger?.[0]).not.toHaveProperty("rawText");
+    expect(evidence.evidenceLedger?.[0]).not.toHaveProperty("snippet");
   });
 
   it("prioritizes high-trust evidence before lower-yield enrichment text", () => {

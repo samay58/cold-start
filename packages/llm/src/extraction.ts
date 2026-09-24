@@ -41,7 +41,7 @@ export type ExtractionEvidence = {
     sourceType: string;
     intents: string[];
     authorityScore: number;
-    supportingSnippets: string[];
+    snippet?: string;
   }>;
 };
 
@@ -54,27 +54,34 @@ export function evidenceForExtractionPrompt(
   const sourceLimit = isBlock ? maxBlockPromptSources : maxPromptSources;
   const sourceTextLimit = isBlock ? maxBlockPromptSourceTextLength : maxPromptSourceTextLength;
 
-  // Named fields only: pipeline ledger entries also carry full stored text, which the budgeted sources send.
-  const evidenceLedger = evidence.evidenceLedger?.slice(0, ledgerLimit).map(({ id, url, title, sourceType, intents, authorityScore, supportingSnippets }) => ({
-    id, url, title, sourceType, intents, authorityScore,
-    supportingSnippets: supportingSnippets.map((snippet) => compactEvidenceText(snippet, maxPromptSnippetLength)),
-  }));
-  const priorityUrls = new Set(evidenceLedger?.map((entry) => entry.url) ?? []);
+  const priorityUrls = new Set(evidence.evidenceLedger?.slice(0, ledgerLimit).map((entry) => entry.url) ?? []);
   const sourcePool =
     priorityUrls.size > 0 ? evidence.sources.filter((source, index) => priorityUrls.has(source.url) || index < 8) : evidence.sources;
+  const sources = budgetEvidenceSources({
+    sources: sourcePool,
+    itemLimit: sourceLimit,
+    textLimit: sourceTextLimit,
+    budgetChars: extractionEvidenceBudgetChars,
+    getText: (source) => readableSourceText(source.rawText, source.title),
+    withText: (source, rawText) => ({ ...source, rawText }),
+  });
+  // A ledger entry's snippet is its page's opening, which the source's own text already carries
+  // when the source is sent in full enough; it is sent only for a source the budget left out or cut
+  // shorter than the snippet.
+  const sentLength = new Map(sources.map((source) => [source.url, source.rawText.length]));
+  const evidenceLedger = evidence.evidenceLedger?.slice(0, ledgerLimit).map(({ id, url, title, sourceType, intents, authorityScore, snippet }) => {
+    const compact = snippet ? compactEvidenceText(snippet, maxPromptSnippetLength) : "";
+    return {
+      id, url, title, sourceType, intents, authorityScore,
+      ...(compact && (sentLength.get(url) ?? 0) < compact.length ? { snippet: compact } : {}),
+    };
+  });
 
   return {
     domain: evidence.domain,
     ...(evidence.researchPlan ? { researchPlan: evidence.researchPlan } : {}),
     ...(evidenceLedger ? { evidenceLedger } : {}),
-    sources: budgetEvidenceSources({
-      sources: sourcePool,
-      itemLimit: sourceLimit,
-      textLimit: sourceTextLimit,
-      budgetChars: extractionEvidenceBudgetChars,
-      getText: (source) => readableSourceText(source.rawText, source.title),
-      withText: (source, rawText) => ({ ...source, rawText }),
-    }),
+    sources,
   };
 }
 
