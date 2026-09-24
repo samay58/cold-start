@@ -217,12 +217,16 @@ export type ModelQuirks = {
 
 const modelQuirksTable: Array<{ modelIncludes: string; quirks: ModelQuirks }> = [
   { modelIncludes: "kimi-k3", quirks: { omitSamplingParams: true, minMaxTokens: 32768, forceToolChoiceRequired: true } },
-  // Opus 5 always reasons and rejects temperature outright, on the Anthropic path and through
-  // any gateway that forwards the parameter.
-  // Matched first so Opus 5.5 never inherits Opus 5's thinking switch, which it rejects.
-  { modelIncludes: "opus-5-5", quirks: { omitSamplingParams: true } },
-  { modelIncludes: "opus-5", quirks: { omitSamplingParams: true, canDisableThinking: true } },
+  // Opus 5 and every later 5.x always reason and reject temperature outright, on the Anthropic
+  // path and through any gateway that forwards the parameter. The thinking switch is not here:
+  // see acceptsThinkingOff.
+  { modelIncludes: "opus-5", quirks: { omitSamplingParams: true } },
 ];
+
+// Only Opus 5 itself accepts `thinking: {type: "disabled"}` (with a dated snapshot or a provider
+// prefix). Opus 5.5 rejects it with a 400, so this is an exact match: a later Opus 5.x id must not
+// inherit the switch by containing "opus-5".
+const acceptsThinkingOff = /^(?:[a-z0-9._-]+\/)?claude-opus-5(?:-\d{8})?$/;
 
 // Stage-scoped request policy, the counterpart to quirksForModel: these fragments belong to one
 // pipeline stage rather than to a model, so they are keyed by stage and never by model id. Full
@@ -260,7 +264,8 @@ const stageRequestPolicies: Record<string, StageRequestPolicy> = {
 export function quirksForModel(model: string): ModelQuirks {
   const normalized = model.toLowerCase();
   const row = modelQuirksTable.find((entry) => normalized.includes(entry.modelIncludes));
-  return row?.quirks ?? {};
+  const quirks = row?.quirks ?? {};
+  return acceptsThinkingOff.test(normalized) ? { ...quirks, canDisableThinking: true } : quirks;
 }
 
 function timeoutMsFromEnv() {

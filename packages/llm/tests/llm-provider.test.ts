@@ -110,6 +110,12 @@ describe("quirksForModel", () => {
     expect(quirksForModel("anthropic/claude-opus-5")).toEqual({ omitSamplingParams: true, canDisableThinking: true });
   });
 
+  it("gives the thinking switch to Opus 5 exactly, never to a later Opus 5.x by substring", () => {
+    expect(quirksForModel("claude-opus-5-20260901")).toEqual({ omitSamplingParams: true, canDisableThinking: true });
+    expect(quirksForModel("claude-opus-5-6")).toEqual({ omitSamplingParams: true });
+    expect(quirksForModel("anthropic/claude-opus-5-7")).toEqual({ omitSamplingParams: true });
+  });
+
   it("flags opus-5-5 as omitting sampling params without the thinking switch it rejects", () => {
     expect(quirksForModel("claude-opus-5-5")).toEqual({ omitSamplingParams: true });
   });
