@@ -44,8 +44,10 @@ export function buildEvidenceLedger(input: { domain: string; sources: ProviderSo
     .map((entry, index) => ({ id: `e${index + 1}`, ...entry }));
 }
 
-// A cited source's snippet is its own page text, and its publish date is the source's. The
-// extraction model's snippet stays only when the page has no readable text.
+// What a cited source contributes to its citation: the source's publish date, and the page's own
+// text as the snippet only where the extraction model wrote none. The model's note holds the fact
+// it cited; a page's opening is often headline and navigation, and verifying claims against it
+// kept about half as many true claims (Task 2 E5 of the September 2026 evidence remediation).
 export function withSourcePageDetails<T extends { url: string; snippet?: string | undefined; publishedAt?: string | undefined }>(
   citations: T[],
   ledger: EvidenceLedgerEntry[]
@@ -53,7 +55,7 @@ export function withSourcePageDetails<T extends { url: string; snippet?: string 
   const byKey = new Map(ledger.map((entry) => [canonicalSourceKey(entry.url), entry]));
   return citations.map((citation) => {
     const entry = byKey.get(canonicalSourceKey(citation.url));
-    const snippet = entry?.supportingSnippets[0];
+    const snippet = citation.snippet?.trim() ? undefined : entry?.supportingSnippets[0];
     return {
       ...citation,
       ...(snippet ? { snippet } : {}),

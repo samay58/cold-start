@@ -335,9 +335,10 @@ describe("generateCardForDomain", () => {
     expect(result.card.citations).toHaveLength(3);
   });
 
-  it("uses a cited source's own page text as its snippet, keeping the model's only when the page has none", async () => {
+  it("keeps the extraction model's note as the snippet, and uses the page's own text only where the model wrote none", async () => {
     const skeleton = buildSkeletonCard("geckorobotics.com");
     const homepage = "https://www.geckorobotics.com/";
+    const about = "https://www.geckorobotics.com/about";
     const unfetched = "https://analyst.example/gecko";
 
     const result = await generateCardForDomainWithTrace("geckorobotics.com", {
@@ -351,11 +352,18 @@ describe("generateCardForDomain", () => {
           rawText: JSON.stringify({ id: homepage, title: "Gecko Robotics", text: "Gecko Robotics builds robots and software for industrial inspections." }),
           publishedAt: "2026-06-01T00:00:00.000Z",
         },
+        {
+          url: about,
+          title: "About Gecko",
+          sourceType: "company_site",
+          fetchedAt: "2026-08-17T00:00:00.000Z",
+          rawText: JSON.stringify({ id: about, title: "About Gecko", text: "Gecko Robotics was founded in 2013 in Pittsburgh." }),
+        },
       ],
       extractSections: async () => ({
         identity: {
           ...skeleton.identity,
-          name: { value: "Gecko Robotics", status: "verified", confidence: "high", citationIds: ["c1", "c2"] },
+          name: { value: "Gecko Robotics", status: "verified", confidence: "high", citationIds: ["c1", "c2", "c3"] },
         },
         funding: skeleton.funding,
         team: skeleton.team,
@@ -364,13 +372,16 @@ describe("generateCardForDomain", () => {
         citations: [
           { id: "c1", url: homepage, title: "Gecko Robotics", fetchedAt: "2026-08-17T00:00:00.000Z", sourceType: "company_site", snippet: "Gecko raised $73 million from investors." },
           { id: "c2", url: unfetched, title: "Gecko analysis", fetchedAt: "2026-08-17T00:00:00.000Z", sourceType: "news", snippet: "Analysts cover Gecko's inspection robots." },
+          { id: "c3", url: about, title: "About Gecko", fetchedAt: "2026-08-17T00:00:00.000Z", sourceType: "company_site" },
         ],
       }),
     } as GenerateCardDeps);
 
     const snippetFor = (url: string) => result.card.citations.find((citation) => citation.url === url)?.snippet;
-    expect(snippetFor(homepage)).toBe("Gecko Robotics builds robots and software for industrial inspections.");
+    // The model's note holds the fact it cited; a page's opening often does not (Task 2 E5).
+    expect(snippetFor(homepage)).toBe("Gecko raised $73 million from investors.");
     expect(snippetFor(unfetched)).toBe("Analysts cover Gecko's inspection robots.");
+    expect(snippetFor(about)).toBe("Gecko Robotics was founded in 2013 in Pittsburgh.");
     const citationFor = (url: string) => result.card.citations.find((citation) => citation.url === url);
     expect(citationFor(homepage)?.publishedAt).toBe("2026-06-01T00:00:00.000Z");
     expect(citationFor(unfetched)?.publishedAt).toBeUndefined();

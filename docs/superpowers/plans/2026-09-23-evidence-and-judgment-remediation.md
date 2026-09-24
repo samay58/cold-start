@@ -143,7 +143,7 @@ if __name__ == "__main__":
 
 Done September 23, 2026 in `030948c`. `npm run qa:model-inputs -- --slug <slug>` (`scripts/dump-model-inputs.ts`) saves the exact request each stage would send, without calling a model. The findings, their causes and their reach are in `docs/qa/model-input-audit-2026-09.md`. Read it before Task 2; the tasks below cite its finding numbers.
 
-Samay's decisions, September 23, 2026: every finding is in scope. A: findings 1, 2, 4, 6 and 10 join Task 2. B: yes, ask for page text in every Exa search. C: dates get an optional citation field and a `sources.published_at` column (Task 2B). D: remove the keyword gate (Task 2C). E: a snippet is the page's own text, and search queries that are not about funding lose their funding words (Task 2).
+Samay's decisions, September 23, 2026: every finding is in scope. A: findings 1, 2, 4, 6 and 10 join Task 2. B: yes, ask for page text in every Exa search. C: dates get an optional citation field and a `sources.published_at` column (Task 2B). D: remove the keyword gate (Task 2C). E: a snippet is the page's own text, and search queries that are not about funding lose their funding words (Task 2). Revised September 23 after Task 2 E5: the snippet is the extraction model's note where it wrote one, and the page's own text only where it wrote none. With page openings as snippets the verifier kept 22-25 of 74 claims; with this rule it kept 41-43.
 
 ---
 
