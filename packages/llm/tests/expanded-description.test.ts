@@ -160,9 +160,7 @@ describe("synthesizeExpandedDescription retry", () => {
 });
 
 describe("expandedDescriptionSystemPrompt", () => {
-  it("keeps honest absence without handing the model a stock absence line", () => {
+  it("never hands the model a stock absence line", () => {
     expect(expandedDescriptionSystemPrompt).not.toContain("How it charges is not publicly disclosed");
-    expect(expandedDescriptionSystemPrompt).toContain("When pricing is partly known, state what is known and stop.");
-    expect(expandedDescriptionSystemPrompt).toContain("Honest absence is a successful state; never guess.");
   });
 });

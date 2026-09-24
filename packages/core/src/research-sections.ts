@@ -110,13 +110,13 @@ const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 
 const sharedPromptRules = [
   "Use only supplied evidence.",
-  "Never refer to the evidence, the supplied sources, the card, or the packet. Say what the source said, or state a gap as a plain fact.",
+  "Never refer to the evidence, the supplied sources, the card, or the packet. Say what the source said.",
   "Do not use outside knowledge.",
   "Do not write marketing copy.",
   "Do not praise the company.",
   "Do not pad weak evidence.",
   "Do not use cutting-edge, world-class, best-in-class, transformative, unlock, revolutionize, or poised to.",
-  "Prefer not disclosed over guessing.",
+  "Never guess a number.",
   "Every claim needs citation ids.",
   "Write like a sharp investor writing for another human.",
   "Never use an em dash. Use a period or a semicolon instead.",
@@ -207,7 +207,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
     visibility: "gated",
     staleAfterMs: DAY_MS,
     emptyState: "No supported risks or diligence questions found yet.",
-    generationPrompt: prompt("Write Risks & Diligence. Find what could break the case: adoption, budget owner, procurement friction, competition, technical risk, margin pressure, regulation, customer concentration, platform dependency, funding/runway, or unclear proof. Do not write generic risks. Tie every risk to what a source said or to a specific fact that is not public. Do not default to ARR or revenue-not-public unless that is the most specific uncertainty for this company. Return up to 4 risks.")
+    generationPrompt: prompt("Write Risks & Diligence. Find what could break the case: adoption, budget owner, procurement friction, competition, technical risk, margin pressure, regulation, customer concentration, platform dependency, funding/runway, or unclear proof. Do not write generic risks. Tie every risk to what a source said. Return up to 4 risks.")
   },
   // The Case renders from card.synthesis (bull + bear) in the surfaces, never from a per-section
   // run, so it is blocked from standalone dispatch (SYNTHESIS_ONLY_SECTION_IDS) and is neither

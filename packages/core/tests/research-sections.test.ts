@@ -270,4 +270,16 @@ describe("research section prompts", () => {
       expect(definition.generationPrompt).not.toContain("point to evidence or missing evidence");
     }
   });
+
+  it("never invite a line about what a private company has not published", () => {
+    for (const definition of RESEARCH_SECTION_DEFINITIONS) {
+      expect(definition.generationPrompt).toContain("Say what the source said.\n");
+      expect(definition.generationPrompt).not.toContain("state a gap");
+      expect(definition.generationPrompt).not.toContain("not disclosed");
+      expect(definition.generationPrompt).not.toContain("not public");
+      expect(definition.generationPrompt).toContain("Never guess a number.");
+    }
+    const risks = RESEARCH_SECTION_DEFINITIONS.find((definition) => definition.id === "risks");
+    expect(risks?.generationPrompt).toContain("Do not write generic risks. Tie every risk to what a source said. Return up to 4 risks.");
+  });
 });

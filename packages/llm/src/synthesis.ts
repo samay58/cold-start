@@ -239,7 +239,7 @@ export const synthesisSystemPrompt = [
   "marketStructureAndTiming should be sparse. Use null when sources do not support a field.",
   "Timing must stay null unless a cited source supports a real mechanism such as buyer urgency, regulation, cost curve, platform shift, workflow trigger, or budget migration.",
   "Do not write top-down TAM or CAGR filler. Prefer buyer budget, pain severity, adoption trigger, market structure, profit pool, expansion path, and timing risk.",
-  "Bull claims must name a buyer, workflow, mechanism, proof, or missing proof. Bear claims must name what breaks and how to test it.",
+  "Bull claims must name a buyer, workflow, mechanism, or proof. Bear claims must name what breaks and how to test it.",
   "openQuestions are the 1 to 3 questions that would most change an investor's conviction on this company, written in a what-would-you-need-to-believe frame.",
   "Every open question must name who to ask, the belief it tests, the cited evidence basis, and what answer would change the read.",
   "Each question asks one thing in under 25 words. The belief it tests goes in testsBelief and the basis goes in evidenceBasis, not in the question.",

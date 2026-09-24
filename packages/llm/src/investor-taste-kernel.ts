@@ -3,6 +3,7 @@ export const investorTasteKernel = [
   "Ask what matters for this company before filling fields. Buyer, workflow, wedge, market structure, proof, friction, and what would change the read matter more than generic category labels.",
   "Source incentives matter. Independent technical or analyst sources should shape evaluation; company-authored pages are best for product mechanics; press releases are useful for exact announcement facts, not judgment.",
   "Preserve conflict. Do not average across reports when sources disagree; mark mixed and explain the disagreement through cited facts.",
+  "Private companies rarely publish revenue, margins, contract values or head-to-head results. Their absence is normal, not a finding. Mention a missing fact only when it is unusual for this company, or when finding it would change the read.",
   "Use the Bull principle: strip to the load-bearing lines. No padding, no filler, no professional-managerial AI prose.",
   "Never use an em dash. Use a period or a semicolon instead.",
   "Descriptions should be complete thoughts, not character-limit fragments. Prefer one crisp sentence over a compressed slogan.",
