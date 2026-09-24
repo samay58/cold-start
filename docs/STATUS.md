@@ -1,6 +1,6 @@
 # Status
 
-What is in progress, what comes next, and what shipped recently. Update this page whenever a plan closes or a new one starts. Last updated 2026-09-22.
+What is in progress, what comes next, and what shipped recently. Update this page whenever a plan closes or a new one starts. Last updated 2026-09-24.
 
 ## In flight
 
@@ -10,7 +10,7 @@ What is in progress, what comes next, and what shipped recently. Update this pag
 
 ## Next
 
-- Fix the emphasis read's silent failures. In 32 of 72 production analysis runs over the last 45 days, the emphasis read failed its own check that the citation markers in its text match its cited ids, and the run filed "nothing notable" instead, so testers see an empty Pay attention to section about four times in ten. A September 24 check on the 12 remediation cards failed the same way in 14 of 24 runs under both prompt wordings, so the check or the prompt needs a decision, not a wording tweak.
+- Watch the emphasis read in production after the September 24 marker fix. Before it, 32 of 83 analysis runs over 45 days filed "nothing notable" because a repeated citation marker failed the read. The query to count failures since the deploy is in [the remediation record](../eval/curation/remediation-2026-09/README.md#emphasis-read-marker-fix).
 - Evidence and judgment remediation follow-ups, all small and none urgent: (1) Samay's call on backfilling snippets for the roughly 400 existing profiles; the recommendation is to skip, since stored snippets already read as text and a re-file brings page text. (2) The Market research section left out its required confidence field in 3 of 21 Sonnet 4.6 runs, which files the section empty. (3) Watch the first production How it wins run after the September 24 deploy: judge output near 11k tokens and well under the 240 s timeout. (4) The customer-evidence search pilot (the plan's Task 6) was not run. (5) The accepted-proof wording deployed on September 24 changed the judge prompt hash, so a manual How it wins retry on a card filed before then is refused until a fresh analysis run. (6) Deferred review minors: an empty seed-profile snippet, clipping classification on longer snippets, no runtime guard for a missing migration, the judge trace's thinkingState hardcoded to disabled, a future Opus 5.x id inheriting Opus 5's thinking switch through substring matching, and an unparseable JSON-looking model note blocking the page-text fallback. See [the plan](archive/plans/2026-09-23-evidence-and-judgment-remediation.md).
 - Check the expanded description's second paragraph live (polish A5). It has no offline runner.
 - Three copy questions for Samay from the polish pass: the landing page's five questions do not match their labels (`page.tsx:79-81`); the "Verified" legend promises two independent sources while the code accepts one outside source plus any second citation; "The alpha is resting".
@@ -24,6 +24,7 @@ What is in progress, what comes next, and what shipped recently. Update this pag
 
 | Date | Commit | What | Record |
 | --- | --- | --- | --- |
+| 2026-09-24 | this commit | Emphasis read no longer fails on a repeated or missing citation marker; it uses the same marker cleanup as synthesis. On the 12 remediation cards, finished reads went from 10 of 24 to 24 of 24 | [record](../eval/curation/remediation-2026-09/README.md#emphasis-read-marker-fix) |
 | 2026-09-24 | `441aa70`, `42192c2` | Judge accepts the proof the rubric allows and reads missing evidence as missing; Opus 5 kept as judge after a blind read; plan closed | [plan](archive/plans/2026-09-23-evidence-and-judgment-remediation.md) |
 | 2026-09-24 | `057bde4`..`231a310` | Evidence remediation, deployed with migration 0020: page text for every model, publish dates to the judge, person reads fixed, own-site labels, keyword filter removed, normal private-company absences no longer findings, and the How it wins judge no longer thinks before answering on Opus 5 (it had doubled its output and hit the 240 s timeout since September 22) | [plan](archive/plans/2026-09-23-evidence-and-judgment-remediation.md) |
 | 2026-09-22 | `447c657`..`782824e` | Polish follow-ups: wording check with one re-ask for research sections and synthesis, missing-row patch for the judge, no forced tool choice in any stage, truncated replies filed as incomplete output, drag spec fixed, Opus 5.5 judge A/B | [plan](archive/plans/2026-09-22-polish-pass.md) |

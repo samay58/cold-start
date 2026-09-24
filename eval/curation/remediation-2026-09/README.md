@@ -150,7 +150,7 @@ Lines that name missing information, counting only parts that worked under both 
 | Longer description | 2 | 2 |
 | **Total** | **32** | **20** |
 
-- The emphasis read, which the main check did not cover, on all 12 companies once per wording ($0.39): 5 finished reads under each wording, and every finished Quiet line still begins "Nothing filed shows" and names what the record lacks, so the new line does not suppress Quiet. The other 14 runs failed the same citation-marker check under both wordings (see STATUS).
+- The emphasis read, which the main check did not cover, on all 12 companies once per wording ($0.39): 5 finished reads under each wording, and every finished Quiet line still begins "Nothing filed shows" and names what the record lacks, so the new line does not suppress Quiet. The other 14 runs failed the same citation-marker check under both wordings; fixed below.
 - Known gap: casaphq claims automation of "up to 30%" of disputes with only its own pages behind it. The new wording still flags that nothing independent backs the figure.
 - Failures, under both wordings: the Market section left out its required confidence field 3 times in 21 runs; the longer description and synthesis each failed a parse once.
 - Samay's blind read (four companies, unlabeled): he picked the new wording for both companies he chose between, Doppel and Neko Health, and called its market sizing and questions more nuanced. Cognition and Kalshi differed only in emphasis.
@@ -167,3 +167,22 @@ Samay read the finished reads blind and picked Opus 5 for DeepInfra, Notion and 
 - `monitors.py`: the three monitors (judge evidence stubs, card citation stubs, absence lines).
 - `cards/` and `sources/`: rebuilt cards and their stored sources from Task 2 (gitignored).
 - `raw/`: cached provider responses, verifier comparisons and side-by-side reads (gitignored).
+
+## Emphasis read marker fix
+
+Verified on September 24 from the raw tool input of 24 claude-sonnet-4-6 runs on the 12 cards, before any change. 14 failed the marker check. 13 of those repeated a marker: the model cited a source again in each sentence that used it, while listing the id once. 2 listed an id the text never showed (one run had both). None cited an id missing from the card. Production had the same error in 32 of 83 analysis runs from August 10 to September 23: 13 in Loud, 19 in Read, none in both. Over those 45 days production filed 18 reads and 50 nothing_notable. Production traces keep only the error, so the repeated-marker cause there is likely, not verified.
+
+The fix runs Loud and Read through synthesis's marker cleanup (`normalizeClaimCitations`, now shared in `packages/llm/src/tool-schema-fragments.ts`) before the check. The prompt, the Quiet rule and the check that every cited id exists on the card are unchanged.
+
+After the fix, the same 24 runs: 24 finished as reads, 0 nothing_notable, 0 failures. 18 of them would have failed before. No prose changed. In 7 fields the model listed ids it did not mark in the text; each of those sources backs a fact the text states (for example Stripe's $159B valuation, Doppel's funding rounds, Hebbia's $13M revenue). Cost: $0.38 before, $0.38 after.
+
+Count marker failures in production analysis runs since the deploy (read-only):
+
+```sql
+select count(*) filter (where trace_json::text like '%visible citation markers must exactly match%') as marker_failures,
+       count(*) filter (where trace_json #>> '{emphasis,status}' = 'read') as reads,
+       count(*) filter (where trace_json #>> '{emphasis,status}' = 'nothing_notable') as nothing_notable,
+       count(*) as analysis_runs
+from generation_runs
+where mode = 'analysis' and started_at >= '<deploy time>';
+```

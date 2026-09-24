@@ -97,15 +97,56 @@ describe("parseEmphasisReadToolUse", () => {
     ).toThrow();
   });
 
-  it("rejects a read whose visible markers do not match citationIds", () => {
-    expect(() =>
-      parseEmphasisReadToolUse(
-        toolUseMessage({
-          ...validReadPayload,
-          loud: { text: "They lead every post with GitHub stars [c1].", citationIds: ["c9"] }
-        })
-      )
-    ).toThrow();
+  // Captured from a live claude-sonnet-4-6 read on the Notion card (2026-09-24): the model cited
+  // p2 and p5 once per sentence that used them, so the text repeats markers its citationIds list
+  // once. 13 of 14 captured failures had this shape; before the fix each one became nothing_notable.
+  it("accepts a read that repeats a marker across sentences", () => {
+    const parsed = parseEmphasisReadToolUse(
+      toolUseMessage({
+        ...validReadPayload,
+        loud: {
+          text: "Notion leads with Custom Agents as its identity pivot: 1 million agents built in two months of beta [p3][p5], autonomous AI teammates running across Slack, Figma, Linear, and MCP servers [p2], and a homepage claim of being trusted by 98% of the Forbes Cloud 100 [p7]. The co-founder bylines the agent launch posts personally [p2][p5], signaling this is the strategic bet, not a feature drop.",
+          citationIds: ["p2", "p3", "p5", "p7"]
+        }
+      })
+    );
+
+    if (parsed.status !== "read") {
+      throw new Error("expected a read result");
+    }
+    expect(parsed.loud.citationIds).toEqual(["p2", "p3", "p5", "p7"]);
+    expect(parsed.loud.text).toContain("signaling this is the strategic bet, not a feature drop");
+    expect(parsed.loud.text.match(/\[p5\]/g)).toHaveLength(1);
+  });
+
+  // Captured from the CasaPHQ card: citationIds lists e2, which the text never shows.
+  it("accepts a read whose citationIds lists an id the text leaves out", () => {
+    const parsed = parseEmphasisReadToolUse(
+      toolUseMessage({
+        ...validReadPayload,
+        read: {
+          text: "The loudest proof on offer is the funding round itself, not customer outcomes. Emergence leading a $33.5M total raise [e7][e9] is a real signal.",
+          citationIds: ["e7", "e9", "e2"]
+        }
+      })
+    );
+
+    if (parsed.status !== "read") {
+      throw new Error("expected a read result");
+    }
+    expect(parsed.read.citationIds).toEqual(["e7", "e9", "e2"]);
+    expect(parsed.read.text).toMatch(/\[e2\]/);
+  });
+
+  it("still fails a read whose citationIds name an id missing from the card", () => {
+    const parsed = parseEmphasisReadToolUse(
+      toolUseMessage({
+        ...validReadPayload,
+        loud: { text: "They lead every post with GitHub stars [c1].", citationIds: ["c9"] }
+      })
+    );
+
+    expect(() => assertEmphasisCitationsExistOnCard(parsed, cardWith(["c1", "c2", "c3"].map(citation)))).toThrow(/c9/);
   });
 });
 

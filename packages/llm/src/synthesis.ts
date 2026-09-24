@@ -7,10 +7,12 @@ import { investorTasteKernel } from "./investor-taste-kernel";
 import { withProviderFallback, withSchemaRetry } from "./llm-provider";
 import { styleRetryNote, synthesisStyleIssues, withStyleRetry } from "./output-style";
 import {
-  citationMarkerRegex,
   nonEmptyStringSchema,
+  normalizeClaimCitations,
   sameCitationMultiset,
   sourcedTextToolSchema,
+  textWithCitationMarkers,
+  uniqueCitationIds,
   visibleCitationMarkers
 } from "./tool-schema-fragments";
 import { SINGLE_TOOL_CHOICE, parseToolUse, type ToolUseLike } from "./tool-use";
@@ -56,10 +58,6 @@ const marketStructureAndTimingToolSchema = {
     "timingRisk"
   ]
 } as const;
-
-function uniqueCitationIds(citationIds: string[]): string[] {
-  return Array.from(new Set(citationIds.filter((citationId) => citationId.trim().length > 0)));
-}
 
 const citedSynthesisSchema = synthesisSchema.superRefine((synthesis, ctx) => {
   const rangedArrays = [
@@ -118,30 +116,6 @@ const citedSynthesisSchema = synthesisSchema.superRefine((synthesis, ctx) => {
     }
   }
 });
-
-function textWithCitationMarkers(text: string, citationIds: string[]) {
-  const base = text.replace(citationMarkerRegex, "").replace(/\s+/g, " ").trim();
-  const markers = citationIds.map((citationId) => `[${citationId}]`).join(" ");
-  if (citationIds.length === 0) {
-    return base;
-  }
-
-  if (!base) {
-    return markers;
-  }
-
-  return `${base.replace(/[.\s]+$/, "")} ${markers}.`;
-}
-
-function normalizeClaimCitations(claim: SourcedText): SourcedText {
-  const visibleMarkers = uniqueCitationIds(visibleCitationMarkers(claim.text));
-  const citationIds = uniqueCitationIds(claim.citationIds.length > 0 ? claim.citationIds : visibleMarkers);
-  return {
-    ...claim,
-    citationIds,
-    text: textWithCitationMarkers(claim.text, citationIds)
-  };
-}
 
 function normalizeMarketClaimCitations(claim: SourcedText): SourcedText {
   const citationIds = uniqueCitationIds(claim.citationIds);

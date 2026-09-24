@@ -10,7 +10,7 @@ import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { investorTasteKernel } from "./investor-taste-kernel";
 import { withProviderFallback, withSchemaRetry } from "./llm-provider";
-import { sameCitationMultiset, sourcedTextToolSchema, visibleCitationMarkers } from "./tool-schema-fragments";
+import { normalizeClaimCitations, sameCitationMultiset, sourcedTextToolSchema, visibleCitationMarkers } from "./tool-schema-fragments";
 import { SINGLE_TOOL_CHOICE, parseToolUse, type ToolUseLike } from "./tool-use";
 
 const EMPHASIS_READ_TOOL_NAME = "emit_emphasis_read";
@@ -82,13 +82,22 @@ const citedEmphasisReadFiledSchema = emphasisReadFiledSchema.superRefine((value,
 // default "strip unknown keys" object schema below drops them, collapsing the parsed result to
 // { status: "nothing_notable" } exactly as the spec requires. thin_file never reaches this
 // stage (decided in code before any model call), so it is deliberately not a member here.
-const emphasisReadResponseSchema = z.union([
-  z.object({ status: z.literal("nothing_notable") }),
-  citedEmphasisReadFiledSchema
-]);
+const nothingNotableSchema = z.object({ status: z.literal("nothing_notable") });
+const emphasisReadResponseSchema = z.union([nothingNotableSchema, citedEmphasisReadFiledSchema]);
+
+// Same normalization as synthesis claims: Loud and Read run several sentences, and the model
+// cites a source again in each sentence that uses it. Without this, a repeated marker failed the
+// whole read and it was stored as nothing_notable.
+function normalizeEmphasisReadCitations(input: unknown): unknown {
+  const parsed = z.union([nothingNotableSchema, emphasisReadFiledSchema]).parse(input);
+  if (parsed.status !== "read") {
+    return parsed;
+  }
+  return { ...parsed, loud: normalizeClaimCitations(parsed.loud), read: normalizeClaimCitations(parsed.read) };
+}
 
 export function parseEmphasisReadToolUse(message: { content: ToolUseLike[] }): EmphasisRead {
-  return parseToolUse(message, EMPHASIS_READ_TOOL_NAME, emphasisReadResponseSchema, (input) => input);
+  return parseToolUse(message, EMPHASIS_READ_TOOL_NAME, emphasisReadResponseSchema, normalizeEmphasisReadCitations);
 }
 
 // Mirrors assertSynthesisCitationsExistOnCard (synthesis.ts): a claim citing an ID that never
