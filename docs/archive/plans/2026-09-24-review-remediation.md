@@ -1,6 +1,6 @@
 # Review remediation, September 24
 
-Status: shipped. Every item done on branch `review-2026-09-24-remediation` (`6419bfc` through the closing docs commit), fast-forwarded to main and deployed on September 24, 2026. The pre-deploy checks and Samay's decisions are in [the review](../../qa/review-2026-09-24-evidence-remediation.md#pre-deploy-checks-and-decisions).
+Status: shipped. Every item done on branch `review-2026-09-24-remediation` (`6419bfc` through `405d790`), fast-forwarded to main and deployed on September 24, 2026 as `dpl_DQSAWKovy6JARENocQadK5ASrT3b`. The pre-deploy checks and Samay's decisions are in [the review](../../qa/review-2026-09-24-evidence-remediation.md#pre-deploy-checks-and-decisions).
 
 This plan fixes or closes all 21 findings in [the September 24 review](../../qa/review-2026-09-24-evidence-remediation.md), plus two deferred minors from STATUS. Each item has a done-definition. A finding is done when its status line in the review names a commit or records why it needs no change.
 

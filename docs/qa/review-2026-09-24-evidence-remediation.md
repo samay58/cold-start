@@ -118,7 +118,7 @@ Checked and decided on September 24, before merging. Paid spend: $0.185 of a $1.
 3. The direct Exa news search was failing. Exa now answers 400 when a body sets both `contents.livecrawl` and `contents.maxAgeHours` ("livecrawl is deprecated"). The news lane on main sent both, so it fails on every run today and cards lose direct Exa's recent news; the pipeline carries on without it. When Exa began rejecting the body is not known: the production count of rejected runs was not run. Fixed in `b757332`: the lane keeps only `maxAgeHours`. The contact-email lane sets `livecrawl` alone, and one live search showed Exa still accepts it.
 4. `EXTRACTION_EVIDENCE_BUDGET_CHARS` is not set in any Vercel environment, so extraction has always run at its 45,000-character default and research sections at 24,000. No env change.
 5. Backfill: skipped, Samay's call. Re-files fill an empty stored row as its URL comes back.
-6. Deploy order: Samay approved read-only production checks. The deploy waits until no How it wins job is running. Each card's memoized verdict misses once on its next read (about $1.70 a company).
+6. Deploy order: Samay approved read-only production checks. At 23:22 UTC no How it wins job was queued or running; main was fast-forwarded to `405d790` and deployed as `dpl_DQSAWKovy6JARENocQadK5ASrT3b`. Each card's memoized verdict misses once on its next read (about $1.70 a company). The first organic basics or analysis run had not landed by 23:40 UTC, so the production checks on stored page text, direct Exa news and the judge are a STATUS follow-up.
 
 ## Independent review
 
