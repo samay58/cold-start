@@ -134,6 +134,27 @@ Opus 5, one call each. The judge call times out at 240 s.
 
 Timed-out calls are not in the batch's cost record; each is bounded at about $0.95. The judge timeout and the model choice belong to Task 5.
 
+## Task 3 results, September 23, 2026
+
+The new wording adds one line to the shared investor rules: private companies rarely publish revenue, margins, contract values or head-to-head results, so their absence is not a finding. Six sentences that invited absence lines got shorter. The emphasis read's Quiet line stays. Commit `09931cd`.
+
+Both wordings ran on the same rebuilt cards with the production models (Sonnet 4.6 writing, deepseek-v4-flash checking): synthesis, the longer description, and the Market and Risks sections. Market and Risks hold 151 of the roughly 190 absence lines in stored research sections. Ten companies ran under both wordings, one run each. Cost about $4.85.
+
+Lines that name missing information, counting only parts that worked under both wordings (the text match undercounts):
+
+| Part | Old wording | New wording |
+| --- | --- | --- |
+| Market | 14 | 7 |
+| Risks | 11 | 6 |
+| Synthesis | 5 | 5 |
+| Longer description | 2 | 2 |
+| **Total** | **32** | **20** |
+
+- Known gap: casaphq claims automation of "up to 30%" of disputes with only its own pages behind it. The new wording still flags that nothing independent backs the figure.
+- Failures, under both wordings: the Market section left out its required confidence field 3 times in 21 runs; the longer description and synthesis each failed a parse once.
+- Samay's blind read (four companies, unlabeled): he picked the new wording for both companies he chose between, Doppel and Neko Health, and called its market sizing and questions more nuanced. Cognition and Kalshi differed only in emphasis.
+- Two more runs of each wording for Neko Health and Doppel ($1.52): under the new wording, Neko's market sizing starts from its cited 300,000-person waitlist in 3 of 3 runs. The old wording invented a buyer pool in 2 of 3 (5 million buyers for $1.85B; 500,000 for £150M). Neko's sharper questions came from one good run, not every run. Doppel showed no consistent difference. Absence lines across these six runs: 18 old, 11 new.
+
 ## Files
 
 - `monitors.py`: the three monitors (judge evidence stubs, card citation stubs, absence lines).
