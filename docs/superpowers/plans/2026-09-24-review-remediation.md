@@ -1,6 +1,6 @@
 # Review remediation, September 24
 
-Status: in progress on branch `review-2026-09-24-remediation`.
+Status: every item done on branch `review-2026-09-24-remediation`, not merged. Merge and deploy wait on [Samay's questions](../../qa/review-2026-09-24-evidence-remediation.md#questions-for-samay).
 
 This plan fixes or closes all 21 findings in [the September 24 review](../../qa/review-2026-09-24-evidence-remediation.md), plus two deferred minors from STATUS. Each item has a done-definition. A finding is done when its status line in the review names a commit or records why it needs no change.
 
@@ -21,6 +21,8 @@ A moved hash means every memoized judge verdict misses once (about $1.70 a compa
 - Finding 1 changes the seed card's oneLiner and snippet. It moves the hash only for cards that were filed from the seed card and never replaced.
 
 Findings 9 and 10 are refactors and must not move the hash. The pin proves that.
+
+What happened: the pin moved once, in `3d335a1` (finding 3). Findings 9, 10 and 11 left it unchanged; finding 11 moves it only for a card carrying an unparseable date, and none of the 12 does. The branch deploys once, so memoized verdicts miss once.
 
 ## Step 1: correctness
 

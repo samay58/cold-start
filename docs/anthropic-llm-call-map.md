@@ -40,8 +40,8 @@ Every one funnels through the chokepoint. All use forced tool choice for structu
 | # | Function | File:line | Stage | Label | Max tokens | Temp | Tool | Status |
 |---|---|---|---|---|---|---|---|---|
 | 1 | `planCompanyResearch` | removed September 22, 2026; the `plan-research` step uses `fallbackResearchPlan` | `research_plan` | `research-plan` | n/a | n/a | n/a | REMOVED |
-| 2 | `extractCompanyClaims` | `extraction.ts:778` | `extract_full` | `extract-company-claims` | 4000 | 0 | `emit_company_claims` | live |
-| 3 | `extractCompanyBlockClaims` | `extraction.ts:835` | `extract_block` | `extract-block:{block}` | 1800 | 0 | `emit_block_claims` | live |
+| 2 | `extractCompanyClaims` | `extraction.ts:147` | `extract_full` | `extract-company-claims` | 4000 | 0 | `emit_company_claims` | live |
+| 3 | `extractCompanyBlockClaims` | `extraction.ts:212` | `extract_block` | `extract-block:{block}` | 1800 | 0 | `emit_block_claims` | live |
 | 4 | `synthesizeCard` | `synthesis.ts:285` | `synthesis` | `synthesize-card` | 2500 | 0.2 | `emit_investor_synthesis` | live |
 | 5 | `verifySynthesis` | `verifier.ts:100` | `verify` | `verify-synthesis` | 8192 | 0 | none (JSON text) | live |
 | 6 | `synthesizeResearchSection` | `research-section.ts:165` | `research_section` | `research-section:{sectionId}` | 1800 | 0 | `emit_research_section` | live |
@@ -56,7 +56,7 @@ Function 10 is judge-then-writer, and since 2026-08-25 it runs outside the analy
 
 Purposes:
 
-1. **Research plan** (dormant): given only a domain, emit a company archetype, 3-6 priority questions, six provider search queries, and presentation focus. Unplugged in commit `fc7fc92` ("Cut generation cost"): the production `plan-research` step now calls `fallbackResearchPlan(domain)`, a deterministic template in `research-plan.ts:78`, with zero LLM cost. The function, its tool schema, and `ANTHROPIC_RESEARCH_PLAN_MODEL` all still exist and could be rewired.
+1. **Research plan** (removed): the LLM research plan was unplugged in commit `fc7fc92` ("Cut generation cost"), and its tool schema and parser were deleted on September 24, 2026, since nothing outside tests called them. The `plan-research` step calls `fallbackResearchPlan()`, a fixed template in `research-plan.ts` with an archetype, priority questions and presentation focus, at no LLM cost. Evidence searches read `defaultSourceSearchQueries` in core; a plan no longer carries search queries.
 2. **Full extraction**: turn the budgeted evidence bundle (sources + evidence ledger + research plan) into the cited card sections: identity, funding, team, signals, comparables, citations. The system prompt enforces citation discipline, the funding round-ledger standard, and description quality rules.
 3. **Block enrichment**: re-extract one weak block (`description`, `funding`, `team`, `signals`, or `comparables`) with block-specific guidance and block-filtered sources, returning a patch merged over the full extraction.
 4. **Card synthesis**: from the finished cited card, write the gated investor layer: `whyItMatters`, 3 bull case claims, 3 bear case claims, sparse `marketStructureAndTiming`, and 3 categorized open questions. Every claim must carry citation markers that exist on the card (`assertSynthesisCitationsExistOnCard`, `synthesis.ts:273`). Non-zero temperature, same as the emphasis read below; every other call runs at 0.
