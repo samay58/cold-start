@@ -115,7 +115,7 @@ The date is lost at every step:
 - Correction to the plan's "What we learned" item 4: Opus 5 did not use memory for Notion's composability. The card's description, written by extraction from page text, says "Block-based editor where pages, databases, and views ... are composable primitives", and it sits in `context`. No citable evidence item says "block". Opus 5 used the description, and Opus 5.5 refused a claim with no evidence item behind it. Both behaved reasonably. The real problem is that the page text behind the description never reached the evidence list.
 - casaphq: the rules are 80% of the judge prompt, and its 5 evidence items total 2,555 characters.
 - `scope` is always `"company"`, even for "alternatives to Notion" roundups (`how-it-wins-judge-rules.ts:95`).
-- Proposed fix: none beyond finding 2 for now. Once items carry page text, drop the repeated snippets from `context`. That is a judge prompt change, so it waits for Task 5.
+- Proposed fix: none beyond finding 2 for now. Once items carry page text, drop the repeated snippets from `context`. That is a judge prompt change, so it waits for Task 5. Done September 23, 2026, on Samay's decision after the rebuilt cards timed out: `context` keeps each citation's id, title, URL and type and drops its snippet, which reaches the judge once, as its evidence item.
 
 ### 9. A keyword filter deletes verified claims (verified)
 

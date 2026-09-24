@@ -287,7 +287,7 @@ Do not add a rule against the one-line shortcut. The structural fix is Task 5's 
 
 ### Task 5: Rerun the judge comparison fairly, then choose
 
-Runs after Tasks 2 through 4, so that both models see the fixed evidence, dates and rules. Audit finding 8 belongs here too: the judge's `context` repeats every snippet already in its evidence list. If Samay agrees, run the arms with the repeated snippets removed from `context`, and say so in the sheet.
+Runs after Tasks 2 through 4, so that both models see the fixed evidence, dates and rules. Audit finding 8 is already fixed: on September 23 Samay chose to drop the repeated snippets from the judge's `context` after the rebuilt cards timed out in Task 2 E4. Every arm runs with each snippet sent once; say so in the sheet.
 
 **Files:**
 - Output: `eval/curation/how-it-wins-batch/<timestamp>/` per run; a side-by-side sheet in `eval/curation/remediation-2026-09/`

@@ -96,9 +96,11 @@ export function howItWinsEvidencePacketFromCard(cardInput: ColdStartCard) {
     attribution: sourceQualityForSource(citation, { targetDomain: card.domain }).tier,
     scope: "company"
   }));
+  // Each snippet reaches the judge once, as its evidence item. The card context keeps the citation's
+  // id, title, URL and type, so the judge can read the card without every snippet repeated in it.
   return {
     cutoff: card.generatedAt,
     evidence,
-    context
+    context: { ...context, citations: context.citations.map(({ snippet: _snippet, ...citation }) => citation) }
   };
 }

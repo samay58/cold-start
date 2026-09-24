@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ColdStartCard } from "@cold-start/core";
+import { coldStartCardSchema, type ColdStartCard } from "@cold-start/core";
 import { describe, expect, it } from "vitest";
 import { howItWinsEvidencePacketFromCard } from "../src";
 
@@ -64,5 +64,17 @@ describe("howItWinsEvidencePacketFromCard dates", () => {
 
     expect(date("d1")).toBe("2026-05-01T00:00:00.000Z");
     expect(date("d2")).toBeNull();
+  });
+});
+
+describe("howItWinsEvidencePacketFromCard context", () => {
+  it("sends each snippet once, in the evidence list, not again in the card context", () => {
+    const packet = howItWinsEvidencePacketFromCard(card);
+
+    expect(packet.context.citations.some((citation) => "snippet" in citation)).toBe(false);
+    // Compared against the parsed card: the schema turns a stored JSON snippet into its page text.
+    const withSnippet = coldStartCardSchema.parse(card).citations.find((citation) => citation.snippet);
+    expect(withSnippet).toBeDefined();
+    expect(packet.evidence.find((item) => item.evidenceId === withSnippet?.id)?.text).toBe(withSnippet?.snippet?.trim());
   });
 });
