@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 describe("evidenceForResearchSectionPrompt", () => {
-  it("applies the shared evidence budget to research-section prompts", async () => {
-    const previousBudget = process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS;
-    process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS = "900";
+  it("applies the research-section evidence budget, and not extraction's, to research-section prompts", async () => {
+    const previousBudget = process.env.RESEARCH_SECTION_EVIDENCE_BUDGET_CHARS;
+    const previousExtractionBudget = process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS;
+    process.env.RESEARCH_SECTION_EVIDENCE_BUDGET_CHARS = "900";
+    process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS = "100000";
     vi.resetModules();
 
     try {
@@ -36,9 +38,14 @@ describe("evidenceForResearchSectionPrompt", () => {
       expect(evidence.reduce((sum, source) => sum + source.text.length, 0)).toBeLessThanOrEqual(900);
     } finally {
       if (previousBudget === undefined) {
+        delete process.env.RESEARCH_SECTION_EVIDENCE_BUDGET_CHARS;
+      } else {
+        process.env.RESEARCH_SECTION_EVIDENCE_BUDGET_CHARS = previousBudget;
+      }
+      if (previousExtractionBudget === undefined) {
         delete process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS;
       } else {
-        process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS = previousBudget;
+        process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS = previousExtractionBudget;
       }
       vi.resetModules();
     }

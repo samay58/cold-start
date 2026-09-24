@@ -23,8 +23,10 @@ import { SINGLE_TOOL_CHOICE, toolUseMissingMessage } from "./tool-use";
 const TOOL_NAME = "emit_research_section";
 const maxEvidenceItems = 18;
 const maxEvidenceTextLength = 1400;
+// Its own variable: research sections once read EXTRACTION_EVIDENCE_BUDGET_CHARS, so one setting
+// moved two budgets with different defaults.
 const researchEvidenceBudgetChars = evidenceBudgetCharsFromEnv(
-  process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS,
+  process.env.RESEARCH_SECTION_EVIDENCE_BUDGET_CHARS,
   defaultResearchEvidenceBudgetChars
 );
 
