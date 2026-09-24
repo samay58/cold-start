@@ -11,7 +11,7 @@ export const SOURCE_SNIPPET_MAX_LENGTH = 600;
 
 export function readableSourceText(rawText: string | null | undefined, title = ""): string {
   const raw = (rawText ?? "").trim();
-  const readable = tidy(raw.startsWith("{") ? pageTextFromRecord(raw) : raw);
+  const readable = tidy(raw.startsWith("{") ? pageTextFromRecord(raw) : isJsonArray(raw) ? "" : raw);
   return readable && !readable.startsWith("{") ? readable : tidy(title);
 }
 
@@ -39,6 +39,17 @@ export function sourcePublishedAt(rawText: string | null | undefined): string | 
   const record = parseRecord((rawText ?? "").trim());
   const value = record?.publishedDate ?? record?.publishedAt;
   return typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : null;
+}
+
+// A stored JSON array (a provider response listing records) carries no page text. Markdown that
+// opens with a link also starts with "[", so only text that parses as an array counts.
+function isJsonArray(raw: string): boolean {
+  if (!raw.startsWith("[")) return false;
+  try {
+    return Array.isArray(JSON.parse(raw));
+  } catch {
+    return false;
+  }
 }
 
 function parseRecord(raw: string): Record<string, unknown> | null {

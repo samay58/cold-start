@@ -50,6 +50,11 @@ describe("readableSourceText", () => {
     }
   });
 
+  it("treats a stored JSON array as a record with no page text, but keeps markdown that opens with a link", () => {
+    expect(readableSourceText('[{"id":"x","title":"Record"}]', "Stored title")).toBe("Stored title");
+    expect(readableSourceText("[Home](https://a.example/)\nReal page text.", "Stored title")).toBe("Home\nReal page text.");
+  });
+
   it("never returns text that starts like JSON", () => {
     expect(readableSourceText(exaRecord({ text: '{"api": "response"}' }), "API docs")).toBe("API docs");
   });
