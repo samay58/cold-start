@@ -238,7 +238,6 @@ export type GenerationTrace = {
     produced: boolean;
     claimCountBeforeVerify: number;
     claimCountAfterVerify: number;
-    usefulnessDroppedClaims?: number;
     evidenceFingerprint?: string;
     gateMessage?: string;
     // Full evidence-gate diagnostics, persisted for every analysis run that

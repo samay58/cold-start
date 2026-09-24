@@ -1464,7 +1464,7 @@ describe("generateCardForDomain", () => {
     expect(result.tracePatch.synthesis).toBeUndefined();
   });
 
-  it("returns a synthesis trace patch from verifyCardSynthesisDraft, including usefulness-gate diagnostics", async () => {
+  it("returns a synthesis trace patch from verifyCardSynthesisDraft", async () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
     const whyItMatters = { text: "Cartesia has cited public product evidence. [c1]", citationIds: ["c1"] };
     const bullCase = { text: "The company has a clear infrastructure wedge. [c1]", citationIds: ["c1"] };
@@ -1501,9 +1501,39 @@ describe("generateCardForDomain", () => {
       required: true,
       produced: true,
       claimCountBeforeVerify: 2,
-      claimCountAfterVerify: 1,
-      usefulnessDroppedClaims: 0
+      claimCountAfterVerify: 1
     });
+  });
+
+  it("keeps every claim the verifier supports, with no keyword filter after it", async () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+    const whyItMatters = { text: "Cartesia has cited public product evidence. [c1]", citationIds: ["c1"] };
+    // Each of these once fell to a keyword rule after the verifier had passed it.
+    const bullCase = [
+      { text: "Competition is intense. [c1]", citationIds: ["c1"] },
+      { text: "Strong funding signals real traction. [c1]", citationIds: ["c1"] }
+    ];
+    const card = await generateCardForDomain("cartesia.ai", {
+      fetchSources: async () => [],
+      extractSections: async () => ({
+        identity: skeleton.identity,
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: [citation]
+      })
+    });
+    const draft = await synthesizeCardDraft(card, {
+      synthesize: async () => ({ whyItMatters, bullCase, bearCase: [], openQuestions: [] })
+    });
+
+    const result = await verifyCardSynthesisDraft(card, draft, {
+      verify: async (claims) => claims.map((claim) => ({ ...claim, status: "supported" as const }))
+    });
+
+    expect(result.synthesis?.bullCase.map((claim) => claim.text)).toEqual(bullCase.map((claim) => claim.text));
+    expect(result.tracePatch.synthesis?.claimCountAfterVerify).toBe(3);
   });
 
   it("carries trace patches through extraction failure", async () => {

@@ -42,7 +42,6 @@ import {
   finalizeGeneratedCard,
   unknownFact
 } from "./seed-profile";
-import { applySynthesisUsefulnessGate } from "./synthesis-quality";
 
 type CardSynthesis = NonNullable<ColdStartCard["synthesis"]>;
 type MarketStructureAndTiming = NonNullable<CardSynthesis["marketStructureAndTiming"]>;
@@ -1047,7 +1046,7 @@ export async function synthesizeCardDraft(
   return { synthesis, claimCountBeforeVerify };
 }
 
-// Callable with a stored synthesis draft (the verifier pass plus the usefulness gate). Takes the
+// Callable with a stored synthesis draft (the verifier pass). Takes the
 // draft produced by synthesizeCardDraft, which may come from a separately memoized Inngest step
 // (`verify-synthesis`, Phase 4 Task 5.2) rather than being re-derived in the same call.
 export async function verifyCardSynthesisDraft(
@@ -1106,21 +1105,19 @@ export async function verifyCardSynthesisDraft(
     return { tracePatch, ...emphasisResultFields(emphasisOutcome) };
   }
 
-  const gated = applySynthesisUsefulnessGate({
+  const verified: CardSynthesis = {
     whyItMatters,
     bullCase,
     bearCase,
     openQuestions: synthesis.openQuestions,
     ...(marketStructureAndTiming ? { marketStructureAndTiming } : {})
-  });
+  };
   if (tracePatch.synthesis) {
-    tracePatch.synthesis.claimCountAfterVerify = 1 + gated.synthesis.bullCase.length + gated.synthesis.bearCase.length +
-      marketStructureClaims(gated.synthesis).length;
-    tracePatch.synthesis.usefulnessDroppedClaims = gated.droppedClaimCount;
+    tracePatch.synthesis.claimCountAfterVerify = 1 + bullCase.length + bearCase.length + marketStructureClaims(verified).length;
   }
   return {
     tracePatch,
-    synthesis: gated.synthesis,
+    synthesis: verified,
     ...emphasisResultFields(emphasisOutcome)
   };
 }
