@@ -78,6 +78,63 @@ describe("buildPersonReadEvidence", () => {
     expect(ivan?.evidence[0]?.text).toBe("Ivan Zhao, CEO");
   });
 
+  it("keeps the whole sentence when two people share it, instead of cutting at the second name", () => {
+    const text = "Ivan Zhao and Simon Last founded Notion in 2013 after an early version failed. Simon Last now leads engineering.";
+    const [ivan, simon] = buildPersonReadEvidence({
+      people: [person({ name: "Ivan Zhao", role: "CEO" }), person({ name: "Simon Last", role: "Co-founder" })],
+      citations: [{ id: "s1", title: "Profile", url: "https://news.example/notion" }],
+      candidates: [],
+      sources: [{ url: "https://news.example/notion", title: "Profile", rawText: JSON.stringify({ id: "x", text }) }]
+    });
+
+    // Ivan's window stops before the sentence only about Simon; Simon's keeps both of his.
+    expect(ivan?.evidence[0]?.text).toBe("Ivan Zhao and Simon Last founded Notion in 2013 after an early version failed.");
+    expect(simon?.evidence[0]?.text).toBe(text);
+  });
+
+  it("starts at the sentence that names the person, past an abbreviation like Inc.", () => {
+    const [ivan] = buildPersonReadEvidence({
+      people: [person({ name: "Ivan Zhao", role: "CEO" })],
+      citations: [{ id: "c1", title: "t", url: "https://x.example/a", snippet: "Notion grew fast. Notion Labs Inc. co-founder Ivan Zhao runs product." }],
+      candidates: [],
+      sources: []
+    });
+
+    expect(ivan?.evidence[0]?.text).toBe("Notion Labs Inc. co-founder Ivan Zhao runs product.");
+  });
+
+  it("stops before the next person's entry in a list flattened onto one line", () => {
+    const [joseph] = buildPersonReadEvidence({
+      people: [person({ name: "Joseph Parker", role: "Co-founder" }), person({ name: "Rutvik Rau", role: "CEO" })],
+      citations: [{ id: "c1", title: "Company page", url: "https://x.example/co", snippet: "Key Executives: - Joseph Parker: Co-Founder - Rutvik Rau: CEO & Co-Founder" }],
+      candidates: [],
+      sources: []
+    });
+
+    expect(joseph?.evidence[0]?.text).toBe("Key Executives: - Joseph Parker: Co-Founder");
+
+    const [, rutvik] = buildPersonReadEvidence({
+      people: [person({ name: "Joseph Parker", role: "Co-founder" }), person({ name: "Rutvik Rau", role: "CEO" })],
+      citations: [{ id: "c1", title: "Company page", url: "https://x.example/co", snippet: "Key Executives: - Joseph Parker: Co-Founder - Rutvik Rau: CEO & Co-Founder" }],
+      candidates: [],
+      sources: []
+    });
+    expect(rutvik?.evidence[0]?.text).toBe("Rutvik Rau: CEO & Co-Founder");
+  });
+
+  it("lets a source's fuller text replace a shorter window from the same citation", () => {
+    const [ivan] = buildPersonReadEvidence({
+      people: [person({ name: "Ivan Zhao", role: "CEO" })],
+      citations: [{ id: "e1", title: "Profile", url: "https://news.example/ivan", snippet: "Ivan Zhao, CEO" }],
+      candidates: [],
+      sources: [{ url: "https://news.example/ivan", title: "Profile", rawText: "Ivan Zhao, CEO, rebuilt Notion from scratch in Kyoto after the first version failed." }]
+    });
+
+    expect(ivan?.evidence).toEqual([
+      { citationId: "e1", title: "Profile", url: "https://news.example/ivan", text: "Ivan Zhao, CEO, rebuilt Notion from scratch in Kyoto after the first version failed." }
+    ]);
+  });
+
   it("sends each cited source once per person, even when its snippet and stored text both name them", () => {
     const [katy] = buildPersonReadEvidence({
       people: [person({ name: "Katy Shields", role: "Chief People Officer" })],

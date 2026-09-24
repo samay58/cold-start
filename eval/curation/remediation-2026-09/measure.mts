@@ -82,7 +82,7 @@ function jsonBlocks(value: string): Array<{ text: string; parsed: unknown }> {
 const rows: string[] = [];
 let seedJson = 0, seedEmptySnippet = 0;
 const seedOneLiners: string[] = [];
-let totalItems = 0, fragments = 0, people = 0, peopleWithEvidence = 0, citationsSeen = 0, disagreements = 0, jsonInputs = 0, jsonCard = 0;
+let totalItems = 0, fragments = 0, shortItems = 0, people = 0, peopleWithEvidence = 0, citationsSeen = 0, disagreements = 0, jsonInputs = 0, jsonCard = 0;
 const fragmentSamples: string[] = [];
 const disagreementSamples: string[] = [];
 const jsonSamples: string[] = [];
@@ -102,7 +102,11 @@ for (const file of readdirSync(path.join(base, "cards")).sort()) {
     if (person.evidence.length > 0) peopleWithEvidence++;
     for (const item of person.evidence) {
       totalItems++;
-      if (item.text.trim().split(/\s+/).length <= person.name.split(/\s+/).length + 3) {
+      // The review's first count: an item no longer than the name plus three words. It also counts
+      // a whole team-page line such as "Ivan Zhao, CEO", so it is kept only for comparison.
+      if (item.text.trim().split(/\s+/).length <= person.name.split(/\s+/).length + 3) shortItems++;
+      // A fragment: a window cut inside a sentence, which leaves it ending on a joining word or mark.
+      if (/(?:\b(?:and|by|with|or|of|the|for|to)|[,&:\-–—])\s*$/i.test(item.text.trim())) {
         fragments++;
         if (fragmentSamples.length < 10) fragmentSamples.push(`${slug} ${person.name}: "${item.text}"`);
       }
@@ -150,7 +154,7 @@ for (const file of readdirSync(path.join(base, "cards")).sort()) {
 
 const report = [
   `label: ${label}`,
-  `person-read items: ${totalItems}, fragments: ${fragments}, people ${people}, with evidence ${peopleWithEvidence}`,
+  `person-read items: ${totalItems}, cut mid-sentence: ${fragments}, name plus three words or fewer: ${shortItems}, people ${people}, with evidence ${peopleWithEvidence}`,
   ...fragmentSamples.map((s) => `  ${s}`),
   `judge citations: ${citationsSeen}, attribution disagreements: ${disagreements}`,
   ...disagreementSamples.map((s) => `  ${s}`),
