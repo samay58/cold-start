@@ -49,3 +49,20 @@ describe("howItWinsEvidencePacketFromCard labels", () => {
     }
   });
 });
+
+describe("howItWinsEvidencePacketFromCard dates", () => {
+  it("gives the judge each source's publish date, and null when it has none", () => {
+    const packet = howItWinsEvidencePacketFromCard({
+      ...card,
+      citations: [
+        ...card.citations,
+        { id: "d1", url: "https://news.example/dated", title: "Dated", fetchedAt, sourceType: "news", publishedAt: "2026-05-01T00:00:00.000Z" },
+        { id: "d2", url: "https://news.example/undated", title: "Undated", fetchedAt, sourceType: "news" }
+      ]
+    });
+    const date = (id: string) => packet.evidence.find((item) => item.evidenceId === id)?.sourceDate;
+
+    expect(date("d1")).toBe("2026-05-01T00:00:00.000Z");
+    expect(date("d2")).toBeNull();
+  });
+});

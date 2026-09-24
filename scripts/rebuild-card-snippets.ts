@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import { coldStartCardSchema, readableSourceText, type ColdStartCard } from "@cold-start/core";
 import { createDb, findCardBySlug, findSourcesBySlug } from "@cold-start/db";
 import { fallbackResearchPlan } from "@cold-start/llm";
-import { buildEvidenceLedger, withPageTextSnippets } from "@cold-start/pipeline";
+import { buildEvidenceLedger, withSourcePageDetails } from "@cold-start/pipeline";
 import { agentcashJson, buildStableenrichRequests, fetchStableenrichSources, type ProviderSource } from "@cold-start/providers";
 import { providerSourcesFromStoredSources } from "../apps/web/src/inngest/source-fetching";
 import { stableenrichEnvFromProcess } from "../apps/web/src/inngest/worker-env";
@@ -148,7 +148,7 @@ async function main() {
     }
 
     const evidenceLedger = buildEvidenceLedger({ domain: card.domain, sources });
-    const rebuilt = coldStartCardSchema.parse({ ...card, citations: withPageTextSnippets(card.citations, evidenceLedger) });
+    const rebuilt = coldStartCardSchema.parse({ ...card, citations: withSourcePageDetails(card.citations, evidenceLedger) });
     for (const [folder, value] of [["cards", rebuilt], ["sources", sources]] as const) {
       mkdirSync(path.join(flags.out, folder), { recursive: true });
       writeFileSync(path.join(flags.out, folder, `${slug}.json`), `${JSON.stringify(value, null, 2)}\n`);

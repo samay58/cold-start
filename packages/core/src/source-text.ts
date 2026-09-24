@@ -33,16 +33,27 @@ export function sourceSnippet(text: string): string {
   return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trim();
 }
 
-function pageTextFromRecord(raw: string): string {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return "";
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "";
+// The publish date a stored provider record carries (Exa's publishedDate), or null. Never the
+// fetch time: an undated source stays undated.
+export function sourcePublishedAt(rawText: string | null | undefined): string | null {
+  const record = parseRecord((rawText ?? "").trim());
+  const value = record?.publishedDate ?? record?.publishedAt;
+  return typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : null;
+}
 
-  const record = parsed as Record<string, unknown>;
+function parseRecord(raw: string): Record<string, unknown> | null {
+  if (!raw.startsWith("{")) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function pageTextFromRecord(raw: string): string {
+  const record = parseRecord(raw);
+  if (!record) return "";
   const field = (key: string) => (typeof record[key] === "string" ? (record[key] as string).trim() : "");
   const highlights = Array.isArray(record.highlights)
     ? record.highlights.filter((part): part is string => typeof part === "string").join("\n")

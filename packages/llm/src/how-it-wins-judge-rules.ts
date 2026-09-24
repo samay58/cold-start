@@ -90,7 +90,7 @@ export function howItWinsEvidencePacketFromCard(cardInput: ColdStartCard) {
     evidenceId: citation.id,
     text: citation.snippet?.trim() || citation.title,
     source: `${citation.title} (${citation.url})`,
-    sourceDate: null,
+    sourceDate: citation.publishedAt ?? null,
     // Computed against the card's domain, not read from storage: sources stored before intake typed
     // hosts correctly label the company's own pages as outside reporting.
     attribution: sourceQualityForSource(citation, { targetDomain: card.domain }).tier,

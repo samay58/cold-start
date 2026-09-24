@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ColdStartCard } from "@cold-start/core";
 
 import type { ColdStartDb } from "../src/client";
-import { countCardRevisions, freezeCurrentEditionForRefile, listCardRevisionSummaries, mutateCard, upsertCard } from "../src/index";
+import { countCardRevisions, findSourcesBySlug, freezeCurrentEditionForRefile, listCardRevisionSummaries, mutateCard, recordSource, upsertCard } from "../src/index";
 import * as schema from "../src/schema";
 
 const databaseUrl = process.env.CARDS_DB_TEST_URL;
@@ -40,6 +40,18 @@ describeDatabase("card writes against Postgres", () => {
 
   afterAll(async () => {
     await pool?.end();
+  });
+
+  it("stores each source's publish date and reads it back, null when the source has none", async () => {
+    const card = cardFixture();
+    const { id } = await upsertCard(db, card);
+    const source = { cardId: id, title: "Source", sourceType: "news" as const, fetchedAt: "2026-09-01T00:00:00.000Z", rawText: "Text." };
+    await recordSource(db, { ...source, url: "https://news.example/dated", publishedAt: "2026-05-01T00:00:00.000Z" });
+    await recordSource(db, { ...source, url: "https://news.example/undated" });
+
+    const stored = await findSourcesBySlug(db, card.slug);
+    const dates = Object.fromEntries(stored.map((row) => [row.url, row.publishedAt]));
+    expect(dates).toEqual({ "https://news.example/dated": "2026-05-01T00:00:00.000Z", "https://news.example/undated": null });
   });
 
   it("mutates a card whose stored timestamp carries microseconds", async () => {

@@ -54,6 +54,19 @@ describe("buildEvidenceLedger", () => {
     expect(entry?.supportingSnippets).toEqual(["Perplexity is a conversational answer engine. It raised $63 million in a Series B led by IVP."]);
   });
 
+  it("carries a source's publish date, never its fetch time", () => {
+    const source = { sourceType: "news" as const, fetchedAt: "2026-05-07T00:00:00.000Z", title: "T", rawText: "Text." };
+    const ledger = buildEvidenceLedger({
+      domain: "perplexity.ai",
+      sources: [
+        { ...source, url: "https://news.example/dated", publishedAt: "2026-04-01T00:00:00.000Z" },
+        { ...source, url: "https://news.example/undated" },
+      ],
+    });
+
+    expect(ledger.map((entry) => entry.publishedAt ?? null)).toEqual(["2026-04-01T00:00:00.000Z", null]);
+  });
+
   it("gives funding sources no ranking bonus over equal sources", () => {
     const source = { sourceType: "news" as const, fetchedAt: "2026-05-07T00:00:00.000Z" };
     const ledger = buildEvidenceLedger({

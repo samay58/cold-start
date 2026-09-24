@@ -1826,7 +1826,8 @@ describe("research run evidence summaries", () => {
                 sourceType: "company_site",
                 fetchedAt: new Date("2026-05-26T20:01:00.000Z"),
                 rawText: "Cartesia runs real-time voice AI.",
-                imageUrl: "https://cartesia.ai/og.png"
+                imageUrl: "https://cartesia.ai/og.png",
+                publishedAt: new Date("2026-05-01T00:00:00.000Z")
               }
             ]
           })
@@ -1842,7 +1843,8 @@ describe("research run evidence summaries", () => {
         sourceType: "company_site",
         fetchedAt: "2026-05-26T20:01:00.000Z",
         rawText: "Cartesia runs real-time voice AI.",
-        imageUrl: "https://cartesia.ai/og.png"
+        imageUrl: "https://cartesia.ai/og.png",
+        publishedAt: "2026-05-01T00:00:00.000Z"
       }
     ]);
   });
@@ -1880,6 +1882,26 @@ describe("research run evidence summaries", () => {
     });
 
     expect(insertedValues?.imageUrl).toBeNull();
+  });
+
+  it("stores a source's publish date, and null when it has none or it is not a date", async () => {
+    let insertedValues: Record<string, unknown> | undefined;
+    const db = {
+      insert: () => ({
+        values: (values: Record<string, unknown>) => {
+          insertedValues = values;
+          return { onConflictDoNothing: async () => undefined };
+        }
+      })
+    } as unknown as ColdStartDb;
+    const source = { cardId: "card-id", url: "https://cartesia.ai/blog", title: "Blog", sourceType: "news" as const, fetchedAt: "2026-05-26T20:01:00.000Z", rawText: "Text." };
+
+    await recordSource(db, { ...source, publishedAt: "2026-05-01T00:00:00.000Z" });
+    expect(insertedValues?.publishedAt).toEqual(new Date("2026-05-01T00:00:00.000Z"));
+    await recordSource(db, source);
+    expect(insertedValues?.publishedAt).toBeNull();
+    await recordSource(db, { ...source, publishedAt: "sometime" });
+    expect(insertedValues?.publishedAt).toBeNull();
   });
 });
 

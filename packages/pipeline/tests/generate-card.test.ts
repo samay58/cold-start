@@ -349,6 +349,7 @@ describe("generateCardForDomain", () => {
           fetchedAt: "2026-08-17T00:00:00.000Z",
           intent: "homepage",
           rawText: JSON.stringify({ id: homepage, title: "Gecko Robotics", text: "Gecko Robotics builds robots and software for industrial inspections." }),
+          publishedAt: "2026-06-01T00:00:00.000Z",
         },
       ],
       extractSections: async () => ({
@@ -370,6 +371,9 @@ describe("generateCardForDomain", () => {
     const snippetFor = (url: string) => result.card.citations.find((citation) => citation.url === url)?.snippet;
     expect(snippetFor(homepage)).toBe("Gecko Robotics builds robots and software for industrial inspections.");
     expect(snippetFor(unfetched)).toBe("Analysts cover Gecko's inspection robots.");
+    const citationFor = (url: string) => result.card.citations.find((citation) => citation.url === url);
+    expect(citationFor(homepage)?.publishedAt).toBe("2026-06-01T00:00:00.000Z");
+    expect(citationFor(unfetched)?.publishedAt).toBeUndefined();
   });
 
   it("recovers block facts that cite the block evidence ledger", async () => {

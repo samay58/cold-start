@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { citationSchema, readableSourceText, SOURCE_SNIPPET_MAX_LENGTH, sourceSnippet } from "../src/index";
+import { citationSchema, readableSourceText, SOURCE_SNIPPET_MAX_LENGTH, sourcePublishedAt, sourceSnippet } from "../src/index";
 
 const exaRecord = (fields: Record<string, unknown>) =>
   JSON.stringify({ id: "https://notion.com/", title: "Notion", url: "https://notion.com/", publishedDate: null, ...fields });
@@ -102,5 +102,32 @@ describe("citationSchema", () => {
     expect(citationSchema.parse({ ...citation, snippet: "Notion is a connected workspace." }).snippet).toBe(
       "Notion is a connected workspace."
     );
+  });
+});
+
+describe("sourcePublishedAt", () => {
+  it("reads the publish date a stored provider record carries", () => {
+    expect(sourcePublishedAt(JSON.stringify({ id: "x", publishedDate: "2024-07-06T00:00:00.000Z" }))).toBe("2024-07-06T00:00:00.000Z");
+  });
+
+  it("returns null for plain text, a record without a date, or a value that is not a date", () => {
+    expect(sourcePublishedAt("Plain page text.")).toBeNull();
+    expect(sourcePublishedAt(JSON.stringify({ id: "x" }))).toBeNull();
+    expect(sourcePublishedAt(JSON.stringify({ id: "x", publishedDate: "sometime" }))).toBeNull();
+  });
+});
+
+describe("citation publish dates", () => {
+  it("keeps a citation's publish date", () => {
+    const parsed = citationSchema.parse({
+      id: "s1",
+      url: "https://notion.com/",
+      title: "Notion",
+      fetchedAt: "2026-09-01T00:00:00.000Z",
+      sourceType: "company_site",
+      publishedAt: "2024-07-06T00:00:00.000Z"
+    });
+
+    expect(parsed.publishedAt).toBe("2024-07-06T00:00:00.000Z");
   });
 });

@@ -139,7 +139,8 @@ export function fallbackSectionsFromEvidence(
     title: entry.title,
     fetchedAt: entry.fetchedAt,
     sourceType: entry.sourceType as CitationSourceType,
-    snippet: entry.supportingSnippets[0] ?? sourceSnippet(entry.rawText)
+    snippet: entry.supportingSnippets[0] ?? sourceSnippet(entry.rawText),
+    ...(entry.publishedAt ? { publishedAt: entry.publishedAt } : {})
   }));
   const firstCitation = citations[0];
 
@@ -262,7 +263,8 @@ function sourceCitation(source: ProviderSource): ColdStartCard["citations"][numb
     title: source.title || source.url,
     fetchedAt: source.fetchedAt,
     sourceType: source.sourceType,
-    snippet: sourceSnippet(readableSourceText(source.rawText))
+    snippet: sourceSnippet(readableSourceText(source.rawText)),
+    ...(source.publishedAt ? { publishedAt: source.publishedAt } : {})
   };
 }
 

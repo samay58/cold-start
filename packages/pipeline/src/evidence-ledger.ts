@@ -12,6 +12,8 @@ export type EvidenceLedgerEntry = {
   // The readable page text of every stored row for this URL, never the provider JSON.
   rawText: string;
   supportingSnippets: string[];
+  // When the source says it was published; absent when no stored row for this URL carries a date.
+  publishedAt?: string;
 };
 
 export function buildEvidenceLedger(input: { domain: string; sources: ProviderSource[] }): EvidenceLedgerEntry[] {
@@ -33,6 +35,7 @@ export function buildEvidenceLedger(input: { domain: string; sources: ProviderSo
       authorityScore: Math.max(existing?.authorityScore ?? 0, authorityScore(source, input.domain)),
       rawText,
       supportingSnippets: supportSnippets(rawText),
+      ...((existing?.publishedAt ?? source.publishedAt) ? { publishedAt: existing?.publishedAt ?? source.publishedAt } : {}),
     });
   }
 
@@ -41,13 +44,21 @@ export function buildEvidenceLedger(input: { domain: string; sources: ProviderSo
     .map((entry, index) => ({ id: `e${index + 1}`, ...entry }));
 }
 
-// A cited source's snippet is its own page text. The extraction model's snippet stays only when
-// the page has no readable text.
-export function withPageTextSnippets<T extends { url: string; snippet?: string | undefined }>(citations: T[], ledger: EvidenceLedgerEntry[]): T[] {
-  const pageText = new Map(ledger.map((entry) => [canonicalSourceKey(entry.url), entry.supportingSnippets[0]]));
+// A cited source's snippet is its own page text, and its publish date is the source's. The
+// extraction model's snippet stays only when the page has no readable text.
+export function withSourcePageDetails<T extends { url: string; snippet?: string | undefined; publishedAt?: string | undefined }>(
+  citations: T[],
+  ledger: EvidenceLedgerEntry[]
+): T[] {
+  const byKey = new Map(ledger.map((entry) => [canonicalSourceKey(entry.url), entry]));
   return citations.map((citation) => {
-    const snippet = pageText.get(canonicalSourceKey(citation.url));
-    return snippet ? { ...citation, snippet } : citation;
+    const entry = byKey.get(canonicalSourceKey(citation.url));
+    const snippet = entry?.supportingSnippets[0];
+    return {
+      ...citation,
+      ...(snippet ? { snippet } : {}),
+      ...(entry?.publishedAt ? { publishedAt: entry.publishedAt } : {})
+    };
   });
 }
 

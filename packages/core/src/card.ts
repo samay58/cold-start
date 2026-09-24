@@ -21,6 +21,8 @@ export const citationSchema = z.object({
   // Cards stored before snippets were page text carry slices of provider JSON. Every read turns
   // them into readable text, or drops them, so no reader sees JSON.
   snippet: z.preprocess((value) => (typeof value === "string" ? readableSourceText(value) || undefined : value), z.string().optional()),
+  // When the source says it was published. Comes from the source, never from a model.
+  publishedAt: z.string().min(1).optional(),
   sourceQuality: z.object({
     tier: z.enum([
       "independent_technical",

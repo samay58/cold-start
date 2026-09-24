@@ -14,9 +14,10 @@ export type StoredSource = {
   fetchedAt: string;
   rawText: string;
   imageUrl?: string | null;
+  publishedAt?: string | null;
 };
 
-export type SourceSummary = Omit<StoredSource, "rawText"> & {
+export type SourceSummary = Omit<StoredSource, "rawText" | "publishedAt"> & {
   domain: string;
   snippet: string;
 };
@@ -30,7 +31,8 @@ export async function findSourcesBySlug(db: ColdStartDb, slug: string): Promise<
       sourceType: sources.sourceType,
       fetchedAt: sources.fetchedAt,
       rawText: sources.rawText,
-      imageUrl: sources.imageUrl
+      imageUrl: sources.imageUrl,
+      publishedAt: sources.publishedAt
     })
     .from(sources)
     .innerJoin(cards, eq(sources.cardId, cards.id))
@@ -43,7 +45,8 @@ export async function findSourcesBySlug(db: ColdStartDb, slug: string): Promise<
     sourceType: row.sourceType,
     fetchedAt: row.fetchedAt.toISOString(),
     rawText: row.rawText,
-    imageUrl: row.imageUrl
+    imageUrl: row.imageUrl,
+    publishedAt: row.publishedAt?.toISOString() ?? null
   }));
 }
 
@@ -98,8 +101,10 @@ export async function recordSource(
     fetchedAt: string;
     rawText: string;
     imageUrl?: string | null;
+    publishedAt?: string | null;
   }
 ) {
+  const publishedAt = input.publishedAt ? new Date(input.publishedAt) : null;
   await db
     .insert(sources)
     .values({
@@ -109,7 +114,8 @@ export async function recordSource(
       sourceType: input.sourceType,
       fetchedAt: new Date(input.fetchedAt),
       rawText: input.rawText,
-      imageUrl: input.imageUrl ?? null
+      imageUrl: input.imageUrl ?? null,
+      publishedAt: publishedAt && !Number.isNaN(publishedAt.getTime()) ? publishedAt : null
     })
     .onConflictDoNothing();
 }

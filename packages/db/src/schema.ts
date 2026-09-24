@@ -132,6 +132,8 @@ export const sources = pgTable(
     fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
     rawText: text("raw_text").notNull(),
     imageUrl: text("image_url"),
+    // When the source says it was published, when the provider returned one. Never the fetch time.
+    publishedAt: timestamp("published_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
   },
   (table) => [uniqueIndex("sources_card_url_idx").on(table.cardId, table.url)]

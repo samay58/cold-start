@@ -1,4 +1,4 @@
-import { readableSourceText, sourceSnippet, type ColdStartCard, type GenerationTrace } from "@cold-start/core";
+import { readableSourceText, sourcePublishedAt, sourceSnippet, type ColdStartCard, type GenerationTrace } from "@cold-start/core";
 import {
   filterSourcesForDomain,
   sourceGateTrace,
@@ -60,9 +60,14 @@ export function recordSourcesForCard(db: ColdStartDb, cardId: string, sources: P
         fetchedAt: source.fetchedAt,
         rawText: source.rawText,
         imageUrl: source.imageUrl ?? null,
+        publishedAt: source.publishedAt ?? null,
       }),
     ),
   );
+}
+
+function publishedAtField(publishedAt: string | null | undefined) {
+  return publishedAt ? { publishedAt } : {};
 }
 
 export function providerSourcesFromStoredSources(storedSources: StoredSource[]): ProviderSource[] {
@@ -72,7 +77,9 @@ export function providerSourcesFromStoredSources(storedSources: StoredSource[]):
     sourceType: source.sourceType,
     fetchedAt: source.fetchedAt,
     rawText: source.rawText,
-    imageUrl: source.imageUrl ?? null
+    imageUrl: source.imageUrl ?? null,
+    // Rows stored before sources.published_at existed keep the date inside their provider record.
+    ...publishedAtField(source.publishedAt ?? sourcePublishedAt(source.rawText))
   }));
 }
 
@@ -100,7 +107,8 @@ export function sectionsWithSourceCitations(card: ColdStartCard, sources: Provid
       title: source.title,
       fetchedAt: source.fetchedAt,
       sourceType: source.sourceType,
-      ...(snippet ? { snippet } : {})
+      ...(snippet ? { snippet } : {}),
+      ...publishedAtField(source.publishedAt)
     });
     existingUrls.add(source.url);
   }
