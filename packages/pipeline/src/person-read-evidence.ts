@@ -17,9 +17,10 @@ const defaultMaxEvidencePerPerson = 8;
 // How far back from the name the window may start, so the sentence that names the person leads.
 const maxLeadBeforeName = 200;
 
-// The text around the person's name, starting at the sentence that names them, or null when the
-// text never names them. The model sees this window, so it always names the person.
-function textAboutPerson(text: string, name: string): string | null {
+// The text around the person's name, starting at the line or sentence that names them and ending
+// before the next person on the card is named, or null when the text never names them. The model
+// sees this window, so it always names the person and, on a team page, only them.
+function textAboutPerson(text: string, name: string, otherNames: string[] = []): string | null {
   const needle = name.trim().toLowerCase();
   const at = needle ? text.toLowerCase().indexOf(needle) : -1;
   if (at < 0) return null;
@@ -28,7 +29,13 @@ function textAboutPerson(text: string, name: string): string | null {
   const sentenceEnd = Math.max(before.lastIndexOf(". "), before.lastIndexOf("! "), before.lastIndexOf("? "));
   let start = Math.max(lineStart, sentenceEnd < 0 ? 0 : sentenceEnd + 2);
   if (at - start > maxLeadBeforeName) start = text.lastIndexOf(" ", at - maxLeadBeforeName / 2) + 1;
-  return sourceSnippet(text.slice(start));
+  const lower = text.toLowerCase();
+  const nameEnd = at + needle.length;
+  const nextPerson = otherNames
+    .map((other) => lower.indexOf(other.trim().toLowerCase(), nameEnd))
+    .filter((index) => index >= nameEnd)
+    .reduce((earliest, index) => Math.min(earliest, index), text.length);
+  return sourceSnippet(text.slice(start, nextPerson));
 }
 
 function uniquePeople(people: CardPerson[]): CardPerson[] {
@@ -54,7 +61,9 @@ export function buildPersonReadEvidence(input: {
 }): PersonReadEvidence[] {
   const maxEvidence = input.maxEvidencePerPerson ?? defaultMaxEvidencePerPerson;
 
-  return uniquePeople(input.people).map((person) => {
+  const people = uniquePeople(input.people);
+  return people.map((person) => {
+    const otherNames = people.filter((other) => other !== person).map((other) => other.name).filter((other) => other.trim());
     const evidence: PersonReadEvidence["evidence"] = [];
     // A cited page can arrive as its snippet, a provider fact and its stored row; send it once.
     const add = (item: PersonReadEvidence["evidence"][number]) => {
@@ -63,14 +72,14 @@ export function buildPersonReadEvidence(input: {
 
     for (const citation of input.citations) {
       if (evidence.length >= maxEvidence) break;
-      const text = textAboutPerson(citation.snippet ?? "", person.name);
+      const text = textAboutPerson(citation.snippet ?? "", person.name, otherNames);
       if (!text) continue;
       add({ citationId: citation.id, title: citation.title, url: citation.url, text });
     }
 
     for (const candidate of input.candidates) {
       if (evidence.length >= maxEvidence) break;
-      const text = textAboutPerson(readableSourceText(candidate.rawText), person.name);
+      const text = textAboutPerson(readableSourceText(candidate.rawText), person.name, otherNames);
       if (!text) continue;
       const citationId = citationIdForUrl(input.citations, candidate.citationUrl);
       if (!citationId) continue;
@@ -79,7 +88,7 @@ export function buildPersonReadEvidence(input: {
 
     for (const source of input.sources) {
       if (evidence.length >= maxEvidence) break;
-      const text = textAboutPerson(readableSourceText(source.rawText), person.name);
+      const text = textAboutPerson(readableSourceText(source.rawText), person.name, otherNames);
       if (!text) continue;
       const citationId = citationIdForUrl(input.citations, source.url);
       if (!citationId) continue;

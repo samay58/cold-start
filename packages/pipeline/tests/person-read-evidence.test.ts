@@ -67,15 +67,15 @@ describe("buildPersonReadEvidence", () => {
     expect(ivan?.evidence[0]?.text.length).toBeLessThanOrEqual(600);
   });
 
-  it("starts the window at the line that names the person", () => {
+  it("starts the window at the line that names the person and stops before the next person listed", () => {
     const [ivan] = buildPersonReadEvidence({
-      people: [person({ name: "Ivan Zhao", role: "CEO" })],
+      people: [person({ name: "Ivan Zhao", role: "CEO" }), person({ name: "Akshay Kothari", role: "COO" })],
       citations: [{ id: "s1", title: "Team", url: "https://notion.com/about" }],
       candidates: [],
       sources: [{ url: "https://notion.com/about", title: "Team", rawText: "# Leadership\n\nIvan Zhao, CEO\n\nAkshay Kothari, COO" }]
     });
 
-    expect(ivan?.evidence[0]?.text).toBe("Ivan Zhao, CEO Akshay Kothari, COO");
+    expect(ivan?.evidence[0]?.text).toBe("Ivan Zhao, CEO");
   });
 
   it("sends each cited source once per person, even when its snippet and stored text both name them", () => {
