@@ -95,9 +95,9 @@ const headcountValueSchema = {
   required: ["value", "asOf"]
 } as const;
 
-// Sentence budgets mirror extractionSystemPrompt and blockGuidance.description
-// above, which are the actual enforcement point at the model level; the
-// normalizer functions below (normalizeOptionalDescriptionSentence,
+// Sentence budgets mirror extractionSystemPrompt and blockGuidance.description in
+// extraction.ts, which are the actual enforcement point at the model level; the
+// normalizers in extraction-parse.ts (normalizeOptionalDescriptionSentence,
 // normalizeOptionalDescriptionSentences) are what clamp a non-compliant model
 // response back into budget. Keep all three in sync: concept stays one
 // complete sentence; serves and mechanism allow up to two complete sentences
